@@ -21,6 +21,33 @@
 # --planning are created by the agent in the apply step). Requires git, jq, bd.
 set -euo pipefail
 
+# first `depends_on:` frontmatter value, normalized to a bracketed list. Handles BOTH inline
+# (`depends_on: ["10-01"]` / `[]`) AND block style (`depends_on:` then `  - "01-01"` lines) — the
+# block form previously read as empty and silently dropped a real edge (homelab 01-02→01-01).
+# ponytail: frontmatter only; run `reconcile.sh --selftest` to exercise it.
+deps_of() {
+  awk '
+    NR==1&&/^---/{f=1;next} f&&/^---/{exit}
+    f&&/^depends_on:/{v=$0; sub(/^depends_on:[ ]*/,"",v); if(v!=""){print v; exit} b=1; next}
+    f&&b&&/^[[:space:]]+-[[:space:]]/{it=$0; sub(/^[[:space:]]+-[[:space:]]*/,"",it); gsub(/[^A-Za-z0-9._-]/,"",it); if(it!=""){L=L (L?",":"") it}; next}
+    f&&b&&/^[^[:space:]]/{b=0}
+    END{ if(L!="") print "["L"]" }
+  ' "$1"
+}
+
+selftest() {
+  local tmp out fail=0
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
+  # inline empty, inline quoted, inline bare, block quoted, block bare, none
+  printf -- '---\ndepends_on: []\n---\n'                 > "$tmp/a"; [ "$(deps_of "$tmp/a")" = "[]" ]      || { echo "FAIL inline-empty: $(deps_of "$tmp/a")"; fail=1; }
+  printf -- '---\ndepends_on: ["10-01"]\n---\n'          > "$tmp/b"; [ "$(deps_of "$tmp/b")" = '["10-01"]' ] || { echo "FAIL inline-quoted: $(deps_of "$tmp/b")"; fail=1; }
+  printf -- '---\ndepends_on: [11-01]\n---\n'            > "$tmp/c"; [ "$(deps_of "$tmp/c")" = "[11-01]" ]  || { echo "FAIL inline-bare: $(deps_of "$tmp/c")"; fail=1; }
+  printf -- '---\ndepends_on:\n  - "01-01"\nx: 1\n---\n' > "$tmp/d"; [ "$(deps_of "$tmp/d")" = "[01-01]" ]  || { echo "FAIL block-quoted: $(deps_of "$tmp/d")"; fail=1; }
+  printf -- '---\ndepends_on:\n  - 01-01\n  - 01-02\n---\n' > "$tmp/e"; [ "$(deps_of "$tmp/e")" = "[01-01,01-02]" ] || { echo "FAIL block-multi: $(deps_of "$tmp/e")"; fail=1; }
+  printf -- '---\nphase: 05\n---\n'                      > "$tmp/f"; [ -z "$(deps_of "$tmp/f")" ]           || { echo "FAIL none: $(deps_of "$tmp/f")"; fail=1; }
+  [ "$fail" = 0 ] && echo "deps_of selftest: OK" || return 1
+}
+
 RIG=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0; DOCSDIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -28,6 +55,7 @@ while [ $# -gt 0 ]; do
     --verify)        MODE="verify" ;;
     --planning)      SOURCE="planning" ;;
     --refresh-jsonl) REFRESH=1 ;;
+    --selftest)      selftest; exit $? ;;
     --prefix)        PREFIX="$2"; shift ;;
     --docs)          DOCSDIR="$2"; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 2 ;;
@@ -66,9 +94,7 @@ ref_of() { jq -r --arg id "$1" 'select(.id==$id) | .external_ref // ""' "$JSONL"
 has_bead() { jq -e --arg id "$1" 'select(.id==$id)' "$JSONL" >/dev/null 2>&1; }
 # id of a bead already carrying this external_ref (empty if none) — the re-run idempotency key.
 bead_with_ref() { jq -r --arg r "$1" 'select(.external_ref==$r) | .id' "$JSONL" 2>/dev/null | head -1; }
-# first `depends_on:` frontmatter value (raw). ponytail: inline-list only; block lists show as the
-# bare `depends_on:` marker and the agent reads the doc — deps are wired at apply, not by this tool.
-deps_of() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f&&/^depends_on:/{sub(/^depends_on:[ ]*/,"");print;exit}' "$1"; }
+# deps_of() is defined at the top of the file so --selftest can reach it before rig validation.
 
 # Fuzzy shortlist for an UNMATCHED doc: the top existing content beads by shared title tokens.
 # NARROWS, never decides — the agent picks a candidate or files NEW. ponytail: lexical overlap,

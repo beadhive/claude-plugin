@@ -44,6 +44,15 @@ Writes the approved proposal into the rig:
     — idempotent by `external_ref`. That emitter is not built yet (parked importer mapper); until
     it lands, bulk apply is manual `ws bd create` calls.
 
+**Wiring the phase→plan hierarchy (`--planning` source).** bd does **not** infer the epic→child
+link from the dotted id (`hl-ph10` ↔ `hl-ph10.1`) — the dotted id is only a name. The link is an
+explicit **`parent-child` dependency edge on the child**. So every dotted plan issue in the import
+JSONL needs, alongside any `blocks` edges, a
+`{"issue_id":"hl-ph10.1","depends_on_id":"hl-ph10","type":"parent-child"}` — otherwise the epic
+shows no CHILDREN. `reconcile.sh --planning` names the parent in the `parent:<name>` column but does
+not emit the edge; the emitter adds it. (`depends_on:` frontmatter → `blocks` edges are surfaced by
+`deps_of()`, which now reads block-style lists too — verify with `reconcile.sh --selftest`.)
+
 Then `ws labels validate` must be green in the rig.
 
 # Verification (script)
