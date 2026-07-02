@@ -29,14 +29,20 @@ step:
 Writes the approved proposal into the rig:
 
 - **Stamps:** `scripts/reconcile.sh <rig-path> --apply` runs `bd update <bead> --external-ref
-  <doc>` for every `PRESENT-needs-stamp` row.
-- **NEW beads (if any):** created from the classify step's list, each with `--external-ref`,
-  `--label origin:backfill`, `--label source:<kind>`, `--status closed` where history says done.
-  - A **handful** → `bd create` per bead (agent performs these; they are judgment items).
+  <doc>` for every `PRESENT-needs-stamp` row. Update is safe with plain `bd`: it targets beads
+  that already carry the rig triplet and never strips labels, so `ws labels validate` stays green.
+- **NEW beads (if any):** filed from the classify step's list, each with `--external-ref`,
+  `--label origin:backfill`, `--label source:<kind>`, and `--status closed` where history says
+  done. **Create through `ws bd create`** (run inside the rig): it injects the rig's
+  `provider:/org:/repo:` triplet — which plain `bd create` omits and which `ws labels validate`
+  requires. This is the one place the tool's generic `bd` is not enough.
+  - A **handful** → one `ws bd create` per bead (agent performs these; they are judgment items).
   - **Bulk** (an empty/import rig with many NEW-with-deps, e.g. a GSD `.planning` tree) → do not
-    hand-create dozens with dependency edges. Emit one `bd import` JSONL (all beads + deps +
-    `external_ref` + status) and upsert it — idempotent by `external_ref`. That emitter is not
-    built yet (tracked as the parked importer mapper); until it lands, bulk apply is manual.
+    hand-create dozens with dependency edges. Emit one JSONL (all beads + deps + `external_ref` +
+    status **+ the rig triplet labels** — `bd import` upserts raw and does *not* inject the triplet
+    the way `ws bd create` does, so the emitter must include it) and upsert with **`ws bd import`**
+    — idempotent by `external_ref`. That emitter is not built yet (parked importer mapper); until
+    it lands, bulk apply is manual `ws bd create` calls.
 
 Then `ws labels validate` must be green in the rig.
 
