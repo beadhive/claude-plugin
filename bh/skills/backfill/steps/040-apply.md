@@ -1,0 +1,60 @@
+---
+# yaml-language-server: $schema=https://agentguides.io/schemas/0.1/step.schema.json
+step:
+  id: apply
+  title: Apply the approved proposal — stamp links and file NEW beads
+  requires: [emit-proposal]
+  performer: either
+  action:
+    type: script
+    script: scripts/reconcile.sh
+    timeout_seconds: 300
+  verify:
+    type: script
+    script: scripts/reconcile.sh
+    args: ["--verify"]
+    success_exit: 0
+  on_failure:
+    - reason: stamp-failed
+      strategy: ask
+    - reason: label-validate-failed
+      strategy: ask
+  effect: reversible
+  estimated_duration_minutes: 4
+  tags: [apply, write]
+---
+
+# What this step does
+
+Writes the approved proposal into the rig:
+
+- **Stamps:** `scripts/reconcile.sh <rig-path> --apply` runs `bd update <bead> --external-ref
+  <doc>` for every `PRESENT-needs-stamp` row.
+- **NEW beads (if any):** created from the classify step's list, each with `--external-ref`,
+  `--label origin:backfill`, `--label source:<kind>`, `--status closed` where history says done.
+  - A **handful** → `bd create` per bead (agent performs these; they are judgment items).
+  - **Bulk** (an empty/import rig with many NEW-with-deps, e.g. a GSD `.planning` tree) → do not
+    hand-create dozens with dependency edges. Emit one `bd import` JSONL (all beads + deps +
+    `external_ref` + status) and upsert it — idempotent by `external_ref`. That emitter is not
+    built yet (tracked as the parked importer mapper); until it lands, bulk apply is manual.
+
+Then `ws labels validate` must be green in the rig.
+
+# Verification (script)
+
+`scripts/reconcile.sh <rig-path> --verify` exits 0 only when no `PRESENT-needs-stamp` rows
+remain — i.e. every doc-backed bead is now linked. A non-zero exit means a stamp did not take;
+do not proceed.
+
+# Failure shape
+
+| Reason | Strategy | Next |
+|---|---|---|
+| `stamp-failed` | `ask` | A `bd update` errored; human inspects and retries or skips the row |
+| `label-validate-failed` | `ask` | A NEW bead is missing the triplet/registry labels; fix labels, re-validate |
+| (any other) | discovered friction | Runtime captures the unknown failure |
+
+# Notes
+
+`effect: reversible` — stamps and backfilled beads can be un-set / closed-out if a mistake is
+found. Prefer fixing forward (re-stamp, re-label) over deleting history.
