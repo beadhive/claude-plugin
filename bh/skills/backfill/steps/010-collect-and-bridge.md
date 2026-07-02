@@ -45,6 +45,14 @@ Emits rows `NEW-epic` / `NEW-issue` (and `PRESENT-in-sync` on re-run, once a bea
 doc path as its `external_ref`). This source proposes new beads rather than matching existing
 ones, so its whole output flows to the classify step as NEW candidates.
 
+**`--docs <dir>` — an arbitrary markdown tree** (e.g. a prose `.planning/` that is *not* GSD
+`phases/`: `decisions/`, `milestones/`, `plans/`, `research/`). Runs the exact same bridges
+(0/1/2 + fuzzy shortlist) over every `*.md` under `<dir>` instead of `docs/`. Use it when a rig
+kept its history as free-form prose with no frontmatter or add-trailer link — the tool will find
+few deterministic matches and hand most docs to the classify step as fuzzy/NEW judgment. The
+emitted beads carry `external_ref = <doc path>`, so bridge 0 makes a post-import re-run
+`PRESENT-in-sync` (idempotent).
+
 # Why this is first
 
 The deterministic recovery is cheap, correct, and never guesses — so it shrinks the problem

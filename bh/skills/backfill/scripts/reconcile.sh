@@ -21,7 +21,7 @@
 # --planning are created by the agent in the apply step). Requires git, jq, bd.
 set -euo pipefail
 
-RIG=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0
+RIG=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0; DOCSDIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply)         MODE="apply" ;;
@@ -29,12 +29,13 @@ while [ $# -gt 0 ]; do
     --planning)      SOURCE="planning" ;;
     --refresh-jsonl) REFRESH=1 ;;
     --prefix)        PREFIX="$2"; shift ;;
+    --docs)          DOCSDIR="$2"; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 2 ;;
     *)  RIG="$1" ;;
   esac
   shift
 done
-[ -n "$RIG" ] && [ -d "$RIG/.git" ] || { echo "usage: reconcile.sh <rig-path> [--planning] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
+[ -n "$RIG" ] && [ -d "$RIG/.git" ] || { echo "usage: reconcile.sh <rig-path> [--planning] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
 CANON="$RIG/.beads/issues.jsonl"
 [ -f "$CANON" ] || { echo "no beads corpus at $CANON" >&2; exit 2; }
 
@@ -135,8 +136,16 @@ bridge_for() {
   # unmatched — leave for the agent's fuzzy/judgment pass
 }
 
-DOCS=$(cd "$RIG" && ls docs/decisions/*.md docs/design/*.md 2>/dev/null || true)
-[ -n "$DOCS" ] || { echo "no docs/decisions or docs/design in $RIG" >&2; exit 0; }
+# Doc set: an explicit --docs <dir> tree (any markdown, e.g. .planning/ on a rig that tracked work
+# as prose), else the default ADR/design dirs. Same bridges apply either way — the recovery logic
+# is doc-path-agnostic; --docs just widens which files feed it.
+if [ -n "$DOCSDIR" ]; then
+  DOCS=$(cd "$RIG" && find "$DOCSDIR" -type f -name '*.md' 2>/dev/null | sort || true)
+  [ -n "$DOCS" ] || { echo "no *.md under $DOCSDIR in $RIG" >&2; exit 0; }
+else
+  DOCS=$(cd "$RIG" && ls docs/decisions/*.md docs/design/*.md 2>/dev/null || true)
+  [ -n "$DOCS" ] || { echo "no docs/decisions or docs/design in $RIG" >&2; exit 0; }
+fi
 
 pending=0
 for doc in $DOCS; do
