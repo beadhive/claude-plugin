@@ -218,7 +218,7 @@ resolved channel, not raw `source_system`). Field them so they surface as triage
 the bottom of the backlog.
 
 - **See the queue:** `ws work intake` (this rig) — untriaged intake with `bd find-duplicates`
-  surfacing likely dupes so a colliding request isn't triaged as new. `ws hub intake` gives the
+  surfacing likely dupes so a colliding request isn't triaged as new. `ws hq intake` gives the
   superintendent the fleet-wide inbox.
 - **Dispose (type-aware):**
   - `ws work accept <id> [--type T] [--priority P]` — real work → set type/priority, clear intake
