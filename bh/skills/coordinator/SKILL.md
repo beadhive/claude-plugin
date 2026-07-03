@@ -207,7 +207,7 @@ branch is left standing and escalated for a forward fix (never rewritten). A lan
 target moved underneath it is always re-validated
 (staleness backstop), even in `relaxed`. See `docs/WORK.md` § Validation modes.
 
-## Field intake — dispose reports, don't let them bury the backlog
+## Field intake — route what you own, escalate up what you can't
 
 You also field incoming **reports** for the rig(s) you run. Reports arrive source-agnostically —
 `ws report` (cross-rig), GitHub-issue import, and legacy import all land as `intake:untriaged` in
@@ -228,6 +228,12 @@ the bottom of the backlog.
     bounces an ambiguous one to the superintendent (stays in the fleet-wide inbox).
   - `ws work promote <id>` — a feature/epic-shaped request → **hand to the planner** (sets
     `intake:promoted`); the planner adopts it into a gated molecule (do not plan it yourself here).
+
+**Route what you own; escalate up what you can't.** A report clearly mis-routed to another rig
+gets `ws work reroute <id> --to <rig>`. Ambiguous or cross-cutting reports go up with
+`ws work reroute <id> --super <seat>` (stays in the fleet-wide inbox for the superintendent).
+If you hit a `ws` / `bd` / tool bug yourself, `ws escalate '<what> with <tool>'` — fire-and-forget;
+the superintendent picks it up from `ws hq intake`.
 
 ## Scheduling — batch vs singleton (the cost model)
 
