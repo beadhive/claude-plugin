@@ -1,12 +1,12 @@
 {
   "name": "agf",
-  "description": "AGF seat agents — the role-typed agents and role skills for Agentic Git Flow, including the setup onboarding driver",
-  "version": "0.2.0",
+  "description": "AGF seat agents — the role-typed agents and role skills for Agentic Git Flow, including the setup onboarding driver and git-workspace first-timer walkthrough",
+  "version": "0.3.0",
   "author": {
     "name": "Brian Cripe",
     "email": "brian@xenophon.dev"
   },
   "repository": "https://github.com/briancripe/workspace",
   "license": "MIT",
-  "keywords": ["agf", "agentic-git-flow", "agents", "coordinator", "developer", "ws", "setup", "onboarding"]
+  "keywords": ["agf", "agentic-git-flow", "agents", "coordinator", "developer", "ws", "setup", "onboarding", "git-workspace", "walkthrough"]
 }
