@@ -40,8 +40,8 @@ already reading this, the plugin is installed. Nothing to do — move to Phase 1
 If a user asks how to get here from absolute zero, the one-time bootstrap is:
 
 ```sh
-claude plugin marketplace add github.com/briancripe/workspace/plugins/marketplace.json
-claude plugin install agf
+claude plugin marketplace add briancripe/workspace
+claude plugin install agf@workspace
 ```
 
 Restart Claude Code, then invoke `/setup` or load the `setup` skill.
@@ -224,7 +224,6 @@ never overwritten unless `--force` is passed).
 When the command completes, open `~/.ws/config.yaml` with the user and walk through the
 key fields:
 
-- `workspace.root` — confirm it matches `$GIT_WORKSPACE` (default `~/workspace`)
 - `orgs:` block — add any GitHub orgs or providers the user works with
 - `work.identity.name` — their crew identity for AGF sessions
 - `claude.source` — `plugin` (default) keeps seat agents in the installed plugin; `copy`
