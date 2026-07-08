@@ -58,7 +58,8 @@ The storage engine is a pluggable backend over a common **jsonl interchange**
 (`.beads/issues.jsonl`). Multiple trackers — `bd`, `br`, `bw`, and `nodb` — implement the same
 interchange, so a rig selects its engine with `bdry beads switch <bd|br|nodb>` while every other
 verb stays identical. The jsonl file is the stable contract between engines; the choice of engine
-is a per-rig detail.
+is a per-rig detail. The phased design for this lives in the repo's
+`docs/design/bead-backend-abstraction.md`, with the engine comparison in `docs/BEAD-BACKENDS.md`.
 
 ## Factory HQ vs Head Office vs hub — three distinct things
 
