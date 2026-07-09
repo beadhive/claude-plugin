@@ -39,7 +39,7 @@ If `bh` is absent or shows an error, run `bh doctor` to diagnose (see Step 4).
 In a Claude Code session or via the MCP inspector:
 
 ```
-ws://work/ready
+beadhive://work/ready
 ```
 
 Expected:
