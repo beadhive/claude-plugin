@@ -84,7 +84,10 @@ issues:
     acceptance: ...                      # REQUIRED — every issue needs it
     design: ...
     size: m
-    model: opus|sonnet|haiku            # routing
+    model: opus|sonnet|haiku            # routing — default sonnet; escalate to opus only for
+                                         # long-running / deep-reasoning issues. Never assign
+                                         # fable — it's outside the closed set and operator-invoked
+                                         # only, per explicit instruction for that session.
     harness: claude                     # routing
     component: runtime                  # open dim
     batch: same-file                    # run these as ONE parallel unit (optional)

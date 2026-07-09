@@ -181,8 +181,9 @@ one at a time from the root.
    (a planner `batch:<group>` or an auto-detected linear chain) runs as ONE grouped agent; the
    rest are **singletons** that fan out for parallel wall-time. Default stays one-per-worktree.
 3. **Route each bead/group** — read its `model:` / `harness:` labels from `ws work issue <id> --json`
-   (labels come back as a list). Default `model:opus`, `harness:claude` when unset. A group shares
-   one tier (the scheduler guards that).
+   (labels come back as a list). Default `model:sonnet`, `harness:claude` when unset — opus is an
+   escalation for long-running / deep-reasoning beads, not the baseline. A group shares one tier
+   (the scheduler guards that).
 4. **Assign + provision** — `ws work assign <id> --to dev/<name>` stamps the assignee and
    provisions the worktree. A leaf bead must go to a developer (`dev/<name>`) — assign refuses a
    dispatcher target for a leaf (and an epic only takes a `coord/<name>`). Assignment alone leaves

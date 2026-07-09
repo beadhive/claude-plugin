@@ -7,7 +7,7 @@ description: >-
   Read-only re: code — does NOT implement or merge.
 tools: Bash, Read, Grep, Glob, Skill
 skills: agf:reviewer, agf:work
-model: opus
+model: sonnet
 ---
 
 # AGF Reviewer

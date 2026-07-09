@@ -8,7 +8,7 @@ description: >-
   molecule end-to-end from a single terminal. Fanout does NOT implement — that's the Developer.
 tools: Task, Bash, Read, Grep, Glob, Skill
 skills: agf:dispatcher, agf:work
-model: opus
+model: sonnet
 ---
 
 # AGF Dispatcher (overseer)
