@@ -73,20 +73,13 @@ built on the read-only analyst research primitive but owning a target-repo dossi
 gated upstream PRs over external rigs. See the Contribution plane in
 [agf-and-planes.md](agf-and-planes.md).
 
-## Gas Town names — optional, non-normative aliases
+## Alternate seat nicknames — optional, non-normative aliases
 
-A subset of seats carries a Gas Town nickname. These survive only as **optional, non-normative
-aliases** mapped onto the canonical names above — never a canonical seat name.
-
-| Canonical seat | Gas Town alias |
-|---|---|
-| developer | polecat |
-| dispatcher | overseer |
-| merger | the Refinery |
-| planner | the cartographer |
-| dispatcher @ batch (collapsed) | the pit crew |
-| supervisor | mayor · overseer |
-| custodian | administrator · caretaker |
+A subset of seats carries an alternate nickname from an earlier naming pass. These survive only
+as **optional, non-normative aliases** mapped onto the canonical seat names above — never a
+canonical seat name themselves. See
+[docs/design/gas-frameworks-comparison.md](../../../../../docs/design/gas-frameworks-comparison.md)
+for the full alias mapping and where it came from.
 
 ## Role modes — launching a seat as the main loop
 

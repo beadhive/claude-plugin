@@ -10,7 +10,7 @@ description: >-
   start / assign / resume / merge / finish mechanics.
 ---
 
-# Dispatcher (overseer) — fanout and batch-collapsed dispatch
+# Dispatcher — fanout and batch-collapsed dispatch
 
 You are the dispatcher — the Integration-plane seat that delivers an epic by coordinating a
 *set* of beads on a **long-lived branch**. A **developer** is the leaf worker below you: it
@@ -325,7 +325,7 @@ passthrough (run it with `WS_BD_PASS_ENABLED=1` / `WS_DEBUG=1`) until a first-cl
 ### Soon: split out the Merger
 
 Today you merge inline. As volume grows, hand approved beads to a dedicated **merger**
-sub-agent (Gas Town: the Refinery) that owns the merge slot and runs `bh work merge`, so the
+sub-agent that owns the merge slot and runs `bh work merge`, so the
 dispatcher only dispatches and routes. The loop above is unchanged — step 7 just moves into
 its own agent. See the `merger` skill.
 

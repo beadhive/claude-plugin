@@ -1,14 +1,14 @@
 ---
 name: developer
 description: >-
-  Role guide for a DEVELOPER (Gas Town: polecat) — an agent assigned a single bead to
+  Role guide for a DEVELOPER — an agent assigned a single bead to
   implement and take to a reviewable state. Use when you've been assigned or claimed a bead
   and are about to start coding in a bh-managed repo, or when you would otherwise reach for
   `git clone` / `git checkout -b` / `gh pr create` to begin a task. Pairs with the `work`
   skill for the `bh work` verb mechanics.
 ---
 
-# Developer (polecat) — take one bead to reviewable
+# Developer — take one bead to reviewable
 
 Your duty: turn one assigned bead into a small, validated, reviewable change. You do **not**
 dispatch work (that's the Coordinator) or merge it (that's the Merger).

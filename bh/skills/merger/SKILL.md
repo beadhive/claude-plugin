@@ -1,13 +1,13 @@
 ---
 name: merger
 description: >-
-  Role guide for a MERGER / refiner (Gas Town: the Refinery) — the merge owner that
+  Role guide for a MERGER / refiner — the merge owner that
   serializes integration of approved beads onto the always-green integration branch,
   preserving history and escalating rather than dropping work. Use when integrating an
   approved bead/branch, resolving merge-queue conflicts, or holding the merge slot.
 ---
 
-# Merger (the Refinery) — serialize merges, preserve history
+# Merger — serialize merges, preserve history
 
 Your duty: integrate approved beads one at a time, keep the integration branch always-green,
 and never lose work. You do **not** dispatch (that's the Coordinator) or implement (that's

@@ -35,11 +35,11 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   cleanup; the only control seat touching key material. → [roles-and-seats.md](roles-and-seats.md)
 - **delivery plane** _(roadmap)_ — the sequential release → deploy → running plane where the
   operator reconciles desired-state. → [agf-and-planes.md](agf-and-planes.md)
-- **developer** — the seat (`dev/`; alias polecat) that takes one assigned bead to a reviewable
+- **developer** — the seat (`dev/`) that takes one assigned bead to a reviewable
   state in its ephemeral worktree, then submits. → [roles-and-seats.md](roles-and-seats.md)
 - **director** — the control seat (`dir/`) that owns intake + fleet work routing and the interface
   to the per-rig dispatchers. → [roles-and-seats.md](roles-and-seats.md)
-- **dispatcher** — the Integration seat (`disp/`; alias overseer; was `coordinator`) that delivers
+- **dispatcher** — the Integration seat (`disp/`; was `coordinator`) that delivers
   an epic; one seat parameterized by scope × mode (fanout/collapsed). → [roles-and-seats.md](roles-and-seats.md)
 - **external rig** _(roadmap)_ — a virtualized `kind=external` view of a repo outside the factory
   boundary, contributed to by fork-and-PR. → [storage-model.md](storage-model.md)
@@ -47,21 +47,23 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   subsumes the hub. → [storage-model.md](storage-model.md)
 - **fanout** — the default dispatch mode: each ready bead gets its own developer sub-agent and
   worktree, run in parallel. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
-- **Gas Town** — the non-normative nickname layer whose aliases (polecat, overseer, the Refinery,
-  the cartographer, the pit crew) map onto canonical seats. → [roles-and-seats.md](roles-and-seats.md)
+- **Gas Town** — the retired, non-normative nickname layer that maps aliases onto canonical
+  seats; kept only as historical reference in
+  [docs/design/gas-frameworks-comparison.md](../../../../../docs/design/gas-frameworks-comparison.md).
+  → [roles-and-seats.md](roles-and-seats.md)
 - **Head Office** — the workspace registry at `~/.ws/config.yaml → managed_repos`, one entry per
   rig; partitioned across the control seats. → [storage-model.md](storage-model.md)
 - **hub** — the internal, disposable read-cache aggregation mechanism (`~/.ws/hub`) that powers
   Factory HQ; `bh hub` is a deprecated alias. → [storage-model.md](storage-model.md)
 - **integration plane** — the execution plane where dispatcher → developer → merger land a
   molecule on an always-green line. → [agf-and-planes.md](agf-and-planes.md)
-- **merger** — the seat (`merge/`; alias the Refinery) that serializes approved beads onto the
+- **merger** — the seat (`merge/`) that serializes approved beads onto the
   integration branch, `--no-ff`, preserving history. → [roles-and-seats.md](roles-and-seats.md)
 - **molecule** — an epic plus its child issues plus their dependency DAG (see swarm). →
   [bead-lifecycle.md](bead-lifecycle.md)
 - **operator** _(roadmap)_ — the Delivery seat (`ops/`) that reconciles a release + IaC/gitops
   desired-state into a deployed system. → [roles-and-seats.md](roles-and-seats.md)
-- **planner** — the seat (`plan/`; alias the cartographer) that turns a raw idea into a gated
+- **planner** — the seat (`plan/`) that turns a raw idea into a gated
   molecule. → [roles-and-seats.md](roles-and-seats.md)
 - **planning plane** — the upstream plane where the planner decomposes an idea into a gated
   molecule. → [agf-and-planes.md](agf-and-planes.md)
@@ -83,7 +85,7 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   `dev/<name>`), a worktree, and a rig. → [roles-and-seats.md](roles-and-seats.md)
 - **session** — a running loop (agent or human) that MAY hold multiple seats over its life, but
   wields exactly one seat's permissions per action. → [roles-and-seats.md](roles-and-seats.md)
-- **supervisor** — the control seat (`super/`; aliases mayor · overseer) that governs the whole
+- **supervisor** — the control seat (`super/`) that governs the whole
   factory + policy and launches the other control seats. → [roles-and-seats.md](roles-and-seats.md)
 - **swarm** — the beads-primitive term for a molecule (epic + children + dep DAG). →
   [bead-lifecycle.md](bead-lifecycle.md)

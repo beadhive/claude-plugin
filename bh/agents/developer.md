@@ -1,7 +1,7 @@
 ---
 name: developer
 description: >-
-  DEVELOPER (Gas Town: polecat) — implements ONE assigned bead to a reviewable state inside
+  DEVELOPER — implements ONE assigned bead to a reviewable state inside
   a bh-managed worktree, then submits. Launch this (via the Task tool) when a dispatcher has a
   ready bead to dispatch, or whenever you would otherwise reach for `git clone` / `checkout -b` /
   `gh pr create` to start a single bead. The dispatcher passes the bead id and overrides the
