@@ -33,16 +33,16 @@ If the user is unsure, start at Phase 0 and let the probes decide.
 
 ---
 
-## Phase 0 — confirm the agf plugin is installed
+## Phase 0 — confirm the bh plugin is installed
 
-The `setup` skill you are reading is bundled inside the `agf` Claude Code plugin. If you are
+The `setup` skill you are reading is bundled inside the `bh` Claude Code plugin. If you are
 already reading this, the plugin is installed. Nothing to do — move to Phase 1.
 
 If a user asks how to get here from absolute zero, the one-time bootstrap is:
 
 ```sh
 claude plugin marketplace add briancripe/workspace
-claude plugin install agf@workspace
+claude plugin install bh@workspace
 ```
 
 Restart Claude Code, then invoke `/setup` or load the `setup` skill.
@@ -266,7 +266,7 @@ Invoke the sub-skill by name:
 
 or ask the user to load it:
 
-> Load the `agf:setup-git-workspace` skill to continue.
+> Load the `bh:setup-git-workspace` skill to continue.
 
 ---
 

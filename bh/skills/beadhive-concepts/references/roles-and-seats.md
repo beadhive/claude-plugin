@@ -87,7 +87,7 @@ Any seat can run as the **main** Claude Code loop instead of as a task-spawned s
 Two equivalent entry points:
 
 - `bh role <seat>` — exports the role, then execs the seat's agent definition.
-- `claude --agent agf:<seat>` — resolves the seat definition from the `agf` Claude Code plugin
+- `claude --agent bh:<seat>` — resolves the seat definition from the `bh` Claude Code plugin
   (a local `.claude/agents/<seat>.md` override outranks the plugin).
 
 When a seat launches as a role mode, its definition body becomes the system prompt, its

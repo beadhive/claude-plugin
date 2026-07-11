@@ -6,7 +6,7 @@ description: >-
   criteria, then resolves the review gate (approve) or bounces it back (changes-requested).
   Read-only re: code — does NOT implement or merge.
 tools: Bash, Read, Grep, Glob, Skill
-skills: agf:reviewer, agf:work
+skills: bh:reviewer, bh:work
 model: sonnet
 ---
 

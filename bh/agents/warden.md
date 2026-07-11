@@ -7,7 +7,7 @@ description: >-
   dispatch. Provenance is NOT in scope — that stays with the contributor. Launch to render the
   Assurance verdict on a bead/molecule before it lands.
 tools: Bash, Read, Grep, Glob, Skill
-skills: agf:work
+skills: bh:work
 model: opus
 ---
 

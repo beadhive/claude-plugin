@@ -1,12 +1,12 @@
 {
-  "name": "agf",
-  "description": "AGF seat agents — the role-typed agents and role skills for Agentic Git Flow, including the setup onboarding driver and git-workspace first-timer walkthrough",
-  "version": "0.5.0",
+  "name": "bh",
+  "description": "Beadflow seat agents — the role-typed agents and role skills this repo's Beadhive tool (bh) drives, including the setup onboarding driver and git-workspace first-timer walkthrough",
+  "version": "0.6.0",
   "author": {
     "name": "Brian Cripe",
     "email": "brian@xenophon.dev"
   },
   "repository": "https://github.com/briancripe/workspace",
   "license": "MIT",
-  "keywords": ["agf", "agentic-git-flow", "agents", "dispatcher", "developer", "reviewer", "merger", "planner", "supervisor", "director", "custodian", "controller", "warden", "ws", "setup", "onboarding", "git-workspace", "walkthrough"]
+  "keywords": ["bh", "beadhive", "beadflow", "agents", "dispatcher", "developer", "reviewer", "merger", "planner", "supervisor", "director", "custodian", "controller", "warden", "setup", "onboarding", "git-workspace", "walkthrough"]
 }

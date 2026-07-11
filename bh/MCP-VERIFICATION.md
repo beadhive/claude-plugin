@@ -14,7 +14,7 @@ fresh plugin install. Run from a clean state (no prior plugin install for this u
 ```sh
 # From the workspace repo root:
 claude plugin marketplace add .
-claude plugin install agf@workspace --scope user
+claude plugin install bh@workspace --scope user
 ```
 
 Expected: both commands exit 0 with no errors.
@@ -71,7 +71,7 @@ uv tool install --force 'beadhive[otel]'
 If `plugin declares server: no` appears, update the plugin:
 
 ```sh
-claude plugin update agf@workspace
+claude plugin update bh@workspace
 ```
 
 ## Step 5 — Verify the disable path (optional toggle test)
@@ -80,7 +80,7 @@ Confirm the server is a true option, not a hard dependency:
 
 ```sh
 # Disable via the plugin
-claude plugin disable agf@workspace
+claude plugin disable bh@workspace
 ```
 
 Then in Claude Code `/mcp` — `bh` should no longer appear as connected.
@@ -88,7 +88,7 @@ Then in Claude Code `/mcp` — `bh` should no longer appear as connected.
 Re-enable:
 
 ```sh
-claude plugin enable agf@workspace
+claude plugin enable bh@workspace
 ```
 
 Alternatively, toggle the `bh` entry directly in the Claude Code `/mcp` panel (uses
@@ -99,7 +99,7 @@ rather than the entire plugin).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `bh` absent from `/mcp` | Plugin not installed, or a broken `bh` install (fastmcp missing) | Run `claude plugin install agf@workspace --scope user`; reinstall `bh` |
+| `bh` absent from `/mcp` | Plugin not installed, or a broken `bh` install (fastmcp missing) | Run `claude plugin install bh@workspace --scope user`; reinstall `bh` |
 | `bh` shows "failed" | `bh-mcp` exits 1 (broken install — fastmcp missing) | Reinstall `beadhive[otel]`; check `bh doctor` |
-| `plugin declares server: no` | Older plugin version without `.mcp.json` | `claude plugin update agf@workspace` |
+| `plugin declares server: no` | Older plugin version without `.mcp.json` | `claude plugin update bh@workspace` |
 | Resource read fails | Server started but import failed | `bh-mcp` manually to see error output |

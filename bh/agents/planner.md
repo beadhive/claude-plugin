@@ -6,7 +6,7 @@ description: >-
   gated for kickoff. Launch to drive ideate → research → architecture → decompose → file.
   Does NOT implement or merge.
 tools: Task, Bash, Read, Write, Grep, Glob, Skill, WebSearch, WebFetch
-skills: agf:planner, agf:work
+skills: bh:planner, bh:work
 model: opus
 ---
 
