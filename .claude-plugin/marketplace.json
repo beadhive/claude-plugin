@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "name": "beadhive-claude-plugin",
-  "description": "Beadflow plugin marketplace — self-vends the `bh` seat-agent plugin from ./bh",
+  "name": "beadhive",
+  "description": "Self-vends the `bh` plugin — agents and skills for Claude Code to perform roles in a Beadhive Factory",
   "owner": {
     "name": "Brian Cripe",
     "email": "brian@xenophon.dev"
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "bh",
-      "source": "./bh",
-      "description": "Beadflow seat agents and role skills: supervisor, director, custodian, controller, planner, analyst, dispatcher, developer, reviewer, merger, warden"
+      "source": "./beadhive",
+      "description": "Agents and skills for Claude Code to perform roles in a Beadhive Factory: supervisor, director, custodian, controller, planner, analyst, dispatcher, developer, reviewer, merger, warden"
     }
   ]
 }
