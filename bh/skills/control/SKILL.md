@@ -2,7 +2,7 @@
 name: control
 description: >-
   Shared role guide for the four Control-plane seats — supervisor, director, custodian, and
-  controller — that govern the AGF factory itself. Covers the shared tool palette (bh rig /
+  controller — that govern the factory itself. Covers the shared tool palette (bh rig /
   bh config / bh doctor / bh labels / bh hq intake) and per-seat focus areas. Load when
   operating any Control-plane seat; the per-seat agent def names the specific function and
   decision authority. The one plane that does NOT pair with the `work` skill (except intake
@@ -106,8 +106,8 @@ Bring a rig under management. Pick the path to the target:
   `bd init` (the repo may be uncloned); `bh rig rm <rig-id>` unregisters (registry-only,
   leaves `.beads`/repo intact).
 
-Add `--prime --claude --skills --observaloop --agents` to install the rig's AGF furniture in
-one shot.
+Add `--prime --claude --skills --observaloop --agents` to install the rig's Beadhive furniture
+in one shot.
 
 ### 3. Configure
 

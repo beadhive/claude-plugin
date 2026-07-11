@@ -90,7 +90,7 @@ aliases** mapped onto the canonical names above — never a canonical seat name.
 
 ## Role modes — launching a seat as the main loop
 
-Any AGF seat can run as the **main** Claude Code loop instead of as a task-spawned sub-agent.
+Any seat can run as the **main** Claude Code loop instead of as a task-spawned sub-agent.
 Two equivalent entry points:
 
 - `bh role <seat>` — exports the role, then execs the seat's agent definition.

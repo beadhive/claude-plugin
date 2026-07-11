@@ -5,7 +5,7 @@ how the scheduler groups beads.
 
 ## The default: one bead, one worktree, one developer, one merge
 
-The default AGF unit is **one bead → one worktree → one developer → one merge** — parallel devs,
+The default Beadflow unit is **one bead → one worktree → one developer → one merge** — parallel devs,
 serial merge. Separate worktrees buy parallel wall-time, and each bead lands on its own clean
 conventional history. This is the right call whenever beads are independent.
 

@@ -4,7 +4,7 @@ description: >-
   First-timer git-workspace walkthrough — explains GIT_WORKSPACE, the
   <provider-type>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN /
   GITLAB_TOKEN), then routes to the right git-workspace:* skill based on your starting point.
-  Invoked from the AGF setup skill (Phase 5). Covers three starting situations: workspace already
+  Invoked from the `setup` skill (Phase 5). Covers three starting situations: workspace already
   configured (verify + move on), repos exist on disk but not managed (safe import with backups
   before any git workspace update), and greenfield (install + configure providers from scratch).
   Triggers on "set up git-workspace", "first time git-workspace", "what is GIT_WORKSPACE",
@@ -16,7 +16,7 @@ description: >-
 # setup-git-workspace — first-timer walkthrough
 
 You are walking a user through git-workspace setup for the first time. This sub-skill is called
-from the AGF `setup` skill (Phase 5). Its job is to explain the concepts that make first-time
+from the `setup` skill (Phase 5). Its job is to explain the concepts that make first-time
 git-workspace setup confusing, then route the user to the right `git-workspace:*` skill for their
 situation. Re-runs are safe — probe before acting.
 
@@ -56,7 +56,7 @@ repos live. git-workspace reads this to know where to clone things; bh reads it 
 echo "$GIT_WORKSPACE"    # should print the path, e.g. /Users/brian/workspace
 ```
 
-If it's not set, `git-workspace` falls back to `~/workspace`. The AGF setup skill (Phase 4)
+If it's not set, `git-workspace` falls back to `~/workspace`. The `setup` skill (Phase 4)
 already set this. If it is still unset, add it to your shell profile now:
 
 ```bash

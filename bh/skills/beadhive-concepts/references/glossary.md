@@ -1,11 +1,9 @@
 # Glossary — the routing entrypoint
 
-One-line definition of every Beadhive / AGF concept term, alphabetical, each pointing to the
+One-line definition of every Beadhive / Beadflow concept term, alphabetical, each pointing to the
 cluster file that covers it in depth. Start here for any term; follow the pointer for detail.
 Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
 
-- **AGF (Agentic Git-Flow)** — the abstract, tracker-independent methodology Beadhive implements;
-  Beadhive is the factory that runs AGF on beads. → [agf-and-planes.md](agf-and-planes.md)
 - **analyst** — the seat (`analyst/`) that does read-only codebase + web research for the planner;
   never implements. → [roles-and-seats.md](roles-and-seats.md)
 - **assurance plane** _(proposed)_ — the cross-cutting gate layer where the warden attaches
@@ -18,6 +16,9 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   scheduler's four guards. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **bead** — the atomic unit of work; a single issue driven through its lifecycle by `bh work`.
   → [bead-lifecycle.md](bead-lifecycle.md)
+- **Beadflow** — the bead-based process this plugin drives; Beadhive is the factory that runs
+  it on beads (see this repo's top-level process doc for how it relates to the abstract,
+  tracker-independent process it instantiates). → [agf-and-planes.md](agf-and-planes.md)
 - **collapse (collapsed)** — dispatch mode: one collapsed dispatcher works every ready bead
   sequentially in one shared worktree, merged once. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **container branch** — the `wt/bead/<type>/<id>` branch of an epic (`wt/bead/epic/<id>`) that

@@ -1,9 +1,10 @@
-# AGF & the operational planes
+# Beadflow & the operational planes
 
-**Beadhive is the factory that runs AGF on beads.** AGF (Agentic Git-Flow) is the methodology —
-abstract and tracker-independent; Beadhive is the concrete factory that executes it, with `bh`
-as its command and beads as its unit of work. This file states that framing once and then walks
-the tenets and the planes.
+**Beadhive is the factory that runs Beadflow on beads.** Beadflow is the bead-based
+instantiation of the abstract, tracker-independent process it derives from (see this repo's
+top-level process doc for that distinction); Beadhive is the concrete factory that executes
+it, with `bh` as its command and beads as its unit of work. This file states that framing once
+and then walks the tenets and the planes.
 
 ## The tenets
 
@@ -114,7 +115,7 @@ quality bar before anything is published upstream.
 
 ### Delivery plane _(roadmap, named now)_
 
-The real "AGF stops at merge" gap: a proper sequential plane (`release → deploy → running`) where the
+The real "Beadflow stops at merge" gap: a proper sequential plane (`release → deploy → running`) where the
 **operator** (`ops/`) reconciles a cut release + IaC/gitops desired-state into a deployed system
 (gitops apply, rollback). Runner service identities are out of scope as seats. Delivery feeds a
 speculative **Feedback** plane that closes the loop back to Planning.

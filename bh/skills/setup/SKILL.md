@@ -2,17 +2,18 @@
 name: setup
 description: >-
   Phase 0-4 onboarding driver: walks a fresh Mac + Claude Code user from zero to a configured
-  AGF workspace. Owns the PRE-bh bootstrap (Homebrew, uv, then the bh binary), wires the MCP
+  Beadhive workspace. Owns the PRE-bh bootstrap (Homebrew, uv, then the bh binary), wires the MCP
   server at user scope, runs 'bh setup check' to gate post-bh deps, and hands off to
   'bh config init' and the setup-git-workspace sub-skill. Every step probes before acting —
-  safe to re-run. Use when setting up AGF on a new machine or resuming a partial setup.
+  safe to re-run. Use when setting up a Beadhive workspace on a new machine or resuming a
+  partial setup.
   Named 'setup' (not onboard-machine) to avoid confusion with rig onboarding.
 ---
 
-# setup — fresh Mac → AGF workspace
+# setup — fresh Mac → Beadhive workspace
 
 You are guiding a user from a freshly imaged Mac (with Claude Code already running) to a fully
-configured AGF workspace. Drive each phase interactively, pausing at each skip-point so the
+configured Beadhive workspace. Drive each phase interactively, pausing at each skip-point so the
 user can confirm their starting situation. Re-runs are safe — probe before you act.
 
 ## Skip-point map — join at the right rung
@@ -225,7 +226,7 @@ When the command completes, open `~/.ws/config.yaml` with the user and walk thro
 key fields:
 
 - `orgs:` block — add any GitHub orgs or providers the user works with
-- `work.identity.name` — their crew identity for AGF sessions
+- `work.identity.name` — their crew identity for `bh work` sessions
 - `claude.source` — `plugin` (default) keeps seat agents in the installed plugin; `copy`
   writes them into each rig for offline use
 

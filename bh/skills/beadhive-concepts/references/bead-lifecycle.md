@@ -14,7 +14,7 @@ pass them by hand.
 
 ## Molecule, swarm, workstream
 
-- A **molecule** (the AGF term) is an epic plus its child issues plus their dependency DAG — a
+- A **molecule** (the Beadflow term) is an epic plus its child issues plus their dependency DAG — a
   gated, dependency-linked unit the integration loop executes. **Swarm** is the beads-primitive
   term for the same structure.
 - A **workstream** is an epic-of-epics: an `issue_type=epic` bead whose children are themselves
