@@ -6,8 +6,8 @@ description: >-
   server at user scope, runs 'bh setup check' to gate post-bh deps, and hands off to
   'bh config init' and the setup-git-workspace sub-skill. Every step probes before acting —
   safe to re-run. Use when setting up a Beadhive workspace on a new machine or resuming a
-  partial setup.
-  Named 'setup' (not onboard-machine) to avoid confusion with rig onboarding.
+  partial setup. This is machine setup, not rig onboarding (that's `bh rig onboard`,
+  covered by the control skill).
 ---
 
 # setup — fresh Mac → Beadhive workspace
@@ -41,8 +41,8 @@ already reading this, the plugin is installed. Nothing to do — move to Phase 1
 If a user asks how to get here from absolute zero, the one-time bootstrap is:
 
 ```sh
-claude plugin marketplace add briancripe/workspace
-claude plugin install bh@workspace
+claude plugin marketplace add beadhive/claude-plugin
+claude plugin install bh@beadhive
 ```
 
 Restart Claude Code, then invoke `/setup` or load the `setup` skill.
@@ -172,7 +172,7 @@ bh setup check
 ```
 
 This command probes the post-bh dependencies (git-workspace, gh, bd, dolt, colima) and
-caches the result in `~/.ws/setup-state.json`. It prints a status line for each tool and
+caches the result in `~/.beadhive/setup-state.json`. It prints a status line for each tool and
 exits 0 only when all are found.
 
 **If any tool is missing:** `bh setup check` names the missing tools. Install them as
@@ -195,7 +195,7 @@ When `bh setup check` exits 0 (all green), move to Phase 4.
 bh setup show
 ```
 
-If setup is reported complete and the user already has `~/.ws/config.yaml`, this phase may
+If setup is reported complete and the user already has `~/.beadhive/config.yaml`, this phase may
 already be done. Ask the user; if the config exists and looks correct, skip to Phase 5.
 
 Otherwise, move into `$GIT_WORKSPACE` (the workspace root where all repos live, defaulting
@@ -218,11 +218,11 @@ Run config init to write the starter config files:
 bh config init
 ```
 
-This writes `~/.ws/config.yaml`, `~/.ws/docker-compose.yml`, and the OTel compose variant.
+This writes `~/.beadhive/config.yaml`, `~/.beadhive/docker-compose.yml`, and the OTel compose variant.
 Files that already exist are skipped (`bh config init` is idempotent — existing files are
 never overwritten unless `--force` is passed).
 
-When the command completes, open `~/.ws/config.yaml` with the user and walk through the
+When the command completes, open `~/.beadhive/config.yaml` with the user and walk through the
 key fields:
 
 - `orgs:` block — add any GitHub orgs or providers the user works with
@@ -230,7 +230,7 @@ key fields:
 - `claude.source` — `plugin` (default) keeps seat agents in the installed plugin; `copy`
   writes them into each rig for offline use
 
-Tell the user to copy `~/.ws/.env.example` to `~/.ws/.env` and fill in any API tokens or
+Tell the user to copy `~/.beadhive/.env.example` to `~/.beadhive/.env` and fill in any API tokens or
 secrets it references.
 
 ---

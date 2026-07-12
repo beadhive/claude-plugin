@@ -3,7 +3,7 @@ name: setup-git-workspace
 description: >-
   First-timer git-workspace walkthrough — explains GIT_WORKSPACE, the
   <provider-type>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN /
-  GITLAB_TOKEN), then routes to the right git-workspace:* skill based on your starting point.
+  GITLAB_TOKEN), then routes to the right git-workspace:* skill based on the user's starting point.
   Invoked from the `setup` skill (Phase 5). Covers three starting situations: workspace already
   configured (verify + move on), repos exist on disk but not managed (safe import with backups
   before any git workspace update), and greenfield (install + configure providers from scratch).
@@ -53,7 +53,7 @@ skipping it.
 repos live. git-workspace reads this to know where to clone things; bh reads it to locate rigs.
 
 ```bash
-echo "$GIT_WORKSPACE"    # should print the path, e.g. /Users/brian/workspace
+echo "$GIT_WORKSPACE"    # should print the path, e.g. ~/workspace
 ```
 
 If it's not set, `git-workspace` falls back to `~/workspace`. The `setup` skill (Phase 4)
