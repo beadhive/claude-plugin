@@ -78,7 +78,7 @@ The tool reads a fresh `bd export` snapshot, so its output is always correct eve
 tracked `.beads/issues.jsonl` lags the live DB (the case when bd auto-export is not enabled). This
 step never mutates that tracked file. If you *want* to bring it current in the same pass — to
 de-stale the rig for file-only consumers (`br`) — that is a write, so gate it: confirm with the
-human, then re-run with `--refresh-jsonl`. Permanent fix is rig-init auto-export (internal-task).
+human, then re-run with `--refresh-jsonl`. Permanent fix is rig-init auto-export (planned).
 
 # Notes
 

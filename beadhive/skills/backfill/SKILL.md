@@ -13,7 +13,7 @@ compatibility: >-
   `docs/decisions/`, `docs/design/`, and/or `.planning/`. Deterministic bridge recovery is
   handled by the bundled `scripts/reconcile.sh` (git + jq + bd, no other deps); fuzzy matching
   and NEW-vs-noise calls stay with the agent.
-allowed-tools: Bash Read Edit Grep AskUserQuestion
+allowed-tools: Bash, Read, Edit, Grep, AskUserQuestion
 metadata:
   type: guide
   guide:
@@ -32,4 +32,5 @@ rather than duplicate creation.
 
 The deterministic half (recover the doc↔bead link, join against the corpus, classify) is done by
 `scripts/reconcile.sh`. The judgment half (fuzzy fallback, is-this-NEW-or-noise, drift) stays with
-the agent. Nothing is written until a human sees the diff.
+the agent. Nothing is written until a human sees the diff. The bridge-recovery rules (how doc↔bead
+links are found and scored) live in `references/bridges.md`.

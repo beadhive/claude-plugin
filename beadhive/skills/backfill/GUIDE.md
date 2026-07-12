@@ -39,7 +39,7 @@ guide:
       description: "Human reviewed the diff and declined to apply; the proposal is the delivered artifact."
       score: 0.5
   estimated_duration_minutes: 20
-  tags: [agf, beads, backfill, reconcile, provenance]
+  tags: [beadhive, beads, backfill, reconcile, provenance]
   requires:
     tools:
       - "git@>=2"
