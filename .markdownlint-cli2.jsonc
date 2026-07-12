@@ -1,0 +1,20 @@
+// markdownlint-cli2 config for `just lint-md` (mirrors the beadhive CLI repo's house rules).
+{
+  // What to lint (so `markdownlint-cli2` with no args = our docs, not junk).
+  "globs": ["README.md", "docs/**/*.md", "beadhive/**/*.md"],
+  "config": {
+    "default": true,
+    // Prose wraps ~92-100 cols by convention; don't enforce inside code blocks or tables.
+    "MD013": { "line_length": 100, "code_blocks": false, "tables": false },
+    // Repeated subsection headings are fine as long as siblings stay unique.
+    "MD024": { "siblings_only": true },
+    // Compact tables (`|---|---|`) are house style; MD060's pipe-spacing rule fights it.
+    "MD060": false,
+    // The backfill Guide format (GUIDE.md + steps/) uses multiple H1 sections by design.
+    "MD025": false,
+    // Underscore italics (`_(roadmap)_` tags) are house style alongside asterisk emphasis.
+    "MD049": false,
+    // Adjacent-but-separate blockquotes (note stacks) are intentional.
+    "MD028": false
+  }
+}

@@ -37,7 +37,7 @@ Emits a TSV `status`, `doc`, `bead`, `bridge`. Statuses: `PRESENT-in-sync`,
 **`--planning` — `.planning/phases/`** (extract a NEW structure from GSD frontmatter). For rigs
 that tracked work in a GSD `.planning/` tree rather than beads:
 
-3. **Structured frontmatter** — each `phases/NN-<name>/` → a proposed **epic**; each
+- **Structured frontmatter** (bridge 3) — each `phases/NN-<name>/` → a proposed **epic**; each
    `NN-MM-PLAN.md` → a proposed **issue** under it, `closed` if a sibling `NN-MM-SUMMARY.md`
    exists; `depends_on:` → proposed **dep** edges (wired at apply).
 

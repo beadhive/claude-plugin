@@ -28,8 +28,8 @@ back to the developer seat default when unset.
 **`implement` (Edit/Write) and `sub-dispatch` (Task) are HARD ceilings** — they are present or
 absent in the concrete def the harness loads, not prose you can talk your way past. A few concrete
 dispatcher defs exist under the hood; the org model, docs, and identity see **one seat,
-`dispatcher` (`disp/`)**, with scope + mode as dispatch metadata (`work.dispatch.{mode,max_depth}`
-+ the ready-set shape select which one runs).
+`dispatcher` (`disp/`)**, with scope + mode as dispatch metadata
+(`work.dispatch.{mode,max_depth}` plus the ready-set shape select which one runs).
 
 | Legacy name | Scope (branch) | Mode | Implements? (Edit/Write) | Task (sub-dispatch) |
 |---|---|---|---|---|

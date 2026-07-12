@@ -39,11 +39,11 @@ When `bh work merge` bounces a bead, act on why:
 - combined-state red (under `work.validation: conservative`) → the bead merged clean but the
   integration tip went red *in combination* with already-merged siblings. While still holding the
   slot, `bh work merge` rerolls a **safe-to-rewrite** tip back to its pre-merge sha (a private
-  container branch `wt/bead/epic/<epic>`, or an unpushed integration branch) and auto-bounces the bead to
-  `review=changes-requested`. Re-dispatch a resume that rebases on the current tip and fixes the
-  interaction — the break is in the combination, not necessarily that one bead. If the tip is a
-  **shared (pushed)** integration branch, it is NOT rewritten: the land stands and bh escalates for
-  a **forward fix** (revert the bubble or land a follow-up). (Same rule at the molecule→main
+  container branch `wt/bead/epic/<epic>`, or an unpushed integration branch) and auto-bounces the
+  bead to `review=changes-requested`. Re-dispatch a resume that rebases on the current tip and
+  fixes the interaction — the break is in the combination, not necessarily that one bead. If the
+  tip is a **shared (pushed)** integration branch, it is NOT rewritten: the land stands and bh
+  escalates for a **forward fix** (revert the bubble or land a follow-up). (Same rule at the molecule→main
   boundary; the epic stays open either way.)
 
 Only ever merge a fully validated, **approved** bead — the integration branch must stay green
@@ -62,9 +62,11 @@ After a bead is merged, its `wt/bead/<id>` worktree directory may linger.  Use
 remove all **SAFE** ones in one pass.
 
 A worktree is **SAFE** (and will be pruned) when:
-  - its bead is **closed**, AND
-  - its branch is a git ancestor of its parent (the epic's container branch `wt/bead/epic/<epic>` or the integration branch), AND
-  - the working tree is **clean** (no uncommitted changes).
+
+- its bead is **closed**, AND
+- its branch is a git ancestor of its parent (the epic's container branch `wt/bead/epic/<epic>`
+  or the integration branch), AND
+- the working tree is **clean** (no uncommitted changes).
 
 `bh worktree prune` has no confirmation prompt and no `--force` flag — the SAFE classification
 is the guard.  `bh worktree status` is the pre-flight view (`--help` covers the full

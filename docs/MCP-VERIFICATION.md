@@ -23,7 +23,7 @@ Expected: both commands exit 0 with no errors.
 
 In a Claude Code session, run:
 
-```
+```text
 /mcp
 ```
 
@@ -38,7 +38,7 @@ If `bh` is absent or shows an error, run `bh doctor` to diagnose (see Step 4).
 
 In a Claude Code session or via the MCP inspector:
 
-```
+```text
 beadhive://work/ready
 ```
 

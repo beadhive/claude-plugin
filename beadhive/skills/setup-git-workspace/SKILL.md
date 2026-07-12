@@ -33,7 +33,7 @@ claude plugin list | grep -q 'git-workspace'
 
 If the plugin is **not** found (exit 1), install it now:
 
-```
+```text
 /plugin marketplace add briancripe/claude-plugins
 /plugin install git-workspace@briancripe-plugins
 ```
@@ -70,7 +70,7 @@ Open a new shell (or `source ~/.zshrc`) before continuing.
 
 git-workspace does not clone repos flat. It clones into a three-level path:
 
-```
+```text
 $GIT_WORKSPACE/
   github/
     briancripe/
@@ -194,7 +194,7 @@ Load `git-workspace:import`, which guides you through five steps:
 5. **Migrate** (optional) — move repos to the `<provider-type>/<account>/<repo>` layout if they
    are not already in it.
 
-```
+```text
 /git-workspace:import
 ```
 
@@ -220,7 +220,7 @@ providers in `workspace.toml`, then clone.
 
 Load `git-workspace:install`:
 
-```
+```text
 /git-workspace:install
 ```
 
@@ -238,7 +238,7 @@ Come back here after `git-workspace --version` prints cleanly and your token is 
 Create `$GIT_WORKSPACE/workspace.toml` by adding one or more providers. Load
 `git-workspace:providers` for the full schema and filter options:
 
-```
+```text
 /git-workspace:providers
 ```
 

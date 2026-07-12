@@ -237,8 +237,8 @@ For OTEL / Grafana dashboards, read factory events and metrics from the configur
 > the director / custodian / controller scopes.
 
 The supervisor sets policy, launches and oversees the other control seats (director / custodian /
-controller), and writes Head Office policy (`~/.beadhive/config.yaml`). Decision authority is ultimate /
-root. The supervisor does **not** hold product keys, implement code, merge, or publish.
+controller), and writes Head Office policy (`~/.beadhive/config.yaml`). Decision authority is
+ultimate / root. The supervisor does **not** hold product keys, implement code, merge, or publish.
 
 Head Office registry (`~/.beadhive/config.yaml`) is partitioned: supervisor writes policy; director
 reads and writes `managed_repos` membership; custodian writes per-rig config keys; controller

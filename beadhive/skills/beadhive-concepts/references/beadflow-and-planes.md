@@ -114,10 +114,10 @@ quality bar before anything is published upstream.
 
 ### Delivery plane _(roadmap, named now)_
 
-The real "Beadflow stops at merge" gap: a proper sequential plane (`release → deploy → running`) where the
-**operator** (`ops/`) reconciles a cut release + IaC/gitops desired-state into a deployed system
-(gitops apply, rollback). Runner service identities are out of scope as seats. Delivery feeds a
-speculative **Feedback** plane that closes the loop back to Planning.
+The real "Beadflow stops at merge" gap: a proper sequential plane (`release → deploy → running`)
+where the **operator** (`ops/`) reconciles a cut release + IaC/gitops desired-state into a
+deployed system (gitops apply, rollback). Runner service identities are out of scope as seats.
+Delivery feeds a speculative **Feedback** plane that closes the loop back to Planning.
 
 ## The one-terminal loop
 

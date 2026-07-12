@@ -36,7 +36,7 @@ Rules: stay inside the worktree; never push `main`, open a PR, or run the merge.
 
 If you hit a `bh` / `bd` / tool bug while working, fire a one-liner to HQ and keep going:
 
-```
+```sh
 bh escalate '<what happened> with <tool>'
 ```
 
@@ -51,20 +51,20 @@ path. The default single-bead flow above is unchanged and is always the default.
 
 **1. Claim the group** — one shared `wt/batch/<group>` worktree for every member:
 
-```
+```sh
 bh work claim --group <id1>,<id2>[,...] --as dev/<name>
 ```
 
 The command prints the worktree path and the group name. `cd` there immediately:
 
-```
+```sh
 cd "<path-printed-by-claim>"
 ```
 
 **2. Implement serially** — for each member in order, edit that bead's scope then commit
 with a clean conventional subject:
 
-```
+```sh
 git add -p
 git commit -m "feat(scope): what and why"
 ```
@@ -76,7 +76,7 @@ before handoff.
 
 **3. Validate once** — run the rig's validation command directly in the batch worktree:
 
-```
+```sh
 just check
 ```
 

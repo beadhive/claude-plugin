@@ -2,9 +2,9 @@
 default:
     @just --list
 
-# fast gate: manifests parse + links resolve + no legacy-name regressions
+# fast gate: manifests parse + links resolve + no legacy-name regressions + markdown lint
 [group('check')]
-check: check-json check-links check-residue
+check: check-json check-links check-residue lint-md
 
 # validate the three JSON manifests parse
 [group('check')]
@@ -21,6 +21,11 @@ check-links:
 check-residue:
     ! grep -rnE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' beadhive README.md --include='*.md'
     @echo "residue: clean"
+
+# lint markdown docs (config: .markdownlint-cli2.jsonc)
+[group('check')]
+lint-md:
+    markdownlint-cli2
 
 # launch an interactive Claude session that reviews the plugin with the plugin-dev tooling
 [group('review')]

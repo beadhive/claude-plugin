@@ -260,7 +260,7 @@ Otherwise, load the **`setup-git-workspace`** sub-skill to guide the user throug
 
 Invoke the sub-skill by name:
 
-```
+```text
 /setup-git-workspace
 ```
 

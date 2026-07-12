@@ -66,8 +66,8 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   molecule. → [beadflow-and-planes.md](beadflow-and-planes.md)
 - **prefix** — a rig's short, stable issue handle, derived from `org` + `repo` and excluding the
   provider. → [storage-model.md](storage-model.md)
-- **releaser** _(roadmap)_ — the Release seat (`release/`) that cuts a release (version + changelog
-  + tag). → [roles-and-seats.md](roles-and-seats.md)
+- **releaser** _(roadmap)_ — the Release seat (`release/`) that cuts a release (version,
+  changelog, tag). → [roles-and-seats.md](roles-and-seats.md)
 - **release plane** _(roadmap)_ — the deliberate, gated plane that cuts a release (version
   determination + `cz` gate), distinct from integration. → [beadflow-and-planes.md](beadflow-and-planes.md)
 - **reviewer** — the seat (`rev/`) that walks an approved branch and resolves or bounces its review
