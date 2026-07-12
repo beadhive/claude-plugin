@@ -65,13 +65,13 @@ is a per-rig detail. The phased design for this lives in the repo's
 
 These three names are often confused. They are separate mechanisms:
 
-- **Factory HQ** — the durable cross-rig beads store at `~/.ws/hq/`, queried with `bh hq …`
+- **Factory HQ** — the durable cross-rig beads store at `~/.beadhive/hq/`, queried with `bh hq …`
   (`bh hq bd ready` for actionable work across the whole workspace). It subsumes the hub;
   `bh hub` is a **deprecated alias** of `bh hq`.
-- **hub** — the internal aggregation *mechanism* at `~/.ws/hub`: a disposable read-cache built
+- **hub** — the internal aggregation *mechanism* at `~/.beadhive/hub`: a disposable read-cache built
   from every registered rig via beads' multi-repo hydration. Authoritative data always stays in
   each rig; the hub is just the read view that powers HQ.
-- **Head Office** — the workspace **registry** at `~/.ws/config.yaml` (its `managed_repos` list).
+- **Head Office** — the workspace **registry** at `~/.beadhive/config.yaml` (its `managed_repos` list).
   It records one entry per registered rig — `{provider, org, repo, prefix, kind}` — and is the
   single source of truth for which rigs exist.
 
@@ -100,4 +100,4 @@ A rig is classified at onboard time, which drives prefix derivation and whether 
 
 **External rigs** _(roadmap)_ add a first-class `kind=external`: our virtualized view of a repo
 outside the factory boundary, forked-and-PR'd rather than pushed directly. External rigs feed the
-Contribution plane — see [agf-and-planes.md](agf-and-planes.md).
+Contribution plane — see [beadflow-and-planes.md](beadflow-and-planes.md).

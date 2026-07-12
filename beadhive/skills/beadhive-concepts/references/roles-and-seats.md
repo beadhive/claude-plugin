@@ -1,7 +1,7 @@
 # Roles & seats
 
 How the factory's org model works: what a role is versus a seat versus a session, the seats by
-plane and their duties, the Gas Town naming layer, and how a seat is launched.
+plane and their duties, and how a seat is launched.
 
 ## Role vs seat vs session
 
@@ -25,7 +25,7 @@ seats: one role parameterized by scope + capability, not a new name.
 ## Seats by plane
 
 Each seat owns a functional input → output on one plane and needs scoped permissions to real
-resources. The canonical reference is [roles-rbac-matrix.md](../../../../docs/design/roles-rbac-matrix.md).
+resources, derived from `(plane, function, resource scope, decision authority)`.
 
 | Seat | Identity | Plane | Duty |
 |---|---|---|---|
@@ -71,15 +71,13 @@ see **one seat, `dispatcher` (`disp/`)**, with scope + mode as dispatch metadata
 The **`contributor`** is a dedicated, persistent, rig-scoped seat for the Contribution plane —
 built on the read-only analyst research primitive but owning a target-repo dossier and driving
 gated upstream PRs over external rigs. See the Contribution plane in
-[agf-and-planes.md](agf-and-planes.md).
+[beadflow-and-planes.md](beadflow-and-planes.md).
 
 ## Alternate seat nicknames — optional, non-normative aliases
 
 A subset of seats carries an alternate nickname from an earlier naming pass. These survive only
 as **optional, non-normative aliases** mapped onto the canonical seat names above — never a
-canonical seat name themselves. See
-[docs/design/gas-frameworks-comparison.md](../../../../../docs/design/gas-frameworks-comparison.md)
-for the full alias mapping and where it came from.
+canonical seat name themselves.
 
 ## Role modes — launching a seat as the main loop
 

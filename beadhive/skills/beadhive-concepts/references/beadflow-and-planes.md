@@ -1,10 +1,9 @@
 # Beadflow & the operational planes
 
 **Beadhive is the factory that runs Beadflow on beads.** Beadflow is the bead-based
-instantiation of the abstract, tracker-independent process it derives from (see this repo's
-top-level process doc for that distinction); Beadhive is the concrete factory that executes
-it, with `bh` as its command and beads as its unit of work. This file states that framing once
-and then walks the tenets and the planes.
+instantiation of an abstract, tracker-independent process; Beadhive is the concrete factory
+that executes it, with `bh` as its command and beads as its unit of work. This file states
+that framing once and then walks the tenets and the planes.
 
 ## The tenets
 
@@ -51,7 +50,7 @@ dispatcher lives one plane down in Integration):
   seat touching **key material**, doing the mechanical commissioning.
 - **controller** (`ctrl/`) — factory telemetry/efficiency; read-mostly, no lifecycle mutation.
 
-Head Office — the workspace registry at `~/.ws/config.yaml` — is partitioned: supervisor writes
+Head Office — the workspace registry at `~/.beadhive/config.yaml` — is partitioned: supervisor writes
 policy, director writes fleet/`managed_repos` membership, custodian writes rig config, controller
 reads. A **collapse path** lets a small/single-rig factory run just the **supervisor**, absorbing the
 director/custodian/controller scopes; split them out as the factory grows. These are

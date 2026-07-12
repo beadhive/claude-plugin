@@ -5,8 +5,8 @@ description: >-
   bead-based agentic git-flow process) on beads. Use to answer "what is a rig / HQ / hub / Head
   Office / role / seat / Beadflow / molecule / dispatch mode?", "explain Beadhive / Beadflow",
   "how does the bead lifecycle work", or "how does dispatch (collapse vs fanout vs auto) work"
-  — a thin router into a references/ bundle so you can look up one concept without pulling the
-  whole corpus into context.
+  — a thin router into a references/ bundle so one concept can be looked up without pulling
+  the whole corpus into context.
 ---
 
 # Beadhive — concepts (progressive-disclosure router)
@@ -26,14 +26,14 @@ aggregates every rig into one cross-repo view.
 A **rig** is a repo's beads DB. Its issues carry a short, stable **prefix** (`ag-infra-1`).
 Repo identity that can change (provider, org) lives in **labels**, not the prefix. Issue
 history is stored on the repo's **own git remote** under `refs/dolt/data` — no central database
-to run. **Factory HQ** (`~/.ws/hq/`, `bh hq …`) aggregates all rigs for cross-repo queries;
+to run. **Factory HQ** (`~/.beadhive/hq/`, `bh hq …`) aggregates all rigs for cross-repo queries;
 the hub aggregation mechanism powers it internally.
 
 ```text
 ~/workspace/<provider>/<org>/<repo>/   each repo = a rig (embedded Dolt in .beads/)
         │  bh bd dolt push → refs/dolt/data on the repo's own git remote
         ▼
-   ~/.ws/hq    ← bh sync aggregates every rig (cloned by path, uncloned by cache)
+   ~/.beadhive/hq    ← bh sync aggregates every rig (cloned by path, uncloned by cache)
                  bh hq bd ready → actionable work across the whole workspace
 ```
 
@@ -47,8 +47,8 @@ cluster file when you know the area.
 |---|---|
 | **any term → [references/glossary.md](references/glossary.md)** | Alphabetical one-line definition of every concept, each pointing to its cluster file. The routing entrypoint. |
 | [references/storage-model.md](references/storage-model.md) | Rigs, prefixes, the `provider:`/`org:`/`repo:` triplet, Dolt `refs/dolt/data` storage, the `.beads` stance, pluggable backends _(roadmap)_, and the Factory HQ / Head Office / hub distinction. |
-| [references/agf-and-planes.md](references/agf-and-planes.md) | Beadflow, its five tenets, and the operational planes — control, planning, integration, plus release and contribution _(roadmap)_ — with each plane's loop, seat, and verbs. |
-| [references/roles-and-seats.md](references/roles-and-seats.md) | Role vs seat, the seven seats and their duties, the Gas Town naming layer, and how a seat is launched as a role mode. |
+| [references/beadflow-and-planes.md](references/beadflow-and-planes.md) | Beadflow, its five tenets, and the operational planes — control, planning, integration, plus release and contribution _(roadmap)_ — with each plane's loop, seat, and verbs. |
+| [references/roles-and-seats.md](references/roles-and-seats.md) | Role vs seat, the seats and their duties by plane, and how a seat is launched as a role mode. |
 | [references/bead-lifecycle.md](references/bead-lifecycle.md) | Bead, molecule, workstream, container branches, the `bh work` verb table (assigned → merged), and review gates. |
 | [references/dispatch-and-scheduling.md](references/dispatch-and-scheduling.md) | The three dispatch modes (fanout / collapsed / auto), the `work.dispatch.*` control knobs, and how the scheduler groups beads. |
 
