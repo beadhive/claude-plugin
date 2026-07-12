@@ -237,10 +237,10 @@ For OTEL / Grafana dashboards, read factory events and metrics from the configur
 > the director / custodian / controller scopes.
 
 The supervisor sets policy, launches and oversees the other control seats (director / custodian /
-controller), and writes Head Office policy (`~/.ws/config.yaml`). Decision authority is ultimate /
+controller), and writes Head Office policy (`~/.beadhive/config.yaml`). Decision authority is ultimate /
 root. The supervisor does **not** hold product keys, implement code, merge, or publish.
 
-Head Office registry (`~/.ws/config.yaml`) is partitioned: supervisor writes policy; director
+Head Office registry (`~/.beadhive/config.yaml`) is partitioned: supervisor writes policy; director
 reads and writes `managed_repos` membership; custodian writes per-rig config keys; controller
 reads.
 
@@ -258,7 +258,7 @@ reads.
   session.
 - **Verify before you hand off.** A dispatcher launched against an unconfigured or unhealthy rig
   wastes the whole downstream session — close the loop with `bh doctor` / `bh config get` first.
-- **The registry is Head Office.** Mutations land in `~/.ws/config.yaml` via the round-trip
+- **The registry is Head Office.** Mutations land in `~/.beadhive/config.yaml` via the round-trip
   `config.save` path — never hand-edit it; `bh config set/unset` preserves comments and the
   flow-style `managed_repos` block. `bh rig add` / `rm` are registry-only and leave the repo alone.
 - **Clone-down is guarded.** `bh rig onboard --clone-url` only clones when the target dir is

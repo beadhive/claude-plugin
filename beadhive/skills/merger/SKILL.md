@@ -1,7 +1,7 @@
 ---
 name: merger
 description: >-
-  Role guide for a MERGER / refiner — the merge owner that
+  Role guide for a MERGER — the merge owner that
   serializes integration of approved beads onto the always-green integration branch,
   preserving history and escalating rather than dropping work. Use when integrating an
   approved bead/branch, resolving merge-queue conflicts, or holding the merge slot.
@@ -10,7 +10,7 @@ description: >-
 # Merger — serialize merges, preserve history
 
 Your duty: integrate approved beads one at a time, keep the integration branch always-green,
-and never lose work. You do **not** dispatch (that's the Coordinator) or implement (that's
+and never lose work. You do **not** dispatch (that's the Dispatcher) or implement (that's
 the Developer).
 
 For an approved bead, the one verb does the whole serialized integration:
@@ -34,12 +34,12 @@ When `bh work merge` bounces a bead, act on why:
 - noisy history → it refused before touching the slot; have the Developer self-refine and
   resubmit (`bh work show <id>` shows the noise);
 - merge conflict → it aborted cleanly; bounce back as rework
-  `bh bd set-state <id> review=changes-requested --reason "…"` (the Coordinator re-dispatches
+  `bh bd set-state <id> review=changes-requested --reason "…"` (the Dispatcher re-dispatches
   the Developer's `bh work resume`), or escalate to a human if unresolvable. **Never drop work.**
 - combined-state red (under `work.validation: conservative`) → the bead merged clean but the
   integration tip went red *in combination* with already-merged siblings. While still holding the
   slot, `bh work merge` rerolls a **safe-to-rewrite** tip back to its pre-merge sha (a private
-  `mol/<epic>`, or an unpushed integration branch) and auto-bounces the bead to
+  container branch `wt/bead/epic/<epic>`, or an unpushed integration branch) and auto-bounces the bead to
   `review=changes-requested`. Re-dispatch a resume that rebases on the current tip and fixes the
   interaction — the break is in the combination, not necessarily that one bead. If the tip is a
   **shared (pushed)** integration branch, it is NOT rewritten: the land stands and bh escalates for
@@ -63,9 +63,9 @@ remove all **SAFE** ones in one pass.
 
 A worktree is **SAFE** (and will be pruned) when:
   - its bead is **closed**, AND
-  - its branch is a git ancestor of its parent (`mol/<epic>` or the integration branch), AND
+  - its branch is a git ancestor of its parent (the epic's container branch `wt/bead/epic/<epic>` or the integration branch), AND
   - the working tree is **clean** (no uncommitted changes).
 
 `bh worktree prune` has no confirmation prompt and no `--force` flag — the SAFE classification
-is the guard.  `bh worktree status` is the pre-flight view.  See
-[docs/WORKTREES.md](../docs/WORKTREES.md) for the full classification table and scoping rules.
+is the guard.  `bh worktree status` is the pre-flight view (`--help` covers the full
+classification and scoping rules).

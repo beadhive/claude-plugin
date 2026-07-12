@@ -2,8 +2,8 @@
 name: developer
 description: >-
   Role guide for a DEVELOPER — an agent assigned a single bead to
-  implement and take to a reviewable state. Use when you've been assigned or claimed a bead
-  and are about to start coding in a bh-managed repo, or when you would otherwise reach for
+  implement and take to a reviewable state. Use when an agent has been assigned or has claimed
+  a bead and is about to start coding in a bh-managed repo, or would otherwise reach for
   `git clone` / `git checkout -b` / `gh pr create` to begin a task. Pairs with the `work`
   skill for the `bh work` verb mechanics.
 ---
@@ -11,7 +11,7 @@ description: >-
 # Developer — take one bead to reviewable
 
 Your duty: turn one assigned bead into a small, validated, reviewable change. You do **not**
-dispatch work (that's the Coordinator) or merge it (that's the Merger).
+dispatch work (that's the Dispatcher) or merge it (that's the Merger).
 
 Load the **`work`** skill for verb details, then:
 
@@ -41,18 +41,18 @@ bh escalate '<what happened> with <tool>'
 ```
 
 Fire-and-forget — do not stop to route or investigate. HQ queues it as `origin:escalation`;
-the superintendent picks it up from `bh hq intake` and decides where it lands. Your job is the
+the director picks it up from `bh hq intake` and decides where it lands. Your job is the
 bead, not the bug.
 
 ## Batch (work-group) path
 
-When the coordinator assigns a `batch:<group>` of beads to you as a unit, use this opt-in
+When the dispatcher assigns a `batch:<group>` of beads to you as a unit, use this opt-in
 path. The default single-bead flow above is unchanged and is always the default.
 
 **1. Claim the group** — one shared `wt/batch/<group>` worktree for every member:
 
 ```
-bh work claim --group <id1>,<id2>[,...] --as crew/<name>
+bh work claim --group <id1>,<id2>[,...] --as dev/<name>
 ```
 
 The command prints the worktree path and the group name. `cd` there immediately:
@@ -83,15 +83,12 @@ just check
 `bh work check <id>` looks for `wt/bead/<id>` and won't find the batch worktree; run the
 rig command directly until it's green.
 
-**4. Merge the group** — land the batch as one bubble and close all members:
-
-```
-bh work merge --group <id1>,<id2>[,...]
-```
-
-`merge --group` validates once from a clean checkout, merges `--no-ff` into the molecule
-base (per-bead commits preserved inside, lossless + bisectable), and closes every member.
-The history budget is relaxed to `max_commits × members`.
+**4. Hand off the group** — once validation is green, report the batch ready. The merge
+itself is **merger-owned** (same rule as single beads — you never run the merge): the merge
+owner lands it with `bh work merge --group <id1>,<id2>[,...]`, which validates once from a
+clean checkout, merges `--no-ff` into the molecule base (per-bead commits preserved inside,
+lossless + bisectable), and closes every member. The history budget is relaxed to
+`max_commits × members`.
 
 **Batch rules:** stay in the shared worktree (`wt/batch/<group>`). Do not run
 `bh work submit <id>` on batch members — it expects `wt/bead/<id>` which doesn't exist in

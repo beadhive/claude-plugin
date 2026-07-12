@@ -5,7 +5,7 @@ description: >-
   that takes a raw idea (feature / change / refactor) and drives ideate → research →
   architecture → decompose → file, producing a beads molecule (epic + child issues + dep DAG)
   gated for kickoff. Use when a human opens a session with an idea to explore and turn into
-  ready work a coordinator later implements. Pairs with `work` / `coordinator` (downstream).
+  ready work a dispatcher later drives. Pairs with `work` / `dispatcher` (downstream).
 ---
 
 # Planner — idea → gated molecule
@@ -13,7 +13,7 @@ description: >-
 You are a human-interactive session, upstream of the integration plane. Your duty: turn a raw
 idea into an **accurate** beads swarm (epic + child issues + dependency DAG), gated so nothing
 runs until a human kicks it off. You do **not** implement or merge — that's the Developer and
-Merger; the Coordinator dispatches what you file. Accuracy is the whole job: a wrong
+Merger; the Dispatcher dispatches what you file. Accuracy is the whole job: a wrong
 decomposition wastes every downstream implementation hour.
 
 The `bh plan` verbs are the accuracy-critical mechanics (validate → preview → atomic file →
@@ -38,9 +38,9 @@ only scales how much research and structuring happens up front.
 adopt queue keyed on `intake:promoted` (surface it with `bh work list --label intake:promoted`,
 or fleet-wide via `bh hq intake` before it's promoted). Adopt it as the seed idea for the flow
 below, **preserving its provenance** (the intake `origin` channel + the reporter that rode the
-report), and decompose it into a gated molecule like any other idea. The mechanical adopt path
-(carrying provenance from the report bead into the filed epic) is bead `internal-task`, which
-builds on `promote` — until it lands, adopt by hand: read the report, then run the staged flow.
+report), and decompose it into a gated molecule like any other idea. A first-class mechanical
+adopt path (carrying provenance from the report bead into the filed epic) is planned — until it
+lands, adopt by hand: read the report, then run the staged flow.
 
 ## Staged flow (human checkpoint + loop-back at every stage)
 
@@ -62,9 +62,10 @@ builds on `promote` — until it lands, adopt by hand: read the report, then run
    gate, triplet + closed-dimension labels) and lists each problem, so a malformed molecule is
    caught here rather than at dispatch. `bh plan status` shows the kickoff column.
 9. **[KICKOFF APPROVAL]** — `bh plan approve <epic>` resolves the gate and flips
-   `kickoff=approved`; only now does the molecule's work surface in `bd ready` for a coordinator.
-   This is **pure planning**: it does *not* create the `mol/<epic>` branch — the coordinator opens
-   that on the integration plane with `bh work start <epic>` (the planes stay separate).
+   `kickoff=approved`; only now does the molecule's work surface in `bd ready` for a dispatcher.
+   This is **pure planning**: it does *not* create the container branch `wt/bead/epic/<epic>` —
+   the dispatcher opens that on the integration plane with `bh work start <epic>` (the planes
+   stay separate).
 
 These two gates are **distinct**: plan approval files the swarm; kickoff approval releases it.
 
@@ -115,7 +116,7 @@ scattered batches with a clear message.
 - **Accuracy before filing** — preview with `--dry-run` and round-trip with `show`; wrong
   decomposition is the expensive failure, not a slow plan.
 - **`bh plan verify <epic>` is the done-gate** — a filed molecule isn't done until it passes;
-  the same check gates `bh plan approve` and coordinator dispatch, so verify before you approve.
+  the same check gates `bh plan approve` and dispatcher dispatch, so verify before you approve.
 - The **two gates are distinct** — never collapse plan approval and kickoff approval.
 - **Cross-rig `bh hq` interchange (`bh plan` / `bh work --rig <id>`) is a future follow-up** —
   today the planner operates on the local rig only.

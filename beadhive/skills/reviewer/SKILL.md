@@ -14,8 +14,9 @@ intent, then make the gate decision. You do **not** implement (that's the Develo
 serialized merge (that's the Merger). In **supervised** mode `bh work submit` opens a *human*
 review gate and leaves the branch intact — that gate is your cue.
 
-Primary case: **molecule → integration branch** (an epic's `mol/<epic>` landing). Secondary, rarer
-case: **issue → `mol/<epic>`** (UAT-style functional review of one bead against the epic).
+Primary case: **molecule → integration branch** (an epic's container branch `wt/bead/epic/<epic>`
+landing). Secondary, rarer case: **issue → `wt/bead/epic/<epic>`** (UAT-style functional review of
+one bead against the epic).
 
 ## The one verb
 
@@ -23,8 +24,9 @@ case: **issue → `mol/<epic>`** (UAT-style functional review of one bead agains
 bh work review <id> [--run] [--demo] [--view diff|stat|log|sig]…
 ```
 
-Read-only re: bd/git state. Molecule-aware: if `mol/<id>` exists it reviews the whole molecule
-against the integration branch; otherwise it reviews the bead branch `wt/bead/<id>`. It prints:
+Read-only re: bd/git state. Molecule-aware: if the container branch `wt/bead/epic/<id>` exists it
+reviews the whole molecule against the integration branch; otherwise it reviews the leaf bead
+branch `wt/bead/issue/<id>`. It prints:
 
 - **Intent** — the epic/bead brief (requirements, design, acceptance) and, for a molecule, **every
   child's acceptance criteria** (`--all`, so landed children show too) + the current review state.
@@ -47,10 +49,10 @@ against the integration branch; otherwise it reviews the bead branch `wt/bead/<i
    - **Approve** → `bh work approve <id> --as <you>` — the first-class review-approve verb. It
      resolves the bead's HUMAN review gate through the bh convention layer (attributes you on the
      audit trail, wraps `bd gate resolve` internally), so you need **no** `bh bd` passthrough /
-     `WS_BD_PASS_ENABLED` override. It refuses a non-review gate (e.g. a kickoff gate) or an
+     `BH_BD_PASS_ENABLED` override. It refuses a non-review gate (e.g. a kickoff gate) or an
      out-of-process `gh:*` gate (those resolve via CI / PR merge, not here). The Merger then runs
      `bh work merge --molecule <epic>` (or `bh work merge <id>` for a single bead).
-   - **Bounce** → `bh bd set-state <id> review=changes-requested --reason "…"`. The Coordinator
+   - **Bounce** → `bh bd set-state <id> review=changes-requested --reason "…"`. The Dispatcher
      re-dispatches the Developer's `bh work resume <id>`. **Never silently drop work.** (Bouncing
      still rides the gated `bh bd` passthrough until a first-class bounce verb lands.)
 
