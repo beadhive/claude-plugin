@@ -1,0 +1,17 @@
+{
+  "description": "beadhive: steer direct `bd` calls toward the rig-aware `bh bd` passthrough",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bd-steer.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
