@@ -39,7 +39,7 @@ All four Control-plane seats operate through the same verbs (authority level var
 bh rig …          # commission, configure, retire, survey rigs
 bh config …       # read/write per-rig or global config keys
 bh labels sync    # reconcile the registry against git-workspace
-bh doctor         # fleet health: providers, orgs, repos, warnings
+bh doctor         # fleet health: providers, orgs, repos, repo-group auth, warnings
 bh hq intake      # fleet-wide inbox (all intake:untriaged across every rig)
 ```
 
@@ -63,9 +63,13 @@ Survey what's out there and what's healthy:
 ```bash
 bh rig ls --available         # discoverable-but-unregistered repos (zero API calls)
 bh labels sync                # reconcile registry against git-workspace
-bh doctor                     # providers, orgs, repo counts, fleet health, warnings
+bh doctor                     # providers, orgs, repo counts, fleet health, per-repo-group auth, warnings
 bh rig survey --available --sort difficulty   # fleet table with DIFFICULTY scores
 ```
+
+`bh doctor` includes a per-repo-group auth table (effective identity, signing key,
+`insteadOf` aliases, `includeIf gitdir:` scoping) and warns on lockfile paths nested deeper
+than the `<group>/<org>/<repo>` triplet.
 
 `bh rig survey` prints one row per on-disk repo — registered and tracked. Columns you'll read
 most:
@@ -98,11 +102,11 @@ onboard → confirm with `bh rig ready [-v]` → check fleet again with `bh doct
 
 Bring a rig under management. Pick the path to the target:
 
-- **Local folder** — `bh rig onboard <provider/org/repo>` runs rig init in the existing
+- **Local folder** — `bh rig onboard <group/org/repo>` runs rig init in the existing
   checkout, then syncs the hub (no clone).
-- **Remote** — `bh rig onboard <provider/org/repo> --clone-url <url>` clones the repo down
+- **Remote** — `bh rig onboard <group/org/repo> --clone-url <url>` clones the repo down
   (only when the target dir is absent), then inits + syncs.
-- **Register-only** — `bh rig add <provider/org/repo>` registers a triplet with no cwd and no
+- **Register-only** — `bh rig add <group/org/repo>` registers a triplet with no cwd and no
   `bd init` (the repo may be uncloned); `bh rig rm <rig-id>` unregisters (registry-only,
   leaves `.beads`/repo intact).
 

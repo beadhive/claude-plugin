@@ -1,12 +1,12 @@
 ---
 name: setup-git-workspace
 description: >-
-  First-timer git-workspace walkthrough — explains GIT_WORKSPACE, the
-  <provider-type>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN /
+  First-timer git-workspace walkthrough — explains GIT_WORKSPACE, repo groups and the
+  <group>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN /
   GITLAB_TOKEN), then routes to the right git-workspace:* skill based on the user's starting point.
   Invoked from the `setup` skill (Phase 5). Covers three starting situations: workspace already
   configured (verify + move on), repos exist on disk but not managed (safe import with backups
-  before any git workspace update), and greenfield (install + configure providers from scratch).
+  before any git workspace update), and greenfield (install + configure repo groups from scratch).
   Triggers on "set up git-workspace", "first time git-workspace", "what is GIT_WORKSPACE",
   "workspace.toml explained", "how do I use git-workspace", "I have repos I want to manage",
   "import my existing repos into git-workspace", "git-workspace for beginners",
@@ -66,7 +66,7 @@ export GIT_WORKSPACE="$HOME/workspace"
 
 Open a new shell (or `source ~/.zshrc`) before continuing.
 
-### The layout — `<provider-type>/<account>/<repo>`
+### The layout — `<group>/<account>/<repo>`
 
 git-workspace does not clone repos flat. It clones into a three-level path:
 
@@ -83,17 +83,28 @@ $GIT_WORKSPACE/
       backend-api/
 ```
 
-This is `<provider-type>/<account>/<repo>` — the same string bh calls a **triplet**
-(e.g. `github/briancripe/workspace`). That triplet is how bh identifies rigs in commands like
-`bh rig onboard github/briancripe/workspace`. The layout is not cosmetic — bh depends on it.
+This is `<group>/<account>/<repo>` — the same string bh calls a **triplet**
+(e.g. `github/briancripe/workspace`). The first segment is the **repo group's path** (its
+on-disk folder, see the next section). It often matches the provider type (`github`,
+`gitlab`), but doesn't have to — a `contrib/` group can still fetch from GitHub. That triplet
+is how bh identifies rigs in commands like `bh rig onboard github/briancripe/workspace`. The
+layout is not cosmetic — bh depends on it.
 
-If your existing repos are laid out differently (e.g. flat `account/repo` with no provider
+If your existing repos are laid out differently (e.g. flat `account/repo` with no group
 prefix), the import path (Branch B below) can optionally migrate them.
 
-### `workspace.toml` — declarative provider config
+### `workspace.toml` — repo groups
 
-`workspace.toml` lives in `$GIT_WORKSPACE` and declares which GitHub orgs, GitHub users, GitLab
-groups, or Gitea instances to clone. Example:
+`workspace.toml` lives in `$GIT_WORKSPACE` and declares **repo groups** — each `[[provider]]`
+block is one group. A group has three distinct parts, easy to conflate but worth keeping
+separate:
+
+- **`provider`** — HOW you auth + fetch: the mechanism (`github` / `gitlab` / `gitea`)
+- **`name`** — WHICH account/org the group queries
+- **`path`** — the group's on-disk folder — the first segment of the rig triplet
+
+Multiple groups may share one `provider` type (five `github` groups with different accounts
+is normal). Example:
 
 ```toml
 [[provider]]
@@ -109,9 +120,22 @@ include = ["^claude-.*"]
 ```
 
 When you run `git workspace update`, git-workspace reads this file, queries each provider's API
-for matching repos, and clones anything new. Repos removed from a provider get moved to
+for matching repos, and clones anything new. Repos removed from a group get moved to
 `$GIT_WORKSPACE/.archived/`. The file is managed with `git workspace add github/gitlab/gitea`
 rather than hand-editing (hand-editing works but `add` keeps formatting consistent).
+
+Once bh's git-workspace integration is enabled, `bh plugin git-workspace groups` lists every
+repo group with its provider type, account, and filters.
+
+### Per-group auth
+
+Each repo group may authenticate differently — a distinct SSH host alias / deploy key
+(`url.<alias>.insteadOf`) or a per-directory identity and signing key
+(`includeIf "gitdir:<workspace>/<group>/"` blocks in global git config). bh reads (never
+writes) that config: `bh doctor` prints a per-group auth table showing the effective
+`user.name`/`user.email`, signing key, any `insteadOf` alias, and whether an
+`includeIf gitdir:` block scopes the group — warning when a group has no scoped identity or
+two groups silently share one.
 
 ### Provider tokens — what they're for
 
@@ -120,8 +144,8 @@ without a personal access token:
 
 | Provider | Env var | Needed for |
 |---|---|---|
-| GitHub | `GITHUB_TOKEN` | Any `github` provider in `workspace.toml` |
-| GitLab | `GITLAB_TOKEN` | Any `gitlab` provider in `workspace.toml` |
+| GitHub | `GITHUB_TOKEN` | Any repo group with `provider = "github"` |
+| GitLab | `GITLAB_TOKEN` | Any repo group with `provider = "gitlab"` |
 
 These are **read at shell startup** — they must be exported before any `git workspace` command.
 A GitHub Classic token with only the `repo` scope is sufficient. A Fine-grained token needs
@@ -165,11 +189,11 @@ Your workspace is configured and repos are cloned. Verify quickly before moving 
 # List tracked repos
 git workspace list
 
-# Confirm the layout looks like <provider-type>/<account>/<repo>
+# Confirm the layout looks like <group>/<account>/<repo>
 ls "${GIT_WORKSPACE:-$HOME/workspace}"
 ```
 
-If `git workspace list` returns repos and the layout has the provider-type prefix
+If `git workspace list` returns repos and the layout has the group prefix
 (`github/`, `gitlab/`, etc.), you are in good shape. Nothing further to configure here.
 
 Return to the `setup` skill — rig onboarding is the next step.
@@ -191,7 +215,7 @@ Load `git-workspace:import`, which guides you through five steps:
 2. **Triage** — decide what to do with each non-READY category.
 3. **Back up** — push commits, snapshot dirty state to dated WIP branches, publish no-origin repos.
 4. **Verify** — run `verify-safe.sh` to gate before any `git workspace update`.
-5. **Migrate** (optional) — move repos to the `<provider-type>/<account>/<repo>` layout if they
+5. **Migrate** (optional) — move repos to the `<group>/<account>/<repo>` layout if they
    are not already in it.
 
 ```text
@@ -214,7 +238,7 @@ After the import skill completes and `verify-safe.sh` is green, you are ready fo
 ## Branch C — nothing yet
 
 Start from scratch: install the binary, set the env var, add provider tokens, declare your
-providers in `workspace.toml`, then clone.
+repo groups in `workspace.toml`, then clone.
 
 ### C1 — install the binary and configure the environment
 
@@ -233,9 +257,9 @@ That skill installs the binary (Homebrew is the preferred method on macOS), sets
 
 Come back here after `git-workspace --version` prints cleanly and your token is exported.
 
-### C2 — declare your providers
+### C2 — declare your repo groups
 
-Create `$GIT_WORKSPACE/workspace.toml` by adding one or more providers. Load
+Create `$GIT_WORKSPACE/workspace.toml` by adding one or more repo groups. Load
 `git-workspace:providers` for the full schema and filter options:
 
 ```text
@@ -246,7 +270,7 @@ or ask the user to load it:
 
 > Load the `git-workspace:providers` skill to continue.
 
-The quick version: `git workspace add` appends a provider block. Run one per GitHub user/org or
+The quick version: `git workspace add` appends a repo group. Run one per GitHub user/org or
 GitLab group you want to track:
 
 ```bash
@@ -260,11 +284,11 @@ git workspace add github <some-org> --include="^your-prefix-.*"
 git workspace add gitlab <group-name>
 ```
 
-Each call writes a `[[provider]]` block to `$GIT_WORKSPACE/workspace.toml`.
+Each call writes a `[[provider]]` block (one repo group) to `$GIT_WORKSPACE/workspace.toml`.
 
 ### C3 — clone the repos
 
-Once `workspace.toml` has at least one provider and your token is exported:
+Once `workspace.toml` has at least one repo group and your token is exported:
 
 ```bash
 git workspace update
@@ -283,7 +307,7 @@ git workspace list
 ```
 
 You should see one line per tracked repo. The directory tree under `$GIT_WORKSPACE` should now
-match the `<provider-type>/<account>/<repo>` layout.
+match the `<group>/<account>/<repo>` layout.
 
 Return to the `setup` skill — rig onboarding is the next step.
 
