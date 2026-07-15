@@ -1,3 +1,9 @@
+## v0.1.3 (2026-07-15)
+
+### Fix
+
+- auto-approve read-only bd/bh calls via PreToolUse hook (bh-cp-1rx)
+
 ## v0.1.2 (2026-07-15)
 
 ### Fix
