@@ -1,2 +1,8 @@
 # beads issue-tracker local state, if this repo ever gets onboarded as a rig.
 .beads/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/

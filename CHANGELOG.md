@@ -1,3 +1,9 @@
+## v0.1.2 (2026-07-15)
+
+### Fix
+
+- PreToolUse hook steering direct bd calls toward bh bd passthrough
+
 ## v0.1.1 (2026-07-11)
 
 ### Fix
