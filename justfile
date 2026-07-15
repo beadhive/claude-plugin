@@ -2,9 +2,14 @@
 default:
     @just --list
 
-# fast gate: manifests parse + links resolve + no legacy-name regressions + markdown lint
+# fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint
 [group('check')]
-check: check-json check-links check-residue lint-md
+check: check-json check-links check-residue check-hooks lint-md
+
+# self-test the PreToolUse hook scripts (bd steering + read-only auto-approve)
+[group('check')]
+check-hooks:
+    ./scripts/test-hooks.sh
 
 # validate the three JSON manifests parse
 [group('check')]

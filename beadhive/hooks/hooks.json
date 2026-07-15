@@ -1,5 +1,5 @@
 {
-  "description": "beadhive: steer direct `bd` calls toward the rig-aware `bh bd` passthrough",
+  "description": "beadhive: steer direct `bd` calls toward the rig-aware `bh bd` passthrough; auto-approve read-only bd/bh calls (mutating verbs still prompt)",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,6 +8,21 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bd-steer.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/approve-readonly.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__(plugin_bh_)?bh__(plan_check|rigs_status|rigs_available)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/approve-readonly.sh",
             "timeout": 5
           }
         ]
