@@ -1,3 +1,12 @@
+## v0.2.0 (2026-07-15)
+
+### Feat
+
+- **plugin**: planning-seat output style pins the seat contract per session (bh-cp-njh.5)
+- **commands**: /bh:groom backlog-wide reconciliation (bh-cp-njh.4)
+- **commands**: /bh:replan single-molecule re-entry (bh-cp-njh.3)
+- **commands**: /bh:plan planning-seat entry point (bh-cp-njh.2)
+
 ## v0.1.3 (2026-07-15)
 
 ### Fix

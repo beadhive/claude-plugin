@@ -34,6 +34,12 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   `control`), the `work` verb reference for the bead lifecycle, a `beadhive-concepts`
   glossary/router, `setup` + `setup-git-workspace` onboarding walkthroughs, and `backfill`
   for reconciling bead provenance on an existing repo.
+- **Commands** — planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
+  `/bh:replan <epic>` (re-enter planning on a spike verdict or mid-execution discovery), and
+  `/bh:groom` (backlog-wide reconciliation). Each states the seat contract — deliverables are
+  beads + decision records, never code — and loads the `planner` skill inline.
+- **Output style** — `planning-seat`, pinning that contract for a whole session
+  (`/config` → Output style).
 - **MCP server** — `bh-mcp` (stdio), exposing planning and rig-management tools.
 
 Start with the `beadhive-concepts` skill for the mental model (rigs, molecules, seats, planes).

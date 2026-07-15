@@ -4,8 +4,12 @@ description: >-
   Role guide for a PLANNER — the human-interactive PLANNING plane
   that takes a raw idea (feature / change / refactor) and drives ideate → research →
   architecture → decompose → file, producing a beads molecule (epic + child issues + dep DAG)
-  gated for kickoff. Use when a human opens a session with an idea to explore and turn into
-  ready work a dispatcher later drives. Pairs with `work` / `dispatcher` (downstream).
+  gated for kickoff. Three modes: plan (new molecule, with a spike branch when feasibility
+  is unsettled), replan (re-enter planning on a spike verdict or mid-execution blocker), and
+  groom (backlog-wide reconciliation). Use when a human opens a session with an idea to explore
+  and turn into ready work a dispatcher later drives, when new evidence invalidates part of a
+  filed molecule, or when the backlog needs reconciling against new decisions. Pairs with
+  `work` / `dispatcher` (downstream).
 ---
 
 # Planner — idea → gated molecule
@@ -32,6 +36,11 @@ confirm or override** before proceeding:
 
 All three converge on one compiler and one gate (`bh plan file` / `bh plan approve`); the tier
 only scales how much research and structuring happens up front.
+
+**The spike branch.** Fidelity triage has one more exit: when research or architecture surfaces
+an unresolved **GO/NO-GO question** — feasibility the current evidence can't settle — do not
+guess, and do not file speculative implementation beads. Propose a **spike molecule** instead
+(see "Spike loop" below); its verdict re-enters planning through replan mode.
 
 **An idea may arrive as a promoted report.** A rig manager who fields intake with
 `bh work promote <id>` hands a feature/epic-shaped **report** to you — it sits in the planner's
@@ -105,6 +114,70 @@ the same file** or **share expensive validation**. A valid batch must share a mo
 `model` to inherit), stay within `work.batch_max_size` (default 5) members, and be cohesive —
 same `component` or contiguous via `deps` in the DAG. `check` rejects mixed-model, oversized, or
 scattered batches with a clear message.
+
+## Spike loop — two molecules, never speculative beads
+
+When triage or architecture hits an unresolved GO/NO-GO question, the pipeline forks:
+
+```text
+ideate → design ─→ feasibility settled? ──yes──→ file implementation molecule → kickoff
+                        │ no (open GO/NO-GO question)
+                        ▼
+              file SPIKE molecule (spike beads + decision bead)
+                        ▼
+              integration plane executes the spikes (normal dispatch)
+                        ▼
+              decision bead closes with verdict
+                 GO ──→ /bh:replan <spike-epic> → implementation molecule
+                 NO-GO → ADR in docs/design, close, done
+```
+
+File a **small spike molecule** now and the implementation molecule only **after** the verdict —
+never both at once. Implementation beads filed before the spike proves them right are
+speculative beads a NO-GO would orphan (mass-close with reasons, polluted history); the
+two-molecule loop keeps every filed bead honest — nothing exists in the tracker that the
+current evidence doesn't support.
+
+Spike support is **pure convention** — labels plus a doc format, no new bead types or verbs:
+
+- **Spike bead** — `type: task`, label `tag:spike`. Acceptance: `docs/spikes/<bead-id>-<slug>.md`
+  exists with Question / Method / Evidence / Verdict (GO|NO-GO) / Recommendation sections;
+  **no product code**.
+- **Decision bead** — label `tag:decision`, `deps:` on **all** spike beads in the molecule. Its
+  description instructs: read the spike docs; on **GO** run `/bh:replan <epic>`; on **NO-GO**
+  record the ADR in `docs/design/` and close with reason. The close reason carries the verdict.
+- **Spike epic** — also labeled `tag:spike`, so `bh plan status` distinguishes spike molecules
+  at a glance.
+- **Re-entry linkage** — the implementation epic's description/`external_ref` links back to the
+  spike epic (provenance, mirroring the intake-adopt pattern).
+
+## Replan mode — re-enter planning on evidence
+
+`replan` is the **single re-entry verb** for ANY mid-flight plan alteration — scoped to **one
+molecule** with a triggering event. Two triggers, one door:
+
+- **A spike verdict landed** — read the spike epic and its `docs/spikes/` artifacts, carry the
+  verdict into architecture, and decompose the **implementation molecule** (filed with
+  `bh plan file`, linked back to the spike epic for provenance).
+- **A mid-execution blocker / discovery / decision** — dispatch hit evidence that invalidates
+  or completes part of a live molecule: amend it in place.
+
+The protocol is always **evidence first**:
+
+1. **Gather the triggering evidence** — spike docs, the blocking bead, the review bounce, the
+   discussion — before touching any bead.
+2. **Restate what changed** and confirm it with the human, exactly like framing a new idea.
+3. **Only then alter beads** — supersede/close invalidated issues (with reasons), re-dep
+   survivors, file follow-on beads, or file the implementation molecule.
+
+## Groom mode — backlog-wide reconciliation
+
+Groom is **backlog hygiene**, the counterpart to replan's single-molecule scope: no single
+triggering epic, no new molecule required. Take in new discussion, decisions, and ADRs, then
+reconcile the existing backlog to match — `bd update` stale descriptions, supersede/close beads
+the decisions invalidated (with reasons), re-dep where the DAG drifted. All mutations go through
+the `bd`/`bh` verbs. Reach for **replan** when one molecule has a triggering event; reach for
+**groom** when the backlog as a whole has drifted from the decisions on record.
 
 ## Hard rules
 
