@@ -249,8 +249,8 @@ if they are already set up.
 
 Otherwise, load the **`setup-git-workspace`** sub-skill to guide the user through:
 
-- What `$GIT_WORKSPACE` and the `<provider>/<org>/<repo>` layout mean
-- How `workspace.toml` and provider tokens work
+- What `$GIT_WORKSPACE` and the `<group>/<org>/<repo>` layout mean
+- How `workspace.toml` repo groups and provider tokens work
 - Installing git-workspace if absent
 - Three sub-branches:
   - Already configured with repos — safe `git workspace import` with backups before any
