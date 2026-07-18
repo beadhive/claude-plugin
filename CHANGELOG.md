@@ -1,3 +1,14 @@
+## v0.3.0 (2026-07-17)
+
+### Feat
+
+- **plugin**: align hooks and skills with hive verbs
+- **plugin**: gate unsupported bh runtime
+
+### Fix
+
+- **plugin**: use released hive command names
+
 ## v0.2.0 (2026-07-15)
 
 ### Feat
