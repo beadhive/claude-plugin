@@ -74,7 +74,7 @@ t "$APPROVE" Bash 'bh --all bd list'              ALLOW
 t "$APPROVE" Bash 'bh work check'                 ALLOW
 t "$APPROVE" Bash 'bh work --help'                ALLOW
 t "$APPROVE" Bash 'bh plan show'                  ALLOW
-t "$APPROVE" Bash 'bh hive ls'                    ALLOW
+t "$APPROVE" Bash 'bh hive list'                  ALLOW
 
 # approve: mutating, compound, or unrelated falls through to a prompt
 t "$APPROVE" Bash 'bd update x --status done'     PASS

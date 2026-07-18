@@ -61,7 +61,7 @@ Run this loop per hive; everything is `bh hive` / `bh config` / `bh sync` / `bh 
 Survey what's out there and what's healthy:
 
 ```bash
-bh hive ls --available        # discoverable-but-unregistered repos (zero API calls)
+bh hive list --available      # discoverable-but-unregistered repos (zero API calls)
 bh labels sync                # reconcile registry against git-workspace
 bh doctor                     # providers, orgs, repo counts, fleet health, per-repo-group auth, warnings
 bh hive survey --available --sort difficulty   # fleet table with DIFFICULTY scores
@@ -185,7 +185,7 @@ moving. Soft-archive is the default (recoverable by moving the directory back).
 ### Archive management
 
 ```bash
-bh hive archive ls [--json]                       # list archived repos, sorted oldest-first
+bh hive archive list [--json]                     # list archived repos, sorted oldest-first
 bh hive archive prune [--older-than N[d]] [--all] [--dry-run]   # reclaim space
 ```
 

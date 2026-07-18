@@ -76,7 +76,7 @@ if [[ "${w[0]:-}" == bh ]]; then
       [[ "${w[1]:-}" == --help ]] && allow
       case "${w[0]} ${w[1]:-}" in
         "work check"|"work ready"|"work show"|"plan show"|"plan check"|\
-        "hive ls"|"hive ready"|"hive survey"|"hive prefix"|"hive classify"|\
+        "hive list"|"hive ready"|"hive survey"|"hive prefix"|"hive classify"|\
         "worktree ls") allow;;
       esac
       exit 0;;
