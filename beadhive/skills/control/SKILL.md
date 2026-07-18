@@ -2,11 +2,11 @@
 name: control
 description: >-
   Shared role guide for the four Control-plane seats — supervisor, director, custodian, and
-  controller — that govern the factory itself. Covers the shared tool palette (bh rig /
+  controller — that govern the factory itself. Covers the shared tool palette (bh hive /
   bh config / bh doctor / bh labels / bh hq intake) and per-seat focus areas. Load when
   operating any Control-plane seat; the per-seat agent def names the specific function and
   decision authority. The one plane that does NOT pair with the `work` skill (except intake
-  disposal verbs): Control drives `bh rig` / `bh config` / `bh sync`, never `bh work assign /
+  disposal verbs): Control drives `bh hive` / `bh config` / `bh sync`, never `bh work assign /
   claim / submit / merge`.
 ---
 
@@ -14,14 +14,14 @@ description: >-
 
 You are on the **Control plane** — the rung above the Integration plane (where dispatchers,
 developers, reviewers, and mergers drive individual molecules and beads). Control's scope is
-the *factory itself*: governing it, routing work into it, commissioning its rigs, and observing
+the *factory itself*: governing it, routing work into it, commissioning its hives, and observing
 its throughput. Which of the four seats you occupy shapes your decision authority and the subset
 of verbs you reach for:
 
 | Seat | Identity | Focus | Authority |
 |---|---|---|---|
 | **supervisor** | `super/` | Whole factory — policy, cross-plane operations, oversees the other control seats | Ultimate / root |
-| **director** | `dir/` | Intake + fleet routing (intake → plan → work), interface to per-rig dispatchers | High — routes/directs work across the fleet |
+| **director** | `dir/` | Intake + fleet routing (intake → plan → work), interface to per-hive dispatchers | High — routes/directs work across the fleet |
 | **custodian** | `cust/` | Config + secrets + repo provisioning + resource cleanup | Medium/mechanical — applies, doesn't decide |
 | **controller** | `ctrl/` | Factory telemetry/efficiency — throughput, health, OTEL of the factory itself | Low — read-mostly, no mutation |
 
@@ -36,11 +36,11 @@ Hand off instead.
 All four Control-plane seats operate through the same verbs (authority level varies):
 
 ```bash
-bh rig …          # commission, configure, retire, survey rigs
-bh config …       # read/write per-rig or global config keys
+bh hive …         # commission, configure, retire, survey hives
+bh config …       # read/write per-hive or global config keys
 bh labels sync    # reconcile the registry against git-workspace
 bh doctor         # fleet health: providers, orgs, repos, repo-group auth, warnings
-bh hq intake      # fleet-wide inbox (all intake:untriaged across every rig)
+bh hq intake      # fleet-wide inbox (all intake:untriaged across every hive)
 ```
 
 `bh work` is **restricted to intake disposal only** (see **Terminal routing** below).
@@ -48,12 +48,12 @@ Every other role skill pairs with `work` fully; the Control plane uses it narrow
 
 ---
 
-## Custodian loop — commission and configure rigs
+## Custodian loop — commission and configure hives
 
 > Primary seat: **custodian** (`cust/`). The supervisor may absorb this scope in a small
-> single-rig factory; the director and controller do not commission rigs.
+> single-hive factory; the director and controller do not commission hives.
 
-Run this loop per rig; everything is `bh rig` / `bh config` / `bh sync` / `bh labels`, never
+Run this loop per hive; everything is `bh hive` / `bh config` / `bh sync` / `bh labels`, never
 `bh work`:
 
 ### 1. Discover
@@ -61,22 +61,22 @@ Run this loop per rig; everything is `bh rig` / `bh config` / `bh sync` / `bh la
 Survey what's out there and what's healthy:
 
 ```bash
-bh rig ls --available         # discoverable-but-unregistered repos (zero API calls)
+bh hive ls --available        # discoverable-but-unregistered repos (zero API calls)
 bh labels sync                # reconcile registry against git-workspace
 bh doctor                     # providers, orgs, repo counts, fleet health, per-repo-group auth, warnings
-bh rig survey --available --sort difficulty   # fleet table with DIFFICULTY scores
+bh hive survey --available --sort difficulty   # fleet table with DIFFICULTY scores
 ```
 
 `bh doctor` includes a per-repo-group auth table (effective identity, signing key,
 `insteadOf` aliases, `includeIf gitdir:` scoping) and warns on lockfile paths nested deeper
 than the `<group>/<org>/<repo>` triplet.
 
-`bh rig survey` prints one row per on-disk repo — registered and tracked. Columns you'll read
+`bh hive survey` prints one row per on-disk repo — registered and tracked. Columns you'll read
 most:
 
 | Column | Meaning |
 |---|---|
-| `REG` | `yes` = already registered, `no` = candidate for `bh rig onboard` |
+| `REG` | `yes` = already registered, `no` = candidate for `bh hive onboard` |
 | `CLASS` | registry classification: `org-native`, `personal`, `prototype`, `fork`, `excluded` |
 | `COMMITS` / `LAST-COMMIT` | maturity signals |
 | `AHEAD/BEHIND` | `+A/-B` totals across all local branches vs their upstreams |
@@ -95,27 +95,27 @@ most:
 Verdict: **EASY** (no hard, ≥ 2 easy) → **MEDIUM** (no hard, < 2 easy) → **HARD** (any hard) →
 **NOT-A-CANDIDATE** (excluded).
 
-Typical workflow: `bh rig survey --available --sort difficulty` → start with `EASY` rows →
-onboard → confirm with `bh rig ready [-v]` → check fleet again with `bh doctor`.
+Typical workflow: `bh hive survey --available --sort difficulty` → start with `EASY` rows →
+onboard → confirm with `bh hive ready [-v]` → check fleet again with `bh doctor`.
 
 ### 2. Onboard
 
-Bring a rig under management. Pick the path to the target:
+Bring a hive under management. Pick the path to the target:
 
-- **Local folder** — `bh rig onboard <group/org/repo>` runs rig init in the existing
+- **Local folder** — `bh hive onboard <group/org/repo>` runs hive init in the existing
   checkout, then syncs the hub (no clone).
-- **Remote** — `bh rig onboard <group/org/repo> --clone-url <url>` clones the repo down
+- **Remote** — `bh hive onboard <group/org/repo> --clone-url <url>` clones the repo down
   (only when the target dir is absent), then inits + syncs.
-- **Register-only** — `bh rig add <group/org/repo>` registers a triplet with no cwd and no
-  `bd init` (the repo may be uncloned); `bh rig rm <rig-id>` unregisters (registry-only,
+- **Register-only** — `bh hive add <group/org/repo>` registers a triplet with no cwd and no
+  `bd init` (the repo may be uncloned); `bh hive rm <hive-id>` unregisters (registry-only,
   leaves `.beads`/repo intact).
 
-Add `--prime --claude --skills --observaloop --agents` to install the rig's Beadhive furniture
+Add `--prime --claude --skills --observaloop --agents` to install the hive's Beadhive furniture
 in one shot.
 
 ### 3. Configure
 
-Set the rig's control knobs through the round-trip config (comments + flow-style `managed_repos`
+Set the hive's control knobs through the round-trip config (comments + flow-style `managed_repos`
 survive):
 
 ```bash
@@ -137,14 +137,14 @@ Confirm the result before handing off:
 ```bash
 bh config get <dotted.key>    # spot-check a key
 bh config show                # full resolved config
-bh doctor                     # rig registered, healthy, and configured correctly
-bh rig ready [-v]             # passing checks
+bh doctor                     # hive registered, healthy, and configured correctly
+bh hive ready [-v]            # passing checks
 ```
 
 ### 5. Hand off
 
-You are done at a configured, verified rig. The **human** launches a *separate* Claude Code
-session inside the rig as the dispatcher (then merger / reviewer) to drive the actual work.
+You are done at a configured, verified hive. The **human** launches a *separate* Claude Code
+session inside the hive as the dispatcher (then merger / reviewer) to drive the actual work.
 The custodian does **not** launch the dispatcher, claim a bead, or run any `bh work` verb
 except the intake verbs in **Terminal routing** below — provisioning ends; dispatch begins in
 another seat.
@@ -153,19 +153,19 @@ another seat.
 
 ## Retire and reclaim
 
-When a rig is no longer needed — a fork that was merged, an experiment that stalled, a repo
-moved — the custodian decommissions it with `bh rig retire`. This is the symmetric counterpart
-to `bh rig onboard`.
+When a hive is no longer needed — a fork that was merged, an experiment that stalled, a repo
+moved — the custodian decommissions it with `bh hive retire`. This is the symmetric counterpart
+to `bh hive onboard`.
 
 Three-step pattern:
 
 ```bash
-bh rig survey               # identify stale/dormant rigs (DISK, LAST-COMMIT, AHEAD/BEHIND)
-bh rig retire <rig> --dry-run   # preview plan — assessment, backup actions, teardowns, archive
-bh rig retire <rig> [--backup] [--confirm] [--purge]   # run for real
+bh hive survey               # identify stale/dormant hives (DISK, LAST-COMMIT, AHEAD/BEHIND)
+bh hive retire <hive> --dry-run   # preview plan — assessment, backup actions, teardowns, archive
+bh hive retire <hive> [--backup] [--confirm] [--purge]   # run for real
 ```
 
-`bh rig retire` stages: assess → backup/consent → worktree teardown → archive + unregister.
+`bh hive retire` stages: assess → backup/consent → worktree teardown → archive + unregister.
 
 | Flag | Effect |
 |---|---|
@@ -185,8 +185,8 @@ moving. Soft-archive is the default (recoverable by moving the directory back).
 ### Archive management
 
 ```bash
-bh rig archive ls [--json]                       # list archived repos, sorted oldest-first
-bh rig archive prune [--older-than N[d]] [--all] [--dry-run]   # reclaim space
+bh hive archive ls [--json]                       # list archived repos, sorted oldest-first
+bh hive archive prune [--older-than N[d]] [--all] [--dry-run]   # reclaim space
 ```
 
 Config keys:
@@ -207,10 +207,10 @@ chain is: developer → HQ → director. No auto-routing exists yet; the directo
 each item lands.
 
 ```bash
-bh hq intake                          # fleet-wide inbox: all intake:untriaged items across every rig
-bh work reroute <id> --to <rig>       # re-file a mis-routed report into the right rig's backlog
+bh hq intake                          # fleet-wide inbox: all intake:untriaged items across every hive
+bh work reroute <id> --to <hive>      # re-file a mis-routed report into the right hive's backlog
 bh work reroute <id> --super <seat>   # keep an ambiguous item in the fleet inbox for a second look
-bh work accept <id> [--type T] [--priority P]   # treat it as real work in the HQ rig
+bh work accept <id> [--type T] [--priority P]   # treat it as real work in the HQ hive
 bh work reject <id> --reason "…"      # close it with a reporter-visible reason
 bh work promote <id>                  # hand a feature/epic-shaped item to the planner
 ```
@@ -226,7 +226,7 @@ when the item clearly belongs to HQ or can be decided outright.
 
 ```bash
 bh doctor          # fleet health summary
-bh rig survey      # per-repo state table
+bh hive survey     # per-repo state table
 bh config show     # current resolved config
 ```
 
@@ -237,7 +237,7 @@ For OTEL / Grafana dashboards, read factory events and metrics from the configur
 
 ## Policy and oversight — governing the factory
 
-> Primary seat: **supervisor** (`super/`). In a small/single-rig factory the supervisor absorbs
+> Primary seat: **supervisor** (`super/`). In a small/single-hive factory the supervisor absorbs
 > the director / custodian / controller scopes.
 
 The supervisor sets policy, launches and oversees the other control seats (director / custodian /
@@ -245,26 +245,26 @@ controller), and writes Head Office policy (`~/.beadhive/config.yaml`). Decision
 ultimate / root. The supervisor does **not** hold product keys, implement code, merge, or publish.
 
 Head Office registry (`~/.beadhive/config.yaml`) is partitioned: supervisor writes policy; director
-reads and writes `managed_repos` membership; custodian writes per-rig config keys; controller
+reads and writes `managed_repos` membership; custodian writes per-hive config keys; controller
 reads.
 
 ---
 
 ## Rules that bite
 
-- **`bh work` is restricted — intake verbs only.** Control's primary verbs are `bh rig` /
+- **`bh work` is restricted — intake verbs only.** Control's primary verbs are `bh hive` /
   `bh config` / `bh sync` / `bh labels` / `bh hq intake`. The **one exception**: the
   intake-disposal verbs (`bh work reroute`, `bh work accept`, `bh work reject`, `bh work promote`)
   are the director's for terminal routing. If you reach for `bh work assign / claim / submit /
   merge`, you've stepped into the Integration plane — stop and hand off instead.
 - **Provision, don't drive.** The custodian does not schedule beads, write code, plan molecules,
-  or merge. Standing up and configuring the rig is the whole job; the work happens in a separate
+  or merge. Standing up and configuring the hive is the whole job; the work happens in a separate
   session.
-- **Verify before you hand off.** A dispatcher launched against an unconfigured or unhealthy rig
+- **Verify before you hand off.** A dispatcher launched against an unconfigured or unhealthy hive
   wastes the whole downstream session — close the loop with `bh doctor` / `bh config get` first.
 - **The registry is Head Office.** Mutations land in `~/.beadhive/config.yaml` via the round-trip
   `config.save` path — never hand-edit it; `bh config set/unset` preserves comments and the
-  flow-style `managed_repos` block. `bh rig add` / `rm` are registry-only and leave the repo alone.
-- **Clone-down is guarded.** `bh rig onboard --clone-url` only clones when the target dir is
+  flow-style `managed_repos` block. `bh hive add` / `rm` are registry-only and leave the repo alone.
+- **Clone-down is guarded.** `bh hive onboard --clone-url` only clones when the target dir is
   absent; an already-local folder is inited in place. Don't clone over a live checkout.
 - **Controller is read-only.** No lifecycle mutation; no `bh work` verbs at all.

@@ -25,19 +25,19 @@ esac
 
 read -ra w <<<"$cmd"
 
-# normalize `bh [-r RIG|--rig RIG|-a|--all] ...` down to its subject
+# normalize `bh [-r HIVE|--hive HIVE|-a|--all] ...` down to its subject
 if [[ "${w[0]:-}" == bh ]]; then
   w=("${w[@]:1}")
-  while [[ "${w[0]:-}" == -r || "${w[0]:-}" == --rig ]]; do w=("${w[@]:2}"); done
+  while [[ "${w[0]:-}" == -r || "${w[0]:-}" == --hive ]]; do w=("${w[@]:2}"); done
   while [[ "${w[0]:-}" == -a || "${w[0]:-}" == --all ]]; do w=("${w[@]:1}"); done
   case "${w[0]:-}" in
     ""|--help|-V|--version|report-target) allow;;
     bd) ;; # passthrough — checked against the bd verb list below
-    work|plan|rig|worktree|labels|hq)
+    work|plan|hive|worktree|labels|hq)
       [[ "${w[1]:-}" == --help ]] && allow
       case "${w[0]} ${w[1]:-}" in
         "work check"|"work ready"|"work show"|"plan show"|"plan check"|\
-        "rig ls"|"rig ready"|"rig survey"|"rig prefix"|"rig classify"|\
+        "hive ls"|"hive ready"|"hive survey"|"hive prefix"|"hive classify"|\
         "worktree ls") allow;;
       esac
       exit 0;;

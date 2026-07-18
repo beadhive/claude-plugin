@@ -4,7 +4,7 @@ guide:
   id: backfill
   version: "0.1.0"
   summary: |
-    Reconstruct a rig's history as beads from its own local sources — reconcile-first, so an
+    Reconstruct a hive's history as beads from its own local sources — reconcile-first, so an
     existing bead corpus is de-duplicated rather than clobbered. Recover each source doc's bead
     via deterministic bridges (frontmatter back-ref, then the id in the commit that added the
     doc); leave the residual to agent judgment; emit a diff; apply only on human confirm.
@@ -13,12 +13,12 @@ guide:
     external_ref pointing at their source; genuinely missing history is filed as new (closed if
     history says done); nothing is duplicated. A re-run of the reconcile proposes zero changes.
   prerequisites:
-    - id: bead-rig
+    - id: bead-hive
       performer: agent
-      description: Target is a bd-tracked rig — a `.beads/issues.jsonl` corpus exists.
+      description: Target is a bd-tracked hive — a `.beads/issues.jsonl` corpus exists.
     - id: local-sources
       performer: agent
-      description: The rig has local sources to mine — `docs/decisions/`, `docs/design/`, and/or `.planning/`.
+      description: The hive has local sources to mine — `docs/decisions/`, `docs/design/`, and/or `.planning/`.
     - id: apply-authority
       performer: human
       description: A human is present to review the proposal and authorize (or decline) the write.
@@ -33,7 +33,7 @@ guide:
       description: "Proposal applied; every doc-backed bead linked and any NEW gaps filed; idempotency re-run is clean."
       score: 1.0
     - id: nothing-to-do
-      description: "Rig was already fully linked; reconcile proposed no changes."
+      description: "Hive was already fully linked; reconcile proposed no changes."
       score: 1.0
     - id: proposal-only
       description: "Human reviewed the diff and declined to apply; the proposal is the delivered artifact."
@@ -49,14 +49,14 @@ guide:
 
 # When to use this Guide
 
-You are onboarding or catching up a bd-tracked rig that has **real history** — commits, ADRs,
-design docs, planning corpora — and you want that history represented as beads. The rig may
+You are onboarding or catching up a bd-tracked hive that has **real history** — commits, ADRs,
+design docs, planning corpora — and you want that history represented as beads. The hive may
 already have a **partial** bead corpus (work tracked natively from some point on); this Guide
 exists precisely to avoid duplicating it.
 
 # Also handles (not a reason to avoid it)
 
-- **Empty-corpus rigs** (no beads yet) — use this Guide as-is. Reconcile against an empty corpus
+- **Empty-corpus hives** (no beads yet) — use this Guide as-is. Reconcile against an empty corpus
   *is* import: the same steps run, the matching just finds nothing, so every artifact classifies
   NEW. No steps are skipped and no separate guide is needed — empty is the degenerate case.
   Idempotency is unchanged (`external_ref` / bridge 0), so a re-run is still a no-op. The only
@@ -85,6 +85,6 @@ exists precisely to avoid duplicating it.
 
 # What you need at hand
 
-- The path to the target rig's working tree.
+- The path to the target hive's working tree.
 - Ten minutes to eyeball the proposal — the match table is short; the judgment residual is where
   your attention goes.

@@ -27,7 +27,7 @@ conventional history. This is the right call whenever beads are independent.
 
 ## Control knobs — `work.dispatch.*`
 
-Each key resolves per-rig override > global > default. Every value is **advisory**: dispatch
+Each key resolves per-hive override > global > default. Every value is **advisory**: dispatch
 config decides grouping and seat only; it never claims or merges anything.
 
 | Key | Default | Values | Effect |

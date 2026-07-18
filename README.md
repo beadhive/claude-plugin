@@ -40,15 +40,25 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   beads + decision records, never code — and loads the `planner` skill inline.
 - **Output style** — `planning-seat`, pinning that contract for a whole session
   (`/config` → Output style).
-- **MCP server** — `bh-mcp` (stdio), exposing planning and rig-management tools.
+- **MCP server** — `bh-mcp` (stdio), exposing planning and hive-management tools.
+- **Hooks** — `PreToolUse` steering that nudges direct `bd` calls to the hive-aware `bh bd`
+  passthrough and auto-approves read-only `bd`/`bh` verbs; a `SessionStart` hook that runs
+  `bh hive context --hook-json` to inject AGF steering for a registered hive that carries no
+  on-disk plugin files.
 
-Start with the `beadhive-concepts` skill for the mental model (rigs, molecules, seats, planes).
+Start with the `beadhive-concepts` skill for the mental model (hives, molecules, seats, planes).
 
 ## Compatibility note
 
 The agent definitions use a `skills:` frontmatter key to preload their role skills. On Claude
 Code versions without `skills:` preload support the key is ignored; the agents still work —
 they load their skills via the `Skill` tool on demand.
+
+The `SessionStart` hive-context injection reaches Claude Code only — it feeds steering into the
+live session. Other harnesses (e.g. Codex) read steering from an on-disk `AGENTS.md`, so a
+zero-footprint hive still needs `bh hive onboard --furnish`/`--agents` to write that file for
+them; the registry-only path does not cover them. The hook is also a silent no-op on a `bh`
+older than 0.3.0 (no `hive context` verb), so it never breaks session start.
 
 ## License
 

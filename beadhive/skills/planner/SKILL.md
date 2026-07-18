@@ -42,7 +42,7 @@ an unresolved **GO/NO-GO question** — feasibility the current evidence can't s
 guess, and do not file speculative implementation beads. Propose a **spike molecule** instead
 (see "Spike loop" below); its verdict re-enters planning through replan mode.
 
-**An idea may arrive as a promoted report.** A rig manager who fields intake with
+**An idea may arrive as a promoted report.** A hive manager who fields intake with
 `bh work promote <id>` hands a feature/epic-shaped **report** to you — it sits in the planner's
 adopt queue keyed on `intake:promoted` (surface it with `bh work list --label intake:promoted`,
 or fleet-wide via `bh hq intake` before it's promoted). Adopt it as the seed idea for the flow
@@ -191,5 +191,5 @@ the `bd`/`bh` verbs. Reach for **replan** when one molecule has a triggering eve
 - **`bh plan verify <epic>` is the done-gate** — a filed molecule isn't done until it passes;
   the same check gates `bh plan approve` and dispatcher dispatch, so verify before you approve.
 - The **two gates are distinct** — never collapse plan approval and kickoff approval.
-- **Cross-rig `bh hq` interchange (`bh plan` / `bh work --rig <id>`) is a future follow-up** —
-  today the planner operates on the local rig only.
+- **Cross-hive `bh hq` interchange (`bh plan` / `bh work --hive <id>`) is a future follow-up** —
+  today the planner operates on the local hive only.

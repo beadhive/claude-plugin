@@ -23,8 +23,8 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
 - **container branch** — the `wt/bead/<type>/<id>` branch of an epic (`wt/bead/epic/<id>`) that
   its children fork from and land on. → [bead-lifecycle.md](bead-lifecycle.md)
 - **contribution plane** _(roadmap)_ — the sibling-to-integration plane that fork-and-PRs work
-  upstream over external rigs behind a human-only gate. → [beadflow-and-planes.md](beadflow-and-planes.md)
-- **contributor** _(roadmap)_ — the persistent, rig-scoped seat (`contrib/`) that owns a target-repo
+  upstream over external hives behind a human-only gate. → [beadflow-and-planes.md](beadflow-and-planes.md)
+- **contributor** _(roadmap)_ — the persistent, hive-scoped seat (`contrib/`) that owns a target-repo
   dossier and drives gated upstream PRs. → [roles-and-seats.md](roles-and-seats.md)
 - **control plane** — the governing plane where the four control seats (supervisor · director ·
   custodian · controller) run the factory itself. → [beadflow-and-planes.md](beadflow-and-planes.md)
@@ -37,19 +37,21 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
 - **developer** — the seat (`dev/`) that takes one assigned bead to a reviewable
   state in its ephemeral worktree, then submits. → [roles-and-seats.md](roles-and-seats.md)
 - **director** — the control seat (`dir/`) that owns intake + fleet work routing and the interface
-  to the per-rig dispatchers. → [roles-and-seats.md](roles-and-seats.md)
+  to the per-hive dispatchers. → [roles-and-seats.md](roles-and-seats.md)
 - **dispatcher** — the Integration seat (`disp/`; was `coordinator`) that delivers
   an epic; one seat parameterized by scope × mode (fanout/collapsed). → [roles-and-seats.md](roles-and-seats.md)
-- **external rig** _(roadmap)_ — a virtualized `kind=external` view of a repo outside the factory
+- **external hive** _(roadmap)_ — a virtualized `kind=external` view of a repo outside the factory
   boundary, contributed to by fork-and-PR. → [storage-model.md](storage-model.md)
-- **Factory HQ** — the durable cross-rig beads store at `~/.beadhive/hq`, queried with `bh hq`;
+- **Factory HQ** — the durable cross-hive beads store at `~/.beadhive/hq`, queried with `bh hq`;
   subsumes the hub. → [storage-model.md](storage-model.md)
 - **fanout** — the default dispatch mode: each ready bead gets its own developer sub-agent and
   worktree, run in parallel. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **Gas Town** — the retired, non-normative nickname layer that mapped aliases onto canonical
   seats; historical only. → [roles-and-seats.md](roles-and-seats.md)
 - **Head Office** — the workspace registry at `~/.beadhive/config.yaml → managed_repos`, one entry per
-  rig; partitioned across the control seats. → [storage-model.md](storage-model.md)
+  hive; partitioned across the control seats. → [storage-model.md](storage-model.md)
+- **hive** — one repo's beads DB, embedded as Dolt under its gitignored `.beads/`. →
+  [storage-model.md](storage-model.md)
 - **hub** — the internal, disposable read-cache aggregation mechanism (`~/.beadhive/hub`) that powers
   Factory HQ; `bh hub` is a deprecated alias. → [storage-model.md](storage-model.md)
 - **integration plane** — the execution plane where dispatcher → developer → merger land a
@@ -64,7 +66,7 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   molecule. → [roles-and-seats.md](roles-and-seats.md)
 - **planning plane** — the upstream plane where the planner decomposes an idea into a gated
   molecule. → [beadflow-and-planes.md](beadflow-and-planes.md)
-- **prefix** — a rig's short, stable issue handle, derived from `org` + `repo` and excluding the
+- **prefix** — a hive's short, stable issue handle, derived from `org` + `repo` and excluding the
   provider. → [storage-model.md](storage-model.md)
 - **releaser** _(roadmap)_ — the Release seat (`release/`) that cuts a release (version,
   changelog, tag). → [roles-and-seats.md](roles-and-seats.md)
@@ -72,21 +74,19 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   determination + `cz` gate), distinct from integration. → [beadflow-and-planes.md](beadflow-and-planes.md)
 - **reviewer** — the seat (`rev/`) that walks an approved branch and resolves or bounces its review
   gate. → [roles-and-seats.md](roles-and-seats.md)
-- **rig** — one repo's beads DB, embedded as Dolt under its gitignored `.beads/`. →
-  [storage-model.md](storage-model.md)
 - **role** — the abstract archetype of a job (duties, skill, tools, model), instanced as a seat.
   → [roles-and-seats.md](roles-and-seats.md)
 - **scheduler** — `bh work schedule`, which forms groups (child epics, planner batches, private
   chains, singletons) under four guards. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **seat** — a role instance bound to an identity + permission archetype (`disp/<name>`,
-  `dev/<name>`), a worktree, and a rig. → [roles-and-seats.md](roles-and-seats.md)
+  `dev/<name>`), a worktree, and a hive. → [roles-and-seats.md](roles-and-seats.md)
 - **session** — a running loop (agent or human) that MAY hold multiple seats over its life, but
   wields exactly one seat's permissions per action. → [roles-and-seats.md](roles-and-seats.md)
 - **supervisor** — the control seat (`super/`) that governs the whole
   factory + policy and launches the other control seats. → [roles-and-seats.md](roles-and-seats.md)
 - **swarm** — the beads-primitive term for a molecule (epic + children + dep DAG). →
   [bead-lifecycle.md](bead-lifecycle.md)
-- **triplet** — the `provider:` / `org:` / `repo:` labels that carry a rig's identity on every
+- **triplet** — the `provider:` / `org:` / `repo:` labels that carry a hive's identity on every
   issue. → [storage-model.md](storage-model.md)
 - **verifier** _(lens)_ — the Assurance lens (`verify/`) for acceptance/e2e (developer-check +
   reviewer-demo + CI); a seat only when e2e needs its own identity. → [roles-and-seats.md](roles-and-seats.md)

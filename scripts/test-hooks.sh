@@ -37,14 +37,14 @@ t "$APPROVE" Bash 'bh --all bd list'              ALLOW
 t "$APPROVE" Bash 'bh work check'                 ALLOW
 t "$APPROVE" Bash 'bh work --help'                ALLOW
 t "$APPROVE" Bash 'bh plan show'                  ALLOW
-t "$APPROVE" Bash 'bh rig ls'                     ALLOW
+t "$APPROVE" Bash 'bh hive ls'                    ALLOW
 
 # approve: mutating, compound, or unrelated falls through to a prompt
 t "$APPROVE" Bash 'bd update x --status done'     PASS
 t "$APPROVE" Bash 'bd create foo'                 PASS
 t "$APPROVE" Bash 'bd delete x'                   PASS
 t "$APPROVE" Bash 'bh work merge'                 PASS
-t "$APPROVE" Bash 'bh rig onboard github/x/y'     PASS
+t "$APPROVE" Bash 'bh hive onboard github/x/y'    PASS
 t "$APPROVE" Bash 'bh config set a b'             PASS
 t "$APPROVE" Bash 'bd show x && rm -rf /'         PASS
 t "$APPROVE" Bash 'bd list > /tmp/x'              PASS
@@ -52,7 +52,7 @@ t "$APPROVE" Bash 'bd list | tee /tmp/x'          PASS
 t "$APPROVE" Bash 'git status'                    PASS
 
 # approve: read-only bh MCP tools (matcher pre-scopes; script trusts mcp__*)
-t "$APPROVE" mcp__plugin_bh_bh__rigs_status ''    ALLOW
+t "$APPROVE" mcp__plugin_bh_bh__hives_status ''   ALLOW
 t "$APPROVE" mcp__bh__plan_check ''               ALLOW
 
 [[ $fail -eq 0 ]] && echo "hooks: all cases pass"

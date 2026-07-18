@@ -1,6 +1,17 @@
 {
-  "description": "beadhive: steer direct `bd` calls toward the rig-aware `bh bd` passthrough; auto-approve read-only bd/bh calls (mutating verbs still prompt)",
+  "description": "beadhive: steer direct `bd` calls toward the hive-aware `bh bd` passthrough; auto-approve read-only bd/bh calls (mutating verbs still prompt); inject AGF steering for zero-footprint hives at SessionStart",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/hive-context.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -18,7 +29,7 @@
         ]
       },
       {
-        "matcher": "mcp__(plugin_bh_)?bh__(plan_check|rigs_status|rigs_available)$",
+        "matcher": "mcp__(plugin_bh_)?bh__(plan_check|hives_status|hives_available)$",
         "hooks": [
           {
             "type": "command",
