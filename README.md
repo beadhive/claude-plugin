@@ -17,10 +17,12 @@ configured Beadhive workspace.
 
 ### Prerequisite: the `bh` CLI
 
-The plugin's MCP server runs the `bh-mcp` binary from the
-[beadhive CLI](https://github.com/beadhive/beadhive). Without `bh` on your `PATH` the MCP server
-won't start — agents and skills still load, but the `bh` MCP tools won't be available. The
-bundled `setup` skill installs it (Phase 2).
+The plugin requires `bh >=0.3.0` on your `PATH`. The MCP server runs the `bh-mcp` binary from the
+[beadhive CLI](https://github.com/beadhive/beadhive); without a compatible `bh`, the MCP server
+won't start and the hooks block `bh`/`bd` calls instead of failing silently. On mismatch,
+SessionStart prints an upgrade advisory and points to the
+[Beadhive install guide](https://github.com/beadhive/beadhive/blob/main/INSTALL.md) or `/setup`.
+The bundled `setup` skill installs it (Phase 2).
 
 ## What's inside
 
@@ -40,15 +42,20 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   beads + decision records, never code — and loads the `planner` skill inline.
 - **Output style** — `planning-seat`, pinning that contract for a whole session
   (`/config` → Output style).
-- **MCP server** — `bh-mcp` (stdio), exposing planning and rig-management tools.
+- **MCP server** — `bh-mcp` (stdio), exposing planning and hive-management tools.
 
-Start with the `beadhive-concepts` skill for the mental model (rigs, molecules, seats, planes).
+Start with the `beadhive-concepts` skill for the mental model (hives, molecules, seats, planes).
 
 ## Compatibility note
 
 The agent definitions use a `skills:` frontmatter key to preload their role skills. On Claude
 Code versions without `skills:` preload support the key is ignored; the agents still work —
 they load their skills via the `Skill` tool on demand.
+
+The runtime preflight is intentionally blocking: if `bh` is missing or older than `0.3.0`, the
+SessionStart advisory explains the mismatch and PreToolUse denies `bh`/`bd` Bash calls plus `bh`
+MCP tool calls until the CLI is upgraded. If the SessionStart sentinel is absent, the guard fails
+open and leaves the normal permission flow unchanged.
 
 ## License
 
