@@ -48,9 +48,9 @@ Walk the members in **dependency order**. For each bead:
    clean from the start — `bh work show` / `bh work refine` target per-bead branches
    (`wt/bead/issue/<id>`) and are **not** available to batch members, so squash any checkpoint
    noise with plain `git rebase -i` before handoff.
-2. **Self-check** — run the rig's validation directly in the batch worktree (`just check`).
+2. **Self-check** — run the hive's validation directly in the batch worktree (`just check`).
    `bh work check <id>` looks for `wt/bead/issue/<id>` and won't find the shared tree; run the
-   rig command directly until it's green.
+   hive command directly until it's green.
 3. **Resolve the review gate** per `work.dispatch.review_mode` (default `self`) — see
    **Review gate — self vs fresh** below. Under `self` you are your own reviewer and self-resolve
    the gate; under `fresh` you spawn one independent reviewer Task per bead (depth-2 only) and let

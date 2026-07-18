@@ -3,7 +3,7 @@
 #
 # Does ONLY the mechanical, deterministic part of a reconcile: for each source doc,
 # recover the bead it belongs to via (1) a `Beads:` frontmatter line, then (2) the bead
-# id in the commit that first added the doc. Joins against the rig's existing beads and
+# id in the commit that first added the doc. Joins against the hive's existing beads and
 # classifies each into PRESENT-in-sync / PRESENT-needs-stamp / UNMATCHED. Judgment
 # (fuzzy fallback, NEW-vs-noise, drift) stays with the agent — this tool never guesses
 # and never writes unless you pass --apply.
@@ -13,11 +13,11 @@
 #   --planning— .planning/phases/           : extract a NEW epic/issue/dep structure (GSD frontmatter)
 #
 # Usage:
-#   reconcile.sh <rig-path> [--planning] [--prefix <p>]   # propose: print the table (TSV)
-#   reconcile.sh <rig-path> [--planning] --apply           # stamp external_ref on PRESENT-needs-stamp
-#   reconcile.sh <rig-path> [--planning] --verify          # exit 1 if any row is still pending
+#   reconcile.sh <hive-path> [--planning] [--prefix <p>]   # propose: print the table (TSV)
+#   reconcile.sh <hive-path> [--planning] --apply           # stamp external_ref on PRESENT-needs-stamp
+#   reconcile.sh <hive-path> [--planning] --verify          # exit 1 if any row is still pending
 #
-# Read-only by default. --apply runs `bd update` inside the rig (docs source only; NEW beads from
+# Read-only by default. --apply runs `bd update` inside the hive (docs source only; NEW beads from
 # --planning are created by the agent in the apply step). Requires git, jq, bd.
 set -euo pipefail
 
@@ -48,7 +48,7 @@ selftest() {
   [ "$fail" = 0 ] && echo "deps_of selftest: OK" || return 1
 }
 
-RIG=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0; DOCSDIR=""
+HIVE=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0; DOCSDIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply)         MODE="apply" ;;
@@ -59,24 +59,24 @@ while [ $# -gt 0 ]; do
     --prefix)        PREFIX="$2"; shift ;;
     --docs)          DOCSDIR="$2"; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 2 ;;
-    *)  RIG="$1" ;;
+    *)  HIVE="$1" ;;
   esac
   shift
 done
-[ -n "$RIG" ] && [ -d "$RIG/.git" ] || { echo "usage: reconcile.sh <rig-path> [--planning] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
-CANON="$RIG/.beads/issues.jsonl"
+[ -n "$HIVE" ] && [ -d "$HIVE/.git" ] || { echo "usage: reconcile.sh <hive-path> [--planning] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
+CANON="$HIVE/.beads/issues.jsonl"
 [ -f "$CANON" ] || { echo "no beads corpus at $CANON" >&2; exit 2; }
 
 # bd writes to its embedded DB and does NOT auto-export, so the tracked issues.jsonl goes stale
 # after any write — a read-after-write against it sees the pre-write state. So we read from a fresh
 # `bd export` SNAPSHOT (temp, auto-deleted), never the tracked file: propose/verify stay strictly
-# read-only on any rig regardless of auto-export config. Refreshing the TRACKED file is a mutation
+# read-only on any hive regardless of auto-export config. Refreshing the TRACKED file is a mutation
 # and is therefore opt-in (--refresh-jsonl) — the guide gates that on a human confirm when it finds
-# the rig stale (auto-export off). See internal-task for making export automatic at rig-init.
+# the hive stale (auto-export off). See internal-task for making export automatic at hive-init.
 JSONL="$CANON"
 if command -v bd >/dev/null 2>&1; then
   SNAP="$(mktemp)"; trap 'rm -f "$SNAP"' EXIT
-  if ( cd "$RIG" && bd export ) > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
+  if ( cd "$HIVE" && bd export ) > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
     JSONL="$SNAP"                                  # authoritative read source
     [ "$REFRESH" = 1 ] && cp "$SNAP" "$CANON"      # opt-in: de-stale the tracked file for br
   fi
@@ -94,7 +94,7 @@ ref_of() { jq -r --arg id "$1" 'select(.id==$id) | .external_ref // ""' "$JSONL"
 has_bead() { jq -e --arg id "$1" 'select(.id==$id)' "$JSONL" >/dev/null 2>&1; }
 # id of a bead already carrying this external_ref (empty if none) — the re-run idempotency key.
 bead_with_ref() { jq -r --arg r "$1" 'select(.external_ref==$r) | .id' "$JSONL" 2>/dev/null | head -1; }
-# deps_of() is defined at the top of the file so --selftest can reach it before rig validation.
+# deps_of() is defined at the top of the file so --selftest can reach it before hive validation.
 
 # Fuzzy shortlist for an UNMATCHED doc: the top existing content beads by shared title tokens.
 # NARROWS, never decides — the agent picks a candidate or files NEW. ponytail: lexical overlap,
@@ -112,12 +112,12 @@ shortlist_for() {
 
 # --- planning source: extract a NEW phase→epic / plan→issue / depends_on→dep structure ----------
 planning_propose() {
-  local pdir="$RIG/.planning/phases" new=0
-  [ -d "$pdir" ] || { echo "no .planning/phases in $RIG" >&2; exit 0; }
+  local pdir="$HIVE/.planning/phases" new=0
+  [ -d "$pdir" ] || { echo "no .planning/phases in $HIVE" >&2; exit 0; }
   for phase in "$pdir"/*/; do
     [ -d "$phase" ] || continue
     local rel name plans epic_status existing
-    rel="${phase#"$RIG"/}"; rel="${rel%/}"; name=$(basename "$phase")
+    rel="${phase#"$HIVE"/}"; rel="${rel%/}"; name=$(basename "$phase")
     plans=$(ls "$phase"*-PLAN.md 2>/dev/null || true)
     # phase epic is closed only if every plan has a sibling SUMMARY (history says done).
     epic_status="closed"; [ -z "$plans" ] && epic_status="open"
@@ -130,7 +130,7 @@ planning_propose() {
     fi
     for pl in $plans; do
       local prel st deps ex
-      prel="${pl#"$RIG"/}"
+      prel="${pl#"$HIVE"/}"
       [ -f "${pl%-PLAN.md}-SUMMARY.md" ] && st="closed" || st="open"
       deps=$(deps_of "$pl"); ex=$(bead_with_ref "$prel")
       if [ -n "$ex" ]; then
@@ -152,25 +152,25 @@ planning_propose() {
 bridge_for() {
   local doc="$1" id bridge
   # 1. frontmatter back-ref: a line like "- Beads: obs-1rb (epic), obs-1rb.5"
-  id=$(grep -iE '^[[:space:]]*-?[[:space:]]*beads?:' "$RIG/$doc" 2>/dev/null | head -1 \
+  id=$(grep -iE '^[[:space:]]*-?[[:space:]]*beads?:' "$HIVE/$doc" 2>/dev/null | head -1 \
        | grep -oE "$ID_RE" | tail -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tfrontmatter"; return; fi
   # 2. bead id in the subject of the commit that ADDED the doc
-  id=$(git -C "$RIG" log --follow --diff-filter=A --format='%s' -- "$doc" 2>/dev/null | head -1 \
+  id=$(git -C "$HIVE" log --follow --diff-filter=A --format='%s' -- "$doc" 2>/dev/null | head -1 \
        | grep -oE "$ID_RE" | head -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tadd-trailer"; return; fi
   # unmatched — leave for the agent's fuzzy/judgment pass
 }
 
-# Doc set: an explicit --docs <dir> tree (any markdown, e.g. .planning/ on a rig that tracked work
+# Doc set: an explicit --docs <dir> tree (any markdown, e.g. .planning/ on a hive that tracked work
 # as prose), else the default ADR/design dirs. Same bridges apply either way — the recovery logic
 # is doc-path-agnostic; --docs just widens which files feed it.
 if [ -n "$DOCSDIR" ]; then
-  DOCS=$(cd "$RIG" && find "$DOCSDIR" -type f -name '*.md' 2>/dev/null | sort || true)
-  [ -n "$DOCS" ] || { echo "no *.md under $DOCSDIR in $RIG" >&2; exit 0; }
+  DOCS=$(cd "$HIVE" && find "$DOCSDIR" -type f -name '*.md' 2>/dev/null | sort || true)
+  [ -n "$DOCS" ] || { echo "no *.md under $DOCSDIR in $HIVE" >&2; exit 0; }
 else
-  DOCS=$(cd "$RIG" && ls docs/decisions/*.md docs/design/*.md 2>/dev/null || true)
-  [ -n "$DOCS" ] || { echo "no docs/decisions or docs/design in $RIG" >&2; exit 0; }
+  DOCS=$(cd "$HIVE" && ls docs/decisions/*.md docs/design/*.md 2>/dev/null || true)
+  [ -n "$DOCS" ] || { echo "no docs/decisions or docs/design in $HIVE" >&2; exit 0; }
 fi
 
 pending=0
@@ -205,7 +205,7 @@ for doc in $DOCS; do
   case "$MODE" in
     propose) printf '%s\t%s\t%s\t%s\n' "$status" "$doc" "$id" "$bridge" ;;
     apply)   if [ "$status" = "PRESENT-needs-stamp" ]; then
-               (cd "$RIG" && bd update "$id" --external-ref "$doc") && printf 'stamped\t%s\t%s\n' "$id" "$doc"
+               (cd "$HIVE" && bd update "$id" --external-ref "$doc") && printf 'stamped\t%s\t%s\n' "$id" "$doc"
              fi ;;
     verify)  [ "$status" = "PRESENT-needs-stamp" ] && printf 'PENDING\t%s\t%s\n' "$id" "$doc" ;;
   esac

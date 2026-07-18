@@ -74,14 +74,14 @@ One or more conventional commits per bead is fine. Keep them clean from the star
 available for batch members. Checkpoint noise must be squashed with plain `git rebase -i`
 before handoff.
 
-**3. Validate once** — run the rig's validation command directly in the batch worktree:
+**3. Validate once** — run the hive's validation command directly in the batch worktree:
 
 ```sh
 just check
 ```
 
 `bh work check <id>` looks for `wt/bead/<id>` and won't find the batch worktree; run the
-rig command directly until it's green.
+hive command directly until it's green.
 
 **4. Hand off the group** — once validation is green, report the batch ready. The merge
 itself is **merger-owned** (same rule as single beads — you never run the merge): the merge

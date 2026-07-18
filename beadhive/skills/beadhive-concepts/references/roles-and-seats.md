@@ -10,7 +10,7 @@ plane and their duties, and how a seat is launched.
 - A **seat** is a role instance bound to an **identity** + permission archetype: a role plus a
   prefixed identity (`disp/<name>` for a dispatcher, `dev/<name>` for a developer), a scoped set of
   permissions derived from `(plane, function, resource scope, decision authority)`, a **worktree**,
-  and a **rig**. The same role can be seated many times concurrently — many developers, one per
+  and a **hive**. The same role can be seated many times concurrently — many developers, one per
   bead — each its own seat with its own identity and worktree.
 - A **session** is a running loop (agent or human-supervised). **Any** session MAY hold **multiple**
   seats over its life (e.g. controller → director → merger), the way one collapsed loop already
@@ -30,7 +30,7 @@ resources, derived from `(plane, function, resource scope, decision authority)`.
 | Seat | Identity | Plane | Duty |
 |---|---|---|---|
 | **supervisor** | `super/` | Control | Govern the whole factory: set policy, launch and oversee the other control seats (org root). |
-| **director** | `dir/` | Control | Intake + fleet work routing (intake→plan→work); the interface to the per-rig dispatchers. |
+| **director** | `dir/` | Control | Intake + fleet work routing (intake→plan→work); the interface to the per-hive dispatchers. |
 | **custodian** | `cust/` | Control | Config + secrets + repo provisioning + resource cleanup — the only control seat touching key material. |
 | **controller** | `ctrl/` | Control | Factory telemetry/efficiency — read-mostly throughput, health, and OTEL of the factory itself. |
 | **planner** | `plan/` | Planning | Turn a raw idea into a gated molecule (ideate → research → architecture → decompose → file). |
@@ -68,9 +68,9 @@ see **one seat, `dispatcher` (`disp/`)**, with scope + mode as dispatch metadata
 | **contributor** | `contrib/` | Contribution | name kept — owns the target-repo dossier + provenance scrub + human publish gate; the only seat allowed to publish to an external tracker |
 | **operator** | `ops/` | Delivery | gitops reconcile + IaC apply + rollback (inference seat; runner identities out of scope) |
 
-The **`contributor`** is a dedicated, persistent, rig-scoped seat for the Contribution plane —
+The **`contributor`** is a dedicated, persistent, hive-scoped seat for the Contribution plane —
 built on the read-only analyst research primitive but owning a target-repo dossier and driving
-gated upstream PRs over external rigs. See the Contribution plane in
+gated upstream PRs over external hives. See the Contribution plane in
 [beadflow-and-planes.md](beadflow-and-planes.md).
 
 ## Alternate seat nicknames — optional, non-normative aliases

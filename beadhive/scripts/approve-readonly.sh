@@ -41,7 +41,7 @@ case "$tool" in
   mcp__*)
     [[ -n "$preflight_verdict" && "$preflight_verdict" != ok ]] && deny_preflight
     case "$tool" in
-      mcp__*__plan_check|mcp__*__hives_status|mcp__*__hives_available|mcp__*__rigs_status|mcp__*__rigs_available) allow;;
+      mcp__*__plan_check|mcp__*__hives_status|mcp__*__hives_available) allow;;
     esac
     exit 0;;
 esac

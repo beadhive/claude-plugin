@@ -30,7 +30,7 @@ that framing once and then walks the tenets and the planes.
 | **Integration** | operational | kicked-off molecule → beads landed `--no-ff` on green line | dispatcher · developer · reviewer · merger |
 | **Assurance** | proposed (cross-cutting gate layer) | change/release → security + policy verdict | warden (+ verifier as a *lens*) |
 | **Release** | roadmap | green line → cut release (version + changelog + tag) | releaser |
-| **Contribution** | roadmap | internal change → upstream PR over external rig | contributor |
+| **Contribution** | roadmap | internal change → upstream PR over external hive | contributor |
 | **Delivery** | roadmap (named now) | release + IaC/gitops desired-state → reconciled system | operator |
 
 Each operational plane runs a distinct session with its own seats and verb surface, and hands off
@@ -45,17 +45,17 @@ dispatcher lives one plane down in Integration):
 - **supervisor** (`super/`) — the whole factory + policy; ultimate/root, launches and oversees the
   other control seats.
 - **director** (`dir/`) — intake + fleet work routing (intake→plan→work); the interface to the
-  per-rig dispatchers. Directs work; holds no secrets, sets no policy.
+  per-hive dispatchers. Directs work; holds no secrets, sets no policy.
 - **custodian** (`cust/`) — config + secrets + repo provisioning + resource cleanup; the only control
   seat touching **key material**, doing the mechanical commissioning.
 - **controller** (`ctrl/`) — factory telemetry/efficiency; read-mostly, no lifecycle mutation.
 
 Head Office — the workspace registry at `~/.beadhive/config.yaml` — is partitioned: supervisor writes
-policy, director writes fleet/`managed_repos` membership, custodian writes rig config, controller
-reads. A **collapse path** lets a small/single-rig factory run just the **supervisor**, absorbing the
+policy, director writes fleet/`managed_repos` membership, custodian writes hive config, controller
+reads. A **collapse path** lets a small/single-hive factory run just the **supervisor**, absorbing the
 director/custodian/controller scopes; split them out as the factory grows. These are
 human-supervised sessions that commission repos, configure them (`bh config set`), and do not pair
-with the `work` skill. See [storage-model.md](storage-model.md) for Head Office and rig kinds.
+with the `work` skill. See [storage-model.md](storage-model.md) for Head Office and hive kinds.
 
 ### Planning plane — idea → gated molecule
 
@@ -103,7 +103,7 @@ release. Merging is not releasing; the release plane is where releasing happens.
 
 ### Contribution plane _(roadmap)_
 
-A sibling to Integration that operates over **external rigs** — our virtualized view of a repo
+A sibling to Integration that operates over **external hives** — our virtualized view of a repo
 outside the factory boundary that we do not control and generally cannot push to. It is **always
 fork-and-PR**: a dedicated **`contributor`** (`contrib/`) seat (built on the read-only analyst
 primitive) owns a repo **dossier** — the target's CONTRIBUTING rules, PR-template and DCO

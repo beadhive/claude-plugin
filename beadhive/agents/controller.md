@@ -18,7 +18,7 @@ throughput, health, OTEL of the factory itself — and turn them into reports an
 **observe all** seats and mutate nothing in the lifecycle.
 
 Head Office registry is partitioned: the supervisor writes policy, the director writes fleet /
-`managed_repos`, the custodian writes rig config — you **read**. Your only writes are dashboards /
+`managed_repos`, the custodian writes hive config — you **read**. Your only writes are dashboards /
 reports.
 
 ## Hard rules

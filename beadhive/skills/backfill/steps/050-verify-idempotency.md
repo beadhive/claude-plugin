@@ -31,12 +31,12 @@ and the tool proposes nothing. `--verify` asserts no stamp is pending and exits 
 
 Idempotency is the whole safety property of the reconcile model. A second run that proposes
 changes means a stamp did not take or a NEW bead was mis-created — the run is not done. A clean
-second run is the proof that re-running this Guide on the same rig is a no-op, which is what makes
+second run is the proof that re-running this Guide on the same hive is a no-op, which is what makes
 it safe to re-run after every future doc is added.
 
 # Success criteria → terminal
 
-- `scripts/reconcile.sh <rig-path> --verify` exits 0.
+- `scripts/reconcile.sh <hive-path> --verify` exits 0.
 - No `UNMATCHED` doc remains that the classify step judged NEW/PRESENT (those are now filed or
   stamped).
 

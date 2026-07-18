@@ -1,5 +1,5 @@
 {
-  "description": "beadhive: preflight the bh runtime; steer direct `bd` calls toward the hive-aware `bh bd` passthrough; auto-approve read-only bd/bh calls (mutating verbs still prompt)",
+  "description": "beadhive: preflight the bh runtime; steer direct `bd` calls toward the hive-aware `bh bd` passthrough; auto-approve read-only bd/bh calls (mutating verbs still prompt); inject AGF steering for zero-footprint hives at SessionStart",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,11 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bh-preflight.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/hive-context.sh",
+            "timeout": 10
           }
         ]
       }

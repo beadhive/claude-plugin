@@ -19,8 +19,8 @@ to the agent — it is the safety valve for docs no structured bridge can resolv
 
 ## Candidate bridges — build on demand, not now
 
-Deliberately **not** built. Each is exact and worth adding **the day a target rig actually uses
-that framework** — building parsers for frameworks no rig uses is the speculative generality this
+Deliberately **not** built. Each is exact and worth adding **the day a target hive actually uses
+that framework** — building parsers for frameworks no hive uses is the speculative generality this
 Guide's whole reconcile-first stance exists to avoid. When you do build one, confirm the
 framework's real frontmatter keys against its own spec at build time rather than from memory.
 

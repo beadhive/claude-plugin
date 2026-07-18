@@ -26,20 +26,20 @@ step:
 
 # What this step does
 
-Writes the approved proposal into the rig:
+Writes the approved proposal into the hive:
 
-- **Stamps:** `scripts/reconcile.sh <rig-path> --apply` runs `bd update <bead> --external-ref
+- **Stamps:** `scripts/reconcile.sh <hive-path> --apply` runs `bd update <bead> --external-ref
   <doc>` for every `PRESENT-needs-stamp` row. Update is safe with plain `bd`: it targets beads
-  that already carry the rig triplet and never strips labels, so `bh labels validate` stays green.
+  that already carry the hive triplet and never strips labels, so `bh labels validate` stays green.
 - **NEW beads (if any):** filed from the classify step's list, each with `--external-ref`,
   `--label origin:backfill`, `--label source:<kind>`, and `--status closed` where history says
-  done. **Create through `bh bd create`** (run inside the rig): it injects the rig's
+  done. **Create through `bh bd create`** (run inside the hive): it injects the hive's
   `provider:/org:/repo:` triplet — which plain `bd create` omits and which `bh labels validate`
   requires. This is the one place the tool's generic `bd` is not enough.
   - A **handful** → one `bh bd create` per bead (agent performs these; they are judgment items).
-  - **Bulk** (an empty/import rig with many NEW-with-deps, e.g. a GSD `.planning` tree) → do not
+  - **Bulk** (an empty/import hive with many NEW-with-deps, e.g. a GSD `.planning` tree) → do not
     hand-create dozens with dependency edges. Emit one JSONL (all beads + deps + `external_ref` +
-    status **+ the rig triplet labels** — `bd import` upserts raw and does *not* inject the triplet
+    status **+ the hive triplet labels** — `bd import` upserts raw and does *not* inject the triplet
     the way `bh bd create` does, so the emitter must include it) and upsert with **`bh bd import`**
     — idempotent by `external_ref`. That emitter is not built yet (parked importer mapper); until
     it lands, bulk apply is manual `bh bd create` calls.
@@ -53,11 +53,11 @@ shows no CHILDREN. `reconcile.sh --planning` names the parent in the `parent:<na
 not emit the edge; the emitter adds it. (`depends_on:` frontmatter → `blocks` edges are surfaced by
 `deps_of()`, which now reads block-style lists too — verify with `reconcile.sh --selftest`.)
 
-Then `bh labels validate` must be green in the rig.
+Then `bh labels validate` must be green in the hive.
 
 # Verification (script)
 
-`scripts/reconcile.sh <rig-path> --verify` exits 0 only when no `PRESENT-needs-stamp` rows
+`scripts/reconcile.sh <hive-path> --verify` exits 0 only when no `PRESENT-needs-stamp` rows
 remain — i.e. every doc-backed bead is now linked. A non-zero exit means a stamp did not take;
 do not proceed.
 

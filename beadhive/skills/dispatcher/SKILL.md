@@ -69,7 +69,7 @@ bounds, and the self-land contract.
 ### Dispatch shape — read `work.dispatch.*` BEFORE you fan out
 
 Before you touch the per-pass loop below, consult the dispatch config to decide the *shape* of
-the fan-out. Two keys drive it (per-rig `work.dispatch.*` > global):
+the fan-out. Two keys drive it (per-hive `work.dispatch.*` > global):
 
 - **`work.dispatch.mode`** (default **`fanout`**) — `fanout` | `collapsed` | `auto`. Unknown
   values fall back to `fanout`.
@@ -132,7 +132,7 @@ standalone beads only — NEVER for an epic's children.**
      `bh work resume <id> --as <dev>`, addresses the feedback, and resubmits.
    - **approved** (gate resolved, no changes-requested) → merge it.
 7. **Serialize merges** — `bh work merge <id>` (or `--group <ids>` for a batch) one at a time. It
-   holds the rig merge slot, re-verifies clean conventional history, merges `--no-ff` (history
+   holds the hive merge slot, re-verifies clean conventional history, merges `--no-ff` (history
    preserved), closes the bead(s), and releases the slot. Never run two merges at once; never
    squash at the boundary.
 
@@ -155,20 +155,20 @@ it is always re-validated (staleness backstop), even in `relaxed`.
 
 ### Field intake — route what you own, escalate up what you can't
 
-You also field incoming **reports** for the rig(s) you run. Reports arrive source-agnostically —
-`bh report` (cross-rig), GitHub-issue import, and legacy import all land as `intake:untriaged` in
+You also field incoming **reports** for the hive(s) you run. Reports arrive source-agnostically —
+`bh report` (cross-hive), GitHub-issue import, and legacy import all land as `intake:untriaged` in
 **one** queue. Queue MEMBERSHIP is the `intake:untriaged` state; the intake CHANNEL is the closed
 `origin` dimension (`report` | `github` | `import`). Field them so they surface as triaged work,
 not silt at the bottom of the backlog.
 
-- **See the queue:** `bh work intake` (this rig) — untriaged intake with `bd find-duplicates`
+- **See the queue:** `bh work intake` (this hive) — untriaged intake with `bd find-duplicates`
   surfacing likely dupes so a colliding request isn't triaged as new. `bh hq intake` gives the
   director the fleet-wide inbox.
 - **Dispose (type-aware):**
   - `bh work accept <id> [--type T] [--priority P]` — real work → set type/priority, clear intake
     into backlog (it now flows through the normal ready/dispatch loop above).
   - `bh work reject <id> --reason "…"` — not-a-bug / won't-do → close with a reporter-visible reason.
-  - `bh work reroute <id> --to <rig>` — mis-routed → re-file into the right rig; `--super <seat>`
+  - `bh work reroute <id> --to <hive>` — mis-routed → re-file into the right hive; `--super <seat>`
     bounces an ambiguous one to the director (stays in the fleet-wide inbox).
   - `bh work promote <id>` — a feature/epic-shaped request → **hand to the planner** (sets
     `intake:promoted`); the planner adopts it into a gated molecule (do not plan it yourself here).
@@ -191,10 +191,10 @@ passthrough (run it with `BH_BD_PASS_ENABLED=1` / `BH_DEBUG=1`) until a first-cl
 - **Sandbox** — Claude Code sub-agents share *this* session's sandbox; they are not each
   isolated. Isolation comes from bh: separate worktree dirs + worktree-scoped git identity.
   Default ephemeral worktrees live in OS-temp (already writable), so no grant is needed;
-  persistent worktrees need `bh rig init --claude` to have granted the rig subtree once.
+  persistent worktrees need `bh hive init --claude` to have granted the hive subtree once.
 - **Attribution** — in `supervised` identity mode every commit attributes to the human, even
   though the assignee records `dev/<name>`. For distinct `dev/<name>` authorship in the
-  ledger, give the rig a `work.identity` agent-mode block with per-dev signing keys.
+  ledger, give the hive a `work.identity` agent-mode block with per-dev signing keys.
 - **Exclusivity** — a bare assignment does *not* drop a bead from `bd ready`; exclusivity
   rides on the claim/assign refuse-if-assigned-to-another guard. Don't hand one bead to two
   workers, and don't claim or implement work yourself.

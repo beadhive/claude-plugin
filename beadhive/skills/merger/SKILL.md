@@ -19,14 +19,14 @@ For an approved bead, the one verb does the whole serialized integration:
 bh work merge <id>        # --rm also reclaims the worktree
 ```
 
-It holds the rig merge slot (create + acquire), re-verifies a small clean conventional
+It holds the hive merge slot (create + acquire), re-verifies a small clean conventional
 history, merges `wt/bead/<id>` into the integration branch with **`--no-ff`** (history
 preserved — no squash at the boundary), closes the bead, and releases the slot. It refuses
 unless the review gate is resolved (approved) and the history is clean, and on conflict it
 **aborts and releases — never drops work**. Only one merge runs at a time (the slot).
 
-**Prerequisite:** the rig must gitignore `.beads/`, or bd's own writes keep the main clone
-dirty and the merge guard refuses with "main clone … is not clean." `bh rig init` sets this
+**Prerequisite:** the hive must gitignore `.beads/`, or bd's own writes keep the main clone
+dirty and the merge guard refuses with "main clone … is not clean." `bh hive init` sets this
 up; a hand-rolled `bd init` does not.
 
 When `bh work merge` bounces a bead, act on why:

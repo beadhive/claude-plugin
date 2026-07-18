@@ -7,9 +7,9 @@ it.
 ## Bead — the unit of work
 
 A **bead** is a single issue: the atomic unit of work the factory schedules, implements, and
-merges. Beads live in the rig's beads DB (managed via `bd`/`beads` under the hood) and are driven
+merges. Beads live in the hive's beads DB (managed via `bd`/`beads` under the hood) and are driven
 through their lifecycle by `bh work`, which composes `bd`, worktrees, and per-agent identity
-and applies the rig's config defaults (identity, signing, validation, review gate) so you do not
+and applies the hive's config defaults (identity, signing, validation, review gate) so you do not
 pass them by hand.
 
 ## Molecule, swarm, workstream
@@ -35,7 +35,7 @@ seat. Child beads fork off the container, so bead B sees bead A's already-merged
 
 **Integration target = the `integration_base` climb.** A bead's fork/land target is resolved by
 walking the dotted `<parent>.<n>` id chain to the **nearest started container ancestor**
-(`wt/bead/epic/<parent>`), falling back to the rig integration branch (`main`) at the dotless
+(`wt/bead/epic/<parent>`), falling back to the hive integration branch (`main`) at the dotless
 root. So a leaf lands on its epic, an epic lands on its workstream, and a workstream lands on
 `main` — **one recursive rule**: `bh work finish <container>` lands `wt/bead/epic/<container>`
 up one level and tears the seat down.
@@ -53,7 +53,7 @@ brief → assign → claim → (work) → show → refine → check → submit �
 | `bh work claim <id> [--as <name>]` | Worker ack: re-attach/provision the worktree with identity + signing, then mark in-progress. |
 | `bh work show <id> [--view V]` | Render the bead branch's local history to judge noise before submit. Read-only. |
 | `bh work refine <id>` | Squash local checkpoint noise into clean conventional digests behind a backup branch + byte-identical gate. |
-| `bh work check <id>` | Run the rig's validation against the worktree; propagate its exit code. |
+| `bh work check <id>` | Run the hive's validation against the worktree; propagate its exit code. |
 | `bh work submit <id>` | Verify clean history, validate from a clean checkout, set `review:pending`, open the review gate. Handoff — not "done". |
 | `bh work resume <id>` | After changes-requested: re-attach a fresh worktree, print the feedback, re-assert the claim. |
 | `bh work abandon <id>` | Release the claim and record the abandon (the recovery path). |
@@ -67,7 +67,7 @@ the recovery path when a bead cannot be salvaged.
 
 ## Review gates
 
-At `submit` the bead's review gate opens; its type is set by the rig's config (`review_gate`):
+At `submit` the bead's review gate opens; its type is set by the hive's config (`review_gate`):
 
 - **human** — a person resolves the gate (approve or changes-requested).
 - **timer** — the gate auto-resolves after a configured interval.

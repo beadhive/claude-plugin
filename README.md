@@ -43,6 +43,10 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
 - **Output style** — `planning-seat`, pinning that contract for a whole session
   (`/config` → Output style).
 - **MCP server** — `bh-mcp` (stdio), exposing planning and hive-management tools.
+- **Hooks** — `PreToolUse` steering that nudges direct `bd` calls to the hive-aware `bh bd`
+  passthrough and auto-approves read-only `bd`/`bh` verbs; a `SessionStart` hook that runs
+  `bh hive context --hook-json` to inject AGF steering for a registered hive that carries no
+  on-disk plugin files.
 
 Start with the `beadhive-concepts` skill for the mental model (hives, molecules, seats, planes).
 
@@ -56,6 +60,12 @@ The runtime preflight is intentionally blocking: if `bh` is missing or older tha
 SessionStart advisory explains the mismatch and PreToolUse denies `bh`/`bd` Bash calls plus `bh`
 MCP tool calls until the CLI is upgraded. If the SessionStart sentinel is absent, the guard fails
 open and leaves the normal permission flow unchanged.
+
+The `SessionStart` hive-context injection reaches Claude Code only — it feeds steering into the
+live session. Other harnesses (e.g. Codex) read steering from an on-disk `AGENTS.md`, so a
+zero-footprint hive still needs `bh hive onboard --furnish`/`--agents` to write that file for
+them; the registry-only path does not cover them. The hook is also a silent no-op on a `bh`
+older than 0.3.0 (no `hive context` verb), so it never breaks session start.
 
 ## License
 

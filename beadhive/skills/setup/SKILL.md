@@ -6,7 +6,7 @@ description: >-
   server at user scope, runs 'bh setup check' to gate post-bh deps, and hands off to
   'bh config init' and the setup-git-workspace sub-skill. Every step probes before acting —
   safe to re-run. Use when setting up a Beadhive workspace on a new machine or resuming a
-  partial setup. This is machine setup, not rig onboarding (that's `bh rig onboard`,
+  partial setup. This is machine setup, not hive onboarding (that's `bh hive onboard`,
   covered by the control skill).
 ---
 
@@ -136,8 +136,8 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Phase 2b — wire the MCP server at user scope
 
-The bh MCP server exposes planning, work, rig, and config tools to every Claude Code session
-across all rigs once it is registered at user scope.
+The bh MCP server exposes planning, work, hive, and config tools to every Claude Code session
+across all hives once it is registered at user scope.
 
 **Probe first:**
 
@@ -160,7 +160,7 @@ claude mcp list
 ```
 
 You should see `bh` in the output. The MCP server is now available to all future Claude Code
-sessions without any per-rig configuration.
+sessions without any per-hive configuration.
 
 ---
 
@@ -230,7 +230,7 @@ key fields:
 - `orgs:` block — add any GitHub orgs or providers the user works with
 - `work.identity.name` — their crew identity for `bh work` sessions
 - `claude.source` — `plugin` (default) keeps seat agents in the installed plugin; `copy`
-  writes them into each rig for offline use
+  writes them into each hive for offline use
 
 Tell the user to copy `~/.beadhive/.env.example` to `~/.beadhive/.env` and fill in any API tokens or
 secrets it references.
@@ -246,7 +246,7 @@ command -v git-workspace
 ```
 
 If `git-workspace` is already configured and the user has repos cloned under `$GIT_WORKSPACE`,
-confirm with the user whether they need the walkthrough, then skip ahead to rig onboarding
+confirm with the user whether they need the walkthrough, then skip ahead to hive onboarding
 if they are already set up.
 
 Otherwise, load the **`setup-git-workspace`** sub-skill to guide the user through:
@@ -283,8 +283,8 @@ refreshes the cache; that is intentional (the cache reflects the current state o
 
 - **Post-bh dependency installation** — `bh setup check` surfaces what is missing; follow
   its output rather than re-implementing the probe table here.
-- **Rig onboarding** — once the user has a configured workspace and git-workspace is set up,
-  rig onboarding is driven by `bh rig onboard` and the rig-specific onboarding flow, not by
+- **Hive onboarding** — once the user has a configured workspace and git-workspace is set up,
+  hive onboarding is driven by `bh hive onboard` and the hive-specific onboarding flow, not by
   this skill.
-- **Claude Code project settings** — per-rig `.claude/settings.json` is written by
-  `bh rig init --claude`, not here.
+- **Claude Code project settings** — per-hive `.claude/settings.json` is written by
+  `bh hive init --claude`, not here.

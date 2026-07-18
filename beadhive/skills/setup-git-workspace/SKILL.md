@@ -50,7 +50,7 @@ skipping it.
 ### GIT_WORKSPACE — the workspace root
 
 `GIT_WORKSPACE` is an environment variable that points to the single directory where all your
-repos live. git-workspace reads this to know where to clone things; bh reads it to locate rigs.
+repos live. git-workspace reads this to know where to clone things; bh reads it to locate hives.
 
 ```bash
 echo "$GIT_WORKSPACE"    # should print the path, e.g. ~/workspace
@@ -87,7 +87,7 @@ This is `<group>/<account>/<repo>` — the same string bh calls a **triplet**
 (e.g. `github/briancripe/workspace`). The first segment is the **repo group's path** (its
 on-disk folder, see the next section). It often matches the provider type (`github`,
 `gitlab`), but doesn't have to — a `contrib/` group can still fetch from GitHub. That triplet
-is how bh identifies rigs in commands like `bh rig onboard github/briancripe/workspace`. The
+is how bh identifies hives in commands like `bh hive onboard github/briancripe/workspace`. The
 layout is not cosmetic — bh depends on it.
 
 If your existing repos are laid out differently (e.g. flat `account/repo` with no group
@@ -101,7 +101,7 @@ separate:
 
 - **`provider`** — HOW you auth + fetch: the mechanism (`github` / `gitlab` / `gitea`)
 - **`name`** — WHICH account/org the group queries
-- **`path`** — the group's on-disk folder — the first segment of the rig triplet
+- **`path`** — the group's on-disk folder — the first segment of the hive triplet
 
 Multiple groups may share one `provider` type (five `github` groups with different accounts
 is normal). Example:
@@ -196,7 +196,7 @@ ls "${GIT_WORKSPACE:-$HOME/workspace}"
 If `git workspace list` returns repos and the layout has the group prefix
 (`github/`, `gitlab/`, etc.), you are in good shape. Nothing further to configure here.
 
-Return to the `setup` skill — rig onboarding is the next step.
+Return to the `setup` skill — hive onboarding is the next step.
 
 **If `git workspace list` fails** (e.g. "no workspace.toml" error), your binary is installed but
 the config is incomplete. Treat this as Branch B.
@@ -231,7 +231,7 @@ or ask the user to load it:
 guide including tokens), then return here.
 
 After the import skill completes and `verify-safe.sh` is green, you are ready for
-`git workspace update`. Return to the `setup` skill for rig onboarding.
+`git workspace update`. Return to the `setup` skill for hive onboarding.
 
 ---
 
@@ -309,7 +309,7 @@ git workspace list
 You should see one line per tracked repo. The directory tree under `$GIT_WORKSPACE` should now
 match the `<group>/<account>/<repo>` layout.
 
-Return to the `setup` skill — rig onboarding is the next step.
+Return to the `setup` skill — hive onboarding is the next step.
 
 ---
 
