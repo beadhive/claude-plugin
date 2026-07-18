@@ -102,6 +102,8 @@ uv --version
 
 ## Phase 2 — install bh (pre-bh)
 
+This plugin requires `bh >=0.3.0`; install or upgrade to a version in that range before wiring MCP.
+
 **Probe first:**
 
 ```sh
