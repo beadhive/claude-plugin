@@ -13,21 +13,45 @@ cp "$PLUGIN_JSON" "$orig_plugin"
 trap 'cp "$orig_plugin" "$PLUGIN_JSON"; rm -rf "$test_tmp" "$orig_plugin"' EXIT
 export TMPDIR="$test_tmp"
 
-run() { # run <script> <tool_name> <command> -> HINT | ALLOW | PASS
+run() { # run <script> <tool_name> <command> [session] [path] -> HINT | ALLOW | DENY | PASS
   local out
   out=$(jq -n --arg t "$2" --arg c "$3" --arg sid "${4:-test-session}" \
-    '{session_id:$sid,tool_name:$t,tool_input:{command:$c}}' | "$1")
+    '{session_id:$sid,tool_name:$t,tool_input:{command:$c}}' | PATH="${5:-$PATH}" "$1")
   if [[ "$out" == *'"permissionDecision":"allow"'* ]]; then echo ALLOW
   elif [[ "$out" == *'"permissionDecision":"deny"'* ]]; then echo DENY
   elif [[ "$out" == *additionalContext* ]]; then echo HINT
   else echo PASS; fi
 }
 
-t() { # t <script> <tool_name> <command> <expected> [session]
-  local got; got=$(run "$1" "$2" "$3" "${5:-test-session}")
+t() { # t <script> <tool_name> <command> <expected> [session] [path]
+  local got; got=$(run "$1" "$2" "$3" "${5:-test-session}" "${6:-}")
   if [[ "$got" != "$4" ]]; then
     echo "FAIL: $2 '$3' -> $got (want $4)"; fail=1
   fi
+}
+
+tc() { # tc <script> <tool_name> <command> <substring> <yes|no> [path] -> asserts substring in/out of raw output
+  local out
+  out=$(jq -n --arg t "$2" --arg c "$3" --arg sid test-session \
+    '{session_id:$sid,tool_name:$t,tool_input:{command:$c}}' | PATH="${6:-$PATH}" "$1")
+  if [[ "$5" == yes && "$out" != *"$4"* ]]; then
+    echo "FAIL: expected '$3' hint to mention '$4' (got: $out)"; fail=1
+  fi
+  if [[ "$5" == no && "$out" == *"$4"* ]]; then
+    echo "FAIL: expected '$3' hint to NOT mention '$4' (got: $out)"; fail=1
+  fi
+}
+
+stub_bv_path() { # stub_bv_path <present|absent> -> PATH string, jq+bh always available
+  local bin="$test_tmp/bin-bv-$1"
+  mkdir -p "$bin"
+  if [[ "$1" == present ]]; then
+    printf '#!/usr/bin/env bash\necho "bv stub"\n' >"$bin/bv"
+    chmod +x "$bin/bv"
+  fi
+  ln -sf "$(command -v jq)" "$bin/jq" 2>/dev/null
+  ln -sf "$(command -v bh)" "$bin/bh" 2>/dev/null
+  printf '%s:/usr/bin:/bin' "$bin"
 }
 
 preflight() { # preflight <session_id> <path> -> HINT | PASS
@@ -63,6 +87,12 @@ t "$STEER" Bash 'bd show x'            HINT
 t "$STEER" Bash 'cd /tmp && bd list'   HINT
 t "$STEER" Bash 'bh bd show x'         PASS
 t "$STEER" Bash 'git log'              PASS
+
+# steer: triage-shaped bd calls conditionally mention bv when it's on PATH
+tc "$STEER" Bash 'bd ready'  'bv' yes "$(stub_bv_path present)"
+tc "$STEER" Bash 'bd ready'  'bv' no  "$(stub_bv_path absent)"
+tc "$STEER" Bash 'bd show x' 'bv' no  "$(stub_bv_path present)"
+t  "$STEER" Bash 'bh bd ready' PASS
 
 # approve: read-only bd/bh allowed
 t "$APPROVE" Bash 'bd show x'                     ALLOW
