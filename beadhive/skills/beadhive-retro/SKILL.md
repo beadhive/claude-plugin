@@ -45,41 +45,89 @@ if you change one of them; it must stay green.
 end to end and produce a report grounded in `analysis.json`'s numbers, not a summary written from
 guesswork.
 
-## Artifact mode: render report.html (or a charted Claude Artifact) instead of the in-chat report
+## Artifact mode: render report-artifact.html (or report.html) instead of the in-chat report
 
 **Default behavior (no flag) is unchanged**: write the report inline in chat per the section
 below. If the user asks for an artifact / file / HTML report (or says "artifact mode"), you have
 **two possible branches** after `analyze.py` — a script can't introspect which skills are loaded
 or whether Artifacts are enabled, so picking the branch is agent-time judgment, made explicitly
-here:
+here. In **both** branches the actual chart-building is scripted and self-tested — you never
+hand-author chart marks (a hand-built pass once shipped a bug where SVG marks were built via
+`element.innerHTML` of bare `<rect>`/`<circle>` tags, which land in the HTML namespace and render
+blank in Brave/Chromium; the macOS `open` preview happens to hide this, which is exactly why it
+shipped — `--selftest` now asserts namespaced creation directly).
 
 ### Capability branch — is `dataviz` (and/or `artifact-design`) available, and are Artifacts on?
 
 If **both** are true — `dataviz` and/or `artifact-design` appear in your available-skills
-listing for this conversation, **and** Claude Artifacts are enabled — build the retro as a
-proper **Claude Artifact** instead of running `render.py`. Load the `dataviz` skill and follow
-its procedure end to end (form heuristic → color-by-job → validate → marks → interaction → a11y),
-using `references/palette.md` in this skill as the brand instance (swap-in for dataviz's default
-placeholder palette — same structure, same six checks already run and documented there) and
-binding directly to this run's `analysis.json` (see "Stable data contract" below — don't
-re-derive numbers). Chart form mapping, one row per `analysis.json` family (final forms, not a
-menu — follow these):
+listing for this conversation, **and** Claude Artifacts are enabled — run the charted renderer:
 
-| `analysis.json` field | Form |
-|---|---|
-| token split (`tokens.exact.totals`) | stacked bar or stat tiles |
-| cache ratio + significant-expiry count (`cache.cacheRatio`, `cache.significantExpiryEventCount`) | hero stat tiles |
-| `models` / `cost.byModel` | bars (surface `cost.unpriced` explicitly, never drop it) |
-| `cost.cacheWasteUSD` | a stat tile beside the expiry call-outs |
-| `activity` distribution | small multiples (one per session) |
-| `cache.expiryEvents` | scatter/timeline — idle gap (x) × wasted tokens (y) |
-| `lifecycle.byEpic` | bar |
+```bash
+python3 scripts/render_artifact.py   # reads <run-dir>/analysis.json -> <run-dir>/report-artifact.html
+```
+
+`render_artifact.py` resolves the run-dir the same way the other three scripts do (via the
+`latest` pointer or `--run-dir`) and writes a single self-contained, interactive
+`report-artifact.html` next to `analysis.json` — inline CSS + inline JS, **zero external refs**
+(no CDN, no external fonts/scripts/stylesheets). Every SVG chart mark is built via
+`document.createElementNS` against the SVG namespace, never via `element.innerHTML` of bare
+`<rect>`/`<circle>` tags. Run `--selftest` if you ever touch the script — it must stay green.
+
+**CLI-vs-canvas realization**: in a context with a real Artifacts canvas, *the Artifact* is that
+canvas — open `report-artifact.html` and paste its contents into an HTML artifact so the canvas
+renders it live (Claude Artifacts support inline HTML+JS directly, no build step). In Claude Code
+CLI (no Artifacts canvas), "the Claude Artifact" is realized as this self-contained
+HTML-with-JS file on disk instead — present its path and tell the user to open it. Either way it
+is a distinct file from `render.py`'s JS-free `report.html` (the fallback below):
+`report-artifact.html` is charted and interactive, `report.html` is tables-only and
+framework-free with no JS at all.
+
+`dataviz` is still worth loading for its color-by-job / accessibility / interaction *vocabulary*
+(this skill's `references/palette.md` is the brand instance of its palette method) when narrating
+or adjusting the artifact — but the chart construction itself is `render_artifact.py`'s job, not
+something to re-derive by hand each run.
+
+Chart form mapping baked into `render_artifact.py`, one row per `analysis.json` family (final
+forms — the script implements every row below, including the scaling and color-job rules; this
+is documentation of what the script does, not a menu to hand-implement):
+
+| `analysis.json` field | Form | Color job |
+|---|---|---|
+| token split (`tokens.exact.totals`) | stacked bar | categorical (token category is unordered) |
+| cache ratio + significant-expiry count (`cache.cacheRatio`, `cache.significantExpiryEventCount`) | hero stat tiles | n/a (single value) |
+| `models.beadsByModel` | stacked bar | sequential/ordinal (planned→implemented→merged is a sequence) |
+| `cost.byModel` | stacked bar (surface `cost.unpriced` explicitly, never drop it) | categorical (cost components are unordered) |
+| `cost.cacheWasteUSD` | a stat tile beside the expiry call-outs | n/a (single value) |
+| `activity` distribution | aggregate stacked bar + capped, sorted small multiples (one per session, top-N by activity — see scaling below) | status (planning/implementing/diagnosing/fixing are discrete states) |
+| `cache.expiryEvents` | scatter/timeline — idle gap (x) × wasted tokens (y) | status (warning-toned points; magnitude via radius, not hue) |
+| `lifecycle.byEpic` | top-N + "+N more" aggregate bar (see scaling below) | sequential/ordinal (planned→implemented→merged) |
+| `failures` | grouped bar, beads/bh vs other | status (failed vs not) |
+| `skillReads` | top-N + "+N more" aggregate bar, bh:/beads: vs other | categorical (skill identity is unordered) |
+
+**Scaling guidance (high-cardinality families)**: `lifecycle.byEpic` and `activity`'s per-session
+small multiples are both unbounded by construction — a real run had ~81 epics and ~41 sessions,
+so a plain "one bar per epic" / "one tiny chart per session" render is unusable.
+`render_artifact.py` enforces a concrete cap for each: top 12 epics (sorted by total lifecycle
+events) with the remainder folded into one aggregate "+N more" bar, and small multiples capped at
+the top 24 sessions by activity volume with the remainder folded into one aggregate "+N more"
+tile. `skillReads` gets the same top-12-plus-aggregate treatment. Aggregate bars/tiles render at
+lower opacity with a dashed border to signal "rolled up, not a single real entity" — the
+remainder is always folded into a visible aggregate, never silently dropped.
 
 Legend for any chart with ≥ 2 series (categorical color from `palette.md`'s fixed slot order,
 never cycled or reassigned); a table view alongside every chart for accessibility; dark mode
 (the palette's dark columns) as the primary/default theme, matching `report.html`'s dark-first
-default. Present the Artifact instead of `report.html` — don't also render and link the plain
-file when the Artifact path is taken.
+default.
+
+**Cost caveat on the visual itself**: `cost.unpriced` must never be surfaced only in prose —
+`render_artifact.py`'s cost chart carries the estimate/under-count caveat as a footnote drawn
+directly on the SVG bar chart itself (in addition to the section note above it), and the cost
+table appends an explicit `unpriced` row rather than omitting the excluded model families. If you
+ever hand-adjust the cost visual, keep this rule: the caveat must be legible on the tile/chart
+itself, not only in the surrounding text.
+
+Present the Artifact instead of `report.html` — don't also render and link the plain file when
+the Artifact path is taken.
 
 ### Fallback — no dataviz/Artifacts
 
@@ -100,26 +148,28 @@ old unstyled gray theme — rarely needed). So the fallback is always on-brand, 
 than the Artifact path, with zero new runtime deps either way.
 
 When artifact mode is requested (either branch), **present the artifact to the user instead of
-writing the full report in chat**: give `report.html`'s path (or show the Artifact) and tell them
-to open it. A short in-chat summary (a couple of headline numbers) is fine, but don't re-paste
-the full per-section report — that's what the artifact is for. The numbers must still be the same
-ones grounded in `analysis.json`; rendering just formats them.
+writing the full report in chat**: give the rendered file's path (`report-artifact.html` or
+`report.html`, whichever branch ran) — or show the Artifact directly if you pasted it into a
+canvas — and tell them to open it. A short in-chat summary (a couple of headline numbers) is
+fine, but don't re-paste the full per-section report — that's what the artifact is for. The
+numbers must still be the same ones grounded in `analysis.json`; rendering just formats them.
 
 ## Stable data contract
 
 `analysis.json` is the artifact input contract — for **both** branches above. It has one
 top-level key per metric family: `lifecycle`, `failures`, `skillReads`, `tokens`, `cache`,
-`activity`, `models`, `cost`, `meta` (formulas in `references/metrics.md`). A dataviz-guided
-Artifact (or a future React Artifact) binds to these fields directly rather than re-deriving
-numbers — the same grounding rule `render.py` already follows: every value traces back to
-`analysis.json` verbatim. Treat this family list as stable; if `analyze.py` ever adds or renames
-a top-level family, update this list and `metrics.md` together.
+`activity`, `models`, `cost`, `meta` (formulas in `references/metrics.md`). `render_artifact.py`
+binds to these fields directly rather than re-deriving numbers — the same grounding rule
+`render.py` already follows: every value traces back to `analysis.json` verbatim. Treat this
+family list as stable; if `analyze.py` ever adds or renames a top-level family, update this list,
+`metrics.md`, and both renderers' family coverage together.
 
 ## Read `analysis.json`, then write the report
 
 This section is the default in-chat report (no artifact flag). If artifact mode was requested,
-skip straight to presenting `report.html` (see above) — the same grounding rules below still
-apply to what `render.py` put in it, you just aren't retyping it into chat.
+skip straight to presenting `report-artifact.html` or `report.html` (see above) — the same
+grounding rules below still apply to what the renderer put in it, you just aren't retyping it
+into chat.
 
 `analysis.json` has one top-level key per metric family — `lifecycle`, `failures`, `skillReads`,
 `tokens`, `cache`, `activity`, `models`, `cost`, `meta`. The exact formula behind each is **not**
