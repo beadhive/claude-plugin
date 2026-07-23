@@ -86,6 +86,7 @@ def extract_session(path: str) -> dict:
     read_chars = 0
     write_chars = 0
     session_id = None
+    cc_versions = set()
 
     with open(path, "r", errors="replace") as f:
         for line in f:
@@ -100,6 +101,9 @@ def extract_session(path: str) -> dict:
             session_id = rec.get("sessionId", session_id)
             ts = rec.get("timestamp")
             is_sidechain = bool(rec.get("isSidechain", False))
+            version = rec.get("version")
+            if version:
+                cc_versions.add(str(version))
             message = rec.get("message")
             if not isinstance(message, dict):
                 continue
@@ -166,6 +170,7 @@ def extract_session(path: str) -> dict:
         "usageSeries": usage_series,
         "toolEvents": tool_events,
         "contentSizes": {"readChars": read_chars, "writeChars": write_chars},
+        "ccVersions": sorted(cc_versions),
     }
 
 
@@ -185,6 +190,7 @@ def selftest() -> None:
             "sessionId": "sess-x",
             "isSidechain": False,
             "timestamp": "2026-07-20T10:00:00Z",
+            "version": "2.1.207",
             "message": {
                 "role": "assistant",
                 "model": "claude-sonnet-5",
@@ -207,6 +213,7 @@ def selftest() -> None:
             "sessionId": "sess-x",
             "isSidechain": False,
             "timestamp": "2026-07-20T10:01:00Z",
+            "version": "2.1.208",
             "message": {
                 "role": "user",
                 "content": [
@@ -252,6 +259,8 @@ def selftest() -> None:
 
     assert result["contentSizes"]["writeChars"] == len("hello world")
     assert result["contentSizes"]["readChars"] == len("error: not found") + len("Created issue: bh-cp-42 — x")
+
+    assert result["ccVersions"] == ["2.1.207", "2.1.208"], result["ccVersions"]
 
     print("extract.py --selftest: OK")
 
