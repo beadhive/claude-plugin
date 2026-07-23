@@ -3,8 +3,12 @@
 
 Stdlib only. See ../references/metrics.md for the marker/window rules this implements.
 
+By default, writes into a new `~/.beadhive/retros/<run-id>/` folder (run-id derived from this
+run's own since/generatedAt/session-count — see _rundir.py) and updates the `latest` pointer.
+Pass `--out` or `--run-dir` to target an arbitrary directory instead (ad-hoc/CI use).
+
 Usage:
-    identify.py [--since <iso|auto>] [--projects <glob>] [--out identify.json]
+    identify.py [--since <iso|auto>] [--projects <glob>] [--out identify.json] [--run-dir DIR]
     identify.py --selftest
 """
 from __future__ import annotations
@@ -16,6 +20,8 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+
+import _rundir
 
 PROJECTS_ROOT = os.path.expanduser("~/.claude/projects")
 BEAD_ID_RE = re.compile(r"\bbh-[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)?\b")
@@ -183,6 +189,7 @@ def run(since: str, projects_glob: str) -> dict:
     return {
         "window": {"since": boundary_iso, "auto_detected": since == "auto", "detected": detected},
         "sessions": qualifying,
+        "generatedAt": now.isoformat(),
     }
 
 
@@ -282,14 +289,81 @@ def selftest() -> None:
     assert detected is True
     assert parse_ts(boundary_iso) == after, f"expected boundary at gap trailing edge {after}, got {boundary_iso}"
 
+    assert "generatedAt" in result and result["generatedAt"], "run() must stamp generatedAt"
+
+    # run-id/hash8 scheme regression: pinned against a real, previously-generated run folder
+    # (~/.beadhive/retros/20260723-194626-a9ce66d5/) so the naming scheme can't silently drift.
+    run_id = _rundir.compute_run_id(
+        since="2026-07-18T14:39:56.568000+00:00",
+        generated_at="2026-07-23T19:46:26.522774+00:00",
+        session_count=39,
+    )
+    assert run_id == "20260723-194626-a9ce66d5", run_id
+
+    _rundir_selftest()
+
     print("identify.py --selftest: OK")
+
+
+def _rundir_selftest() -> None:
+    """Exercise _rundir's directory-creation, fallback, and latest-pointer logic in isolation
+    (monkeypatched RETROS_ROOT/LATEST_POINTER so it never touches the real ~/.beadhive)."""
+    import tempfile
+
+    tmpdir = tempfile.mkdtemp()
+    orig_root, orig_latest = _rundir.RETROS_ROOT, _rundir.LATEST_POINTER
+    _rundir.RETROS_ROOT = os.path.join(tmpdir, "retros")
+    _rundir.LATEST_POINTER = os.path.join(_rundir.RETROS_ROOT, "latest")
+    try:
+        run_dir, degraded = _rundir.new_run_dir("20260101-000000-deadbeef")
+        assert degraded is False
+        assert run_dir == os.path.join(_rundir.RETROS_ROOT, "20260101-000000-deadbeef")
+        assert os.path.isdir(run_dir)
+
+        assert _rundir.read_latest_pointer() is None
+        _rundir.write_latest_pointer(run_dir)
+        assert _rundir.read_latest_pointer() == run_dir
+        assert _rundir.resolve_run_dir(None) == run_dir
+        assert _rundir.resolve_run_dir("/explicit/override") == "/explicit/override"
+
+        # fallback: RETROS_ROOT pointed at a path that can't be created (parent is a file, not
+        # a dir) -> degrades to cwd rather than raising.
+        blocker = os.path.join(tmpdir, "blocker")
+        with open(blocker, "w") as f:
+            f.write("x")
+        _rundir.RETROS_ROOT = os.path.join(blocker, "retros")
+        fallback_dir, degraded = _rundir.new_run_dir("20260101-000000-deadbeef")
+        assert degraded is True
+        assert fallback_dir == os.getcwd()
+    finally:
+        _rundir.RETROS_ROOT, _rundir.LATEST_POINTER = orig_root, orig_latest
+
+
+def resolve_out_path(args, result: dict) -> str:
+    """Pick identify.json's output path: explicit --out/--run-dir win; otherwise a fresh
+    ~/.beadhive/retros/<run-id>/ folder is created (and `latest` updated) from this run's own
+    metadata."""
+    if args.out:
+        return args.out
+    if args.run_dir:
+        os.makedirs(args.run_dir, exist_ok=True)
+        return os.path.join(args.run_dir, "identify.json")
+
+    run_id = _rundir.compute_run_id(
+        result["window"]["since"], result["generatedAt"], len(result["sessions"])
+    )
+    run_dir, degraded = _rundir.new_run_dir(run_id)
+    if not degraded:
+        _rundir.write_latest_pointer(run_dir)
+    return os.path.join(run_dir, "identify.json")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since", default="auto", help="ISO timestamp or 'auto' (default)")
     parser.add_argument("--projects", default="*", help="glob for project dir names under ~/.claude/projects")
-    parser.add_argument("--out", default="identify.json", help="output path")
+    parser.add_argument("--out", default=None, help="output path (default: a new ~/.beadhive/retros/<run-id>/identify.json)")
+    parser.add_argument("--run-dir", dest="run_dir", default=None, help="write identify.json into this directory instead of a new ~/.beadhive/retros/<run-id>/ folder")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
 
@@ -298,9 +372,10 @@ def main() -> None:
         return
 
     result = run(args.since, args.projects)
-    with open(args.out, "w") as f:
+    out_path = resolve_out_path(args, result)
+    with open(out_path, "w") as f:
         json.dump(result, f, indent=2)
-    print(f"identify.py: {len(result['sessions'])} qualifying sessions, window since {result['window']['since']} -> {args.out}")
+    print(f"identify.py: {len(result['sessions'])} qualifying sessions, window since {result['window']['since']} -> {out_path}")
 
 
 if __name__ == "__main__":

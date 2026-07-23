@@ -4,18 +4,25 @@
 Stdlib only, offline (no live bd/bh xref) — runs against extract output alone. Consumes
 extract.jsonl; outputs analysis.json.
 
+By default, resolves extract.jsonl/writes analysis.json in the same run-dir as identify.py:
+explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative defaults.
+`--in`/`--out` always override individually.
+
 Usage:
-    analyze.py [--in extract.jsonl] [--out analysis.json]
+    analyze.py [--in extract.jsonl] [--out analysis.json] [--run-dir DIR]
     analyze.py --selftest
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+import _rundir
 
 BEAD_ID_RE = re.compile(r"\bbh-[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)?\b")
 
@@ -671,13 +678,50 @@ def selftest() -> None:
     assert isinstance(meta["bhVersion"], str) and meta["bhVersion"]
     assert "generatedAt" in meta
 
+    # run-dir resolution: explicit flags win; else resolved run-dir; else legacy cwd filenames.
+    import tempfile
+
+    orig_root, orig_latest = _rundir.RETROS_ROOT, _rundir.LATEST_POINTER
+    tmpdir = tempfile.mkdtemp()
+    _rundir.RETROS_ROOT = os.path.join(tmpdir, "retros")
+    _rundir.LATEST_POINTER = os.path.join(_rundir.RETROS_ROOT, "latest")
+    try:
+        assert resolve_paths(None, None, None) == ("extract.jsonl", "analysis.json")
+
+        run_dir, _ = _rundir.new_run_dir("20260101-000000-deadbeef")
+        _rundir.write_latest_pointer(run_dir)
+        assert resolve_paths(None, None, None) == (
+            os.path.join(run_dir, "extract.jsonl"),
+            os.path.join(run_dir, "analysis.json"),
+        )
+        assert resolve_paths(None, "custom.json", None) == (
+            os.path.join(run_dir, "extract.jsonl"),
+            "custom.json",
+        )
+        assert resolve_paths(None, None, "/explicit/dir") == (
+            "/explicit/dir/extract.jsonl",
+            "/explicit/dir/analysis.json",
+        )
+    finally:
+        _rundir.RETROS_ROOT, _rundir.LATEST_POINTER = orig_root, orig_latest
+
     print("analyze.py --selftest: OK")
+
+
+def resolve_paths(infile, out, run_dir_arg) -> tuple[str, str]:
+    """(infile, out) with explicit flags winning, else the resolved run-dir, else legacy
+    cwd-relative filenames."""
+    run_dir = _rundir.resolve_run_dir(run_dir_arg)
+    infile = infile or (os.path.join(run_dir, "extract.jsonl") if run_dir else "extract.jsonl")
+    out = out or (os.path.join(run_dir, "analysis.json") if run_dir else "analysis.json")
+    return infile, out
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--in", dest="infile", default="extract.jsonl")
-    parser.add_argument("--out", default="analysis.json")
+    parser.add_argument("--in", dest="infile", default=None, help="extract.jsonl path (default: <run-dir>/extract.jsonl)")
+    parser.add_argument("--out", default=None, help="default: <run-dir>/analysis.json")
+    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve extract.jsonl/analysis.json in (default: latest pointer, else cwd)")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
 
@@ -685,11 +729,12 @@ def main() -> None:
         selftest()
         return
 
-    sessions = load_extract(args.infile)
+    infile, out = resolve_paths(args.infile, args.out, args.run_dir)
+    sessions = load_extract(infile)
     result = analyze(sessions)
-    with open(args.out, "w") as f:
+    with open(out, "w") as f:
         json.dump(result, f, indent=2)
-    print(f"analyze.py: analyzed {len(sessions)} sessions -> {args.out}")
+    print(f"analyze.py: analyzed {len(sessions)} sessions -> {out}")
 
 
 if __name__ == "__main__":

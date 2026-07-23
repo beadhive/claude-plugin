@@ -22,15 +22,24 @@ sessions, writing the narrative, picking recommendations).
 From this skill's directory (`scripts/` is relative to `SKILL.md`):
 
 ```bash
-python3 scripts/identify.py --since auto        # -> identify.json
-python3 scripts/extract.py                       # reads identify.json -> extract.jsonl, events.jsonl
-python3 scripts/analyze.py                        # reads extract.jsonl -> analysis.json
+python3 scripts/identify.py --since auto   # -> ~/.beadhive/retros/<run-id>/identify.json
+python3 scripts/extract.py                 # -> extract.jsonl, events.jsonl in the same run-dir
+python3 scripts/analyze.py                 # -> analysis.json in the same run-dir
 ```
 
-Each phase's output feeds the next; run them from a scratch/working directory (they read/write
-the current directory by default). Pass `--since <iso>` to `identify.py` to override
-auto-detection with an explicit boundary. Each script also has `--selftest` — run it if you
-change one of them; it must stay green.
+No path args needed for the common case: `identify.py` creates a fresh, datetime-named run
+folder under `~/.beadhive/retros/<YYYYMMDD-HHMMSS>-<hash8>/` (the id is derived from the run's
+own `since`/`generatedAt`/session-count — see `scripts/_rundir.py`), writes `identify.json`
+there, and points `~/.beadhive/retros/latest` at it. `extract.py` and `analyze.py` pick up that
+same run-dir automatically via the `latest` pointer, so each run's four artifacts
+(`identify.json`, `extract.jsonl`, `events.jsonl`, `analysis.json`) land together and accumulate
+run-over-run for comparison.
+
+Pass `--since <iso>` to `identify.py` to override auto-window-detection with an explicit
+boundary. Pass `--run-dir <dir>` (all three scripts) or `--out`/`--in`/`--events` (individually)
+to target an arbitrary directory instead — e.g. for an ad-hoc or CI invocation that shouldn't
+touch `~/.beadhive/retros/` or the `latest` pointer. Each script also has `--selftest` — run it
+if you change one of them; it must stay green.
 
 **This is the acceptance bar for this skill**: invoking it must actually run all three phases
 end to end and produce a report grounded in `analysis.json`'s numbers, not a summary written from
