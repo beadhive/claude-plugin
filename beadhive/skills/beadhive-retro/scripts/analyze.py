@@ -14,7 +14,7 @@ import argparse
 import json
 import re
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 BEAD_ID_RE = re.compile(r"\bbh-[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)?\b")
@@ -301,7 +301,7 @@ def analyze_models(sessions: list) -> dict:
             b["eph1h"] += u.get("eph1h", 0)
             total = u["input"] + u["output"] + u["cache_read"] + u.get("cache_creation", 0)
             session_totals[model_id] = session_totals.get(model_id, 0) + total
-        dominant = max(session_totals, key=session_totals.get) if session_totals else None
+        dominant = max(session_totals, key=lambda m: session_totals[m]) if session_totals else None
         by_session[session["sessionId"]] = {"models": sorted(models_seen), "dominant": dominant}
 
     for entry in by_model.values():
@@ -329,8 +329,8 @@ def analyze_models(sessions: list) -> dict:
                     continue
                 seen.add(key)
                 model_id = ts_model.get(event.get("ts")) or "unknown"
-                bucket = beads_by_model.setdefault(model_id, {"planned": 0, "implemented": 0, "merged": 0})
-                bucket[stage] += 1
+                model_bucket = beads_by_model.setdefault(model_id, {"planned": 0, "implemented": 0, "merged": 0})
+                model_bucket[stage] += 1
 
     return {
         "byModel": by_model,
@@ -446,7 +446,7 @@ def analyze_meta(sessions: list, pricing: dict) -> dict:
     }
 
 
-def analyze(sessions: list, pricing: dict = None) -> dict:
+def analyze(sessions: list, pricing: dict | None = None) -> dict:
     if pricing is None:
         pricing = load_pricing()
     cache = analyze_cache(sessions)
