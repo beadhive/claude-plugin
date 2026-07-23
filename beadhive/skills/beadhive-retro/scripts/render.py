@@ -480,6 +480,17 @@ def selftest() -> None:
     assert len(recs["usagePattern"]) >= 1
     assert len(recs["productImprovements"]) <= 3
 
+    # conditional unpriced caveat (bh-cp-og2.2 fix 7): the caveat text is NOT hardcoded --
+    # it disappears once cost.unpriced.models is empty (e.g. once fable is priced, per
+    # bh-cp-8xo). Re-render with an all-priced cost block and confirm the caveat is gone.
+    priced_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": [],
+    }}}
+    priced_html = render_html(priced_analysis)
+    assert "unpriced model families" not in priced_html
+    assert "pricing.json has no rate for model family/families" not in priced_html
+    assert "claude-mystery-1" not in priced_html
+
     # branded-by-default: no flag needed, honeycomb palette hex values present.
     assert BRAND["surface"] in out_html
     assert BRAND["accent"] in out_html
