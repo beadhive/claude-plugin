@@ -142,6 +142,15 @@ def build_css() -> str:
   #tip{{position:fixed;pointer-events:none;background:var(--plane);color:var(--ink);
     border:1px solid var(--ring);border-radius:7px;padding:.4rem .55rem;font-size:.78rem;
     opacity:0;transition:opacity .08s;z-index:9;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:260px}}
+  .rec-card{{background:var(--panel);border-radius:9px;padding:.6rem .85rem;margin:.5rem 0}}
+  .rec-what{{font-weight:600;color:var(--ink)}}
+  .rec-why{{color:var(--muted);font-size:.85rem;margin-top:.2rem}}
+  .copy-fb-btn{{background:var(--accent);color:var(--plane);border:none;border-radius:6px;
+    padding:.45rem .9rem;font-size:.82rem;font-weight:600;cursor:pointer}}
+  .copy-fb-btn:hover{{opacity:.85}}
+  .fb-fallback{{display:none;width:100%;margin-top:.5rem;font:12px/1.4 monospace;
+    background:var(--panel);color:var(--ink);border:1px solid var(--ring);border-radius:7px;
+    padding:.5rem}}
   footer{{color:var(--muted);font-size:.78rem;margin-top:1.5rem;text-align:center}}
 """
 
@@ -163,7 +172,13 @@ const SVGNS = '__SVG_NS_URL__';
 // silently fail to render in Brave/Chromium. Every mark below goes through E().
 function E(tag,attrs){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
 function T(attrs,str){const t=E('text',attrs);t.textContent=str;return t;}
-function SVG(w,h){return E('svg',{viewBox:`0 0 ${w} ${h}`,width:w,height:h,role:'img'});}
+// Responsive SVG: a numeric width/height presentation attribute is an intrinsic size a
+// wide card can never grow past (CSS max-width:100% only shrinks) -- that's what let v1's
+// bar/scatter charts letterbox short of the card's right edge. width:'100%' + no height
+// attribute makes the SVG a replaced element sized by its container, with height derived
+// from the viewBox's intrinsic aspect ratio (same fix family as the %-width stackedBar()
+// below, adapted to SVG via the standard viewBox+preserveAspectRatio technique).
+function SVG(w,h){return E('svg',{viewBox:`0 0 ${w} ${h}`,width:'100%',preserveAspectRatio:'xMidYMid meet',role:'img'});}
 const $=(h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild;};
 const fmt=(n)=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':(''+Math.round(n));
 const usd=(n)=>'$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -221,6 +236,47 @@ function smallMultiple(grid,keys,cols,label,counts){
    const r=E('rect',{class:'seg',x:x,y:0,width:Math.max(0,w-0.5),height:12,fill:cols[i]});
    hov(r,`<b>${label}</b><br>${k}: ${counts[k]}`);svg.appendChild(r);}x+=w;});
  cell.appendChild(svg);grid.appendChild(cell);}
+
+// recommendation card: splits a grounded recommendation sentence on its first ' — ' (every
+// generate_recommendations() item is written observation-first, rationale-after, delimited by
+// an em dash) into a bold "what" line + a muted "why" line, so it reads as an explained action
+// instead of a bare fact. No delimiter found -> the whole sentence is the "what", no "why".
+function recCard(container,item){
+ const idx=item.indexOf(' — ');
+ const what=idx>=0?item.slice(0,idx):item, why=idx>=0?item.slice(idx+3):'';
+ container.appendChild($(`<div class="rec-card"><div class="rec-what">${what}</div>${why?`<div class="rec-why">${why}</div>`:''}</div>`));}
+function recCards(container,items){
+ if(!items.length){container.appendChild($('<p class="note">None grounded in this run\'s data.</p>'));return;}
+ items.forEach(i=>recCard(container,i));}
+
+// Maintainer copy-feedback message: paste-ready, grounded in THIS run's concrete data —
+// the productImprovements bullets (already version-stamped by generate_recommendations()) plus
+// a handful of actual failing calls from failures.examples (offending command, error text,
+// session id) so a maintainer has a real instance to act on, not just an aggregate count.
+function buildFeedbackMessage(){
+ const meta=A.meta||{};
+ const stamp=`bh ${meta.bhVersion} / plugin ${meta.pluginVersion} / bd ${meta.bdVersion} (CC ${(meta.ccVersions||['unknown']).join(',')})`;
+ const lines=[`Beadhive retro feedback — ${stamp}`,''];
+ const prod=(A.recommendations&&A.recommendations.productImprovements)||[];
+ lines.push('Observations:');
+ lines.push(prod.length?prod.map((p,i)=>`${i+1}. ${p}`).join('\n'):'(none grounded in this run\'s data)');
+ const examples=(A.failures&&A.failures.examples)||[];
+ if(examples.length){
+   lines.push('','Concrete examples from this run:');
+   examples.forEach(e=>{lines.push(`- session ${e.sessionId} · ${e.tool} (${e.class}): \`${e.detail}\`${e.errorText?` — error: ${e.errorText}`:''}`);});}
+ return lines.join('\n');}
+
+// Primary path: the async Clipboard API. Fallback (Clipboard API absent/denied -- common under
+// a file:// origin, which is how this artifact is usually opened): reveal a pre-filled,
+// pre-selected textarea so the user can Cmd/Ctrl+C manually -- a "select-text" fallback, not a
+// silent failure.
+async function copyFeedback(btn,fallbackTa){
+ const msg=buildFeedbackMessage();
+ const reset=()=>setTimeout(()=>{btn.textContent='Copy feedback';},2200);
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+   try{await navigator.clipboard.writeText(msg);btn.textContent='Copied!';reset();return;}catch(err){/* fall through */}}
+ fallbackTa.value=msg;fallbackTa.style.display='block';fallbackTa.focus();fallbackTa.select();
+ btn.textContent='Select & copy below';reset();}
 
 document.getElementById('sub').innerHTML =
   `${Object.keys(A.activity).length} sessions · bh <code>${A.meta.bhVersion}</code> · plugin <code>${A.meta.pluginVersion}</code> · bd <code>${A.meta.bdVersion}</code> · CC ${(A.meta.ccVersions||['unknown']).join(',')} · cost <span class="est">estimated</span> asOf ${A.cost.pricingAsOf}`;
@@ -350,42 +406,53 @@ document.getElementById('foot').textContent =
  if(rest.length)tableRows.push([`+${rest.length} more`,restSums[0],restSums[1],restSums[2]]);
  table(s,['epic','planned','impl','merged'],tableRows);}
 
-// skill reads — top-N + aggregate bar (categorical color job: skill names are unordered).
-// Absent from the v1 form-map; added per SKILL.md's form-map coverage fix.
-{const inv=A.skillReads.invocations||{};
- const bh=inv.bhBeads||{},oth=inv.other||{};
- const rows=Object.entries(Object.assign({},bh,oth)).sort((a,b)=>b[1]-a[1]);
+// Tool-class coloring shared by the skill-invocations and failed-tool-calls charts below:
+// four fixed classes, in fixed order, mapped to the categorical palette's slots 1-4
+// (amber/teal/violet/moss — palette.md) so the same class always reads the same color
+// across both charts. `raw-beads`/`raw-git` each fold in their `bh bd`/`bh git` passthrough
+// sub-case (toolClasses.byTool already sums direct+passthrough into the class total).
+const TOOL_CLASSES=['beadhive','raw-beads','raw-git','other'];
+const TOOL_CLASS_COLORS=[CATS[0],CATS[1],CATS[2],CATS[3]];
+const TOOL_CLASS_CAPTION='raw-beads/raw-git = where Beadhive isn\'t handling it and the agent reached for the raw tool.';
+const byTool=(c,name)=>((A.toolClasses||{})[c]||{}).byTool?.[name];
+
+// skill reads — top-N + aggregate bar (categorical color job: skill names are unordered),
+// now colored by tool class (beadhive/raw-beads/raw-git/other) instead of a flat bh:/beads:
+// vs other binary, sourced from toolClasses (a Skill event's byTool key is its skill id —
+// see analyze.py's _tool_class_key — distinguished from a bare tool-type key by the ':'
+// every skill id carries, e.g. 'bh:planner').
+{const skillNames=new Set();
+ TOOL_CLASSES.forEach(c=>Object.keys(((A.toolClasses||{})[c]||{}).byTool||{}).forEach(n=>{if(n.includes(':'))skillNames.add(n);}));
+ const rows=Array.from(skillNames)
+   .map(name=>[name,TOOL_CLASSES.reduce((sum,c)=>sum+(byTool(c,name)?.total||0),0)])
+   .sort((a,b)=>b[1]-a[1]);
  const shown=rows.slice(0,SKILL_TOP_N),rest=rows.slice(SKILL_TOP_N);
- // One bar per skill NAME, stacked/colored by the same binary bh:/beads: vs other tier
- // used for the failed-tool-calls chart — a skill only ever lands in one tier, so this
- // reads as "bar height = invocations, bar color = which tier", not a real 2-part stack.
- const groups=shown.map(([k])=>({name:k,vals:[bh[k]||0,oth[k]||0]}));
+ const groups=shown.map(([name])=>({name,vals:TOOL_CLASSES.map(c=>byTool(c,name)?.total||0)}));
  let restSum=0;if(rest.length)restSum=rest.reduce((a,[,v])=>a+v,0);
- const s=sec('Skill invocations <span class="accent">·</span> bh:/beads: vs other',
+ const s=sec('Skill invocations <span class="accent">·</span> beadhive / raw-beads / raw-git / other',
    `by invocation count, top ${SKILL_TOP_N} of ${rows.length} shown in the chart` +
    (rest.length?` (remaining ${rest.length} skills — ${fmt(restSum)} invocations — see the table below)`:'') +
-   `. SKILL.md itself was read ${A.skillReads.skillMdReads} time(s) across sessions.`);
- legend(s,[[CATS[0],'bh:/beads:'],[CATS[7],'other']]);
- if(groups.length)vbars(s,groups,[{name:'bh:/beads:',color:CATS[0]},{name:'other',color:CATS[7]}],{stacked:true});
- table(s,['skill','invocations'],rows.map(([k,v])=>[k,v]));}
+   `. SKILL.md itself was read ${A.skillReads.skillMdReads} time(s) across sessions. ${TOOL_CLASS_CAPTION}`);
+ legend(s,TOOL_CLASSES.map((c,i)=>[TOOL_CLASS_COLORS[i],c]));
+ if(groups.length)vbars(s,groups,TOOL_CLASSES.map((c,i)=>({name:c,color:TOOL_CLASS_COLORS[i]})),{stacked:true});
+ table(s,['skill','invocations'],rows);}
 
-// failed tool calls — grouped bar (status color job: failed is a state, beads/bh vs other
-// is the grouping). Absent from the v1 form-map; added per SKILL.md's form-map coverage fix.
-{const f=A.failures;const bh=f.beadsBh||{},oth=f.other||{};
- // One bar per failing TOOL NAME (Bash, Edit, Read, ...), stacked/colored by the binary
- // beads/bh vs other tier — a tool like Bash can fail in both tiers (a beads/bh command
- // vs any other), so this is a real 2-color stack, unlike the skill-invocations chart.
- const toolNames=Array.from(new Set([...Object.keys(bh),...Object.keys(oth)]))
-   .sort((a,b)=>((bh[b]||0)+(oth[b]||0))-((bh[a]||0)+(oth[a]||0)));
- const s=sec('Failed tool calls <span class="accent">·</span> by tool, beads/bh vs other',
-   'one bar per failing tool; stacked/colored by whether that failure was a bd/bh invocation or another tool.');
- legend(s,[[CATS[0],'beads/bh'],[CATS[7],'other']]);
+// failed tool calls — stacked bar, now colored by tool class instead of a flat beads/bh vs
+// other binary. One bar per failing NAME (a Skill event's own skill id, else its tool type —
+// same byTool keying toolClasses uses everywhere), stacked/colored by class.
+{const names=new Set();
+ TOOL_CLASSES.forEach(c=>Object.keys(((A.toolClasses||{})[c]||{}).byTool||{}).forEach(n=>{if((byTool(c,n)?.failed||0)>0)names.add(n);}));
+ const toolNames=Array.from(names)
+   .sort((a,b)=>TOOL_CLASSES.reduce((s,c)=>s+(byTool(c,b)?.failed||0),0)-TOOL_CLASSES.reduce((s,c)=>s+(byTool(c,a)?.failed||0),0));
+ const s=sec('Failed tool calls <span class="accent">·</span> by tool, beadhive / raw-beads / raw-git / other',
+   `one bar per failing tool/skill; stacked/colored by tool class. ${TOOL_CLASS_CAPTION}`);
+ legend(s,TOOL_CLASSES.map((c,i)=>[TOOL_CLASS_COLORS[i],c]));
  if(toolNames.length){
-   vbars(s,toolNames.map(t=>({name:t,vals:[bh[t]||0,oth[t]||0]})),
-     [{name:'beads/bh',color:CATS[0]},{name:'other',color:CATS[7]}],{stacked:true});
+   vbars(s,toolNames.map(name=>({name,vals:TOOL_CLASSES.map(c=>byTool(c,name)?.failed||0)})),
+     TOOL_CLASSES.map((c,i)=>({name:c,color:TOOL_CLASS_COLORS[i]})),{stacked:true});
  }else{s.appendChild($('<p class="note">No failed tool calls this run.</p>'));}
- const rows=Object.entries(bh).map(([k,v])=>['beads/bh · '+k,v])
-   .concat(Object.entries(oth).map(([k,v])=>['other · '+k,v]))
+ const rows=TOOL_CLASSES.flatMap(c=>Object.entries(((A.toolClasses||{})[c]||{}).byTool||{})
+     .filter(([,v])=>v.failed>0).map(([k,v])=>[`${c} · ${k}`,v.failed]))
    .sort((a,b)=>b[1]-a[1]);
  table(s,['group / tool','count'],rows);}
 
@@ -398,13 +465,19 @@ document.getElementById('foot').textContent =
 {const r=A.recommendations||{prose:'',usagePattern:[],productImprovements:[]};
  const s=sec('Recommendations');
  if(r.prose)s.appendChild($(`<p class="note">${r.prose}</p>`));
- const bullets=(items)=>items.length
-   ?`<ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul>`
-   :`<p class="note">None grounded in this run's data.</p>`;
  s.appendChild($('<h3 style="margin:.9rem 0 .3rem;color:var(--ink2);font-size:.92rem">Usage-pattern <span style="color:var(--muted);font-weight:400">(for you)</span></h3>'));
- s.appendChild($(bullets(r.usagePattern)));
+ recCards(s,r.usagePattern);
  s.appendChild($('<h3 style="margin:.9rem 0 .3rem;color:var(--ink2);font-size:.92rem">Beadhive product improvements <span style="color:var(--muted);font-weight:400">(for maintainers)</span></h3>'));
- s.appendChild($(bullets(r.productImprovements)));}
+ recCards(s,r.productImprovements);
+ // Maintainer copy-feedback: a paste-ready message grounded in this run's own
+ // productImprovements + failures.examples (see buildFeedbackMessage), with a
+ // select-text fallback for contexts (e.g. file://) where the Clipboard API is denied.
+ const fbWrap=$('<div style="margin-top:.7rem"></div>');
+ const fbBtn=$('<button type="button" class="copy-fb-btn">Copy feedback</button>');
+ const fbTa=$('<textarea class="fb-fallback" readonly></textarea>');
+ fbBtn.addEventListener('click',()=>copyFeedback(fbBtn,fbTa));
+ fbWrap.appendChild(fbBtn);fbWrap.appendChild(fbTa);
+ s.appendChild(fbWrap);}
 """
 
 HTML_SHELL = """<!doctype html>
@@ -500,13 +573,50 @@ def selftest() -> None:
                 for i in range(20)
             },
         },
-        "failures": {"beadsBh": {"Bash": 2}, "other": {"Edit": 1}},
+        "failures": {
+            "beadsBh": {"Bash": 2}, "other": {"Edit": 1},
+            "examples": [
+                {
+                    "sessionId": "sess-1", "ts": "2026-07-20T10:25:00Z", "tool": "Bash",
+                    "class": "raw-beads", "detail": "bd show broken",
+                    "errorText": "error: bh-cp-broken not found",
+                },
+            ],
+        },
         "skillReads": {
             "invocations": {
                 "bhBeads": {f"bh:skill-{i}": i + 1 for i in range(15)},
                 "other": {"artifact-design": 2},
             },
             "skillMdReads": 5,
+            "byClass": {
+                "beadhive": {f"bh:skill-{i}": i + 1 for i in range(15)},
+                "rawBeads": {"beads:search": 3},
+                "other": {"artifact-design": 2},
+            },
+        },
+        # tool-class split (bh-cp-vce.1): fixture exercises all 4 classes, both the
+        # direct/passthrough sub-split on raw-beads/raw-git, and >SKILL_TOP_N skill-shaped
+        # byTool keys (same top-N/aggregate cardinality the old skillReads fixture exercised).
+        "toolClasses": {
+            "beadhive": {
+                "total": 18, "failed": 0,
+                "byTool": {"Bash": {"total": 3, "failed": 0}, **{f"bh:skill-{i}": {"total": i + 1, "failed": 0} for i in range(15)}},
+            },
+            "raw-beads": {
+                "total": 6, "failed": 3,
+                "direct": {"total": 3, "failed": 2}, "passthrough": {"total": 3, "failed": 1},
+                "byTool": {"Bash": {"total": 3, "failed": 2}, "beads:search": {"total": 3, "failed": 1}},
+            },
+            "raw-git": {
+                "total": 4, "failed": 1,
+                "direct": {"total": 3, "failed": 1}, "passthrough": {"total": 1, "failed": 0},
+                "byTool": {"Bash": {"total": 4, "failed": 1}},
+            },
+            "other": {
+                "total": 3, "failed": 1,
+                "byTool": {"Edit": {"total": 1, "failed": 1}, "artifact-design": {"total": 2, "failed": 0}},
+            },
         },
         "tokens": {
             "exact": {"totals": {"input": 100, "output": 200, "cache_read": 50, "cache_creation": 10}, "percentOfTotal": {"input": 27.8, "output": 55.6, "cache_read": 13.9, "cache_creation": 2.8}},
@@ -562,8 +672,8 @@ def selftest() -> None:
 
     # (2) — every analysis.json metric family is bound into the chart JS.
     for family in (
-        "lifecycle", "failures", "skillReads", "tokens", "cache", "activity", "models",
-        "cost", "meta", "recommendations",
+        "lifecycle", "failures", "skillReads", "toolClasses", "tokens", "cache", "activity",
+        "models", "cost", "meta", "recommendations",
     ):
         assert f"A.{family}" in out_html, f"missing {family} family binding"
 
@@ -610,18 +720,47 @@ def selftest() -> None:
     # that dwarfs the real top-N epics.
     assert "omitted from the chart" in out_html
 
-    # (8) failed tool calls are grouped per tool name, stacked/colored by beads/bh vs other.
-    assert "by tool, beads/bh vs other" in out_html
+    # (8) failed tool calls are grouped per tool/skill name, stacked/colored by the 4-way
+    # tool class (bh-cp-vce.2 fix 4), not the old flat beads/bh vs other binary.
+    assert "by tool, beadhive / raw-beads / raw-git / other" in out_html
     assert "toolNames" in out_html
 
-    # (9) skill invocations get the same two-tier (bh:/beads: vs other) stacked treatment.
-    assert "'bh:/beads:'" in out_html
+    # (9) skill invocations get the same 4-way tool-class stacked treatment.
+    assert "beadhive / raw-beads / raw-git / other" in out_html
+
+    # (9b) tool-class coloring: fixed palette slots 1-4 (amber/teal/violet/moss) mapped in
+    # order to (beadhive, raw-beads, raw-git, other), a legend, and the purpose caption —
+    # shared by both the failures and skills charts via TOOL_CLASS_COLORS/TOOL_CLASS_CAPTION.
+    assert "TOOL_CLASSES" in out_html and "TOOL_CLASS_COLORS" in out_html
+    for hex_value in (BRAND_DARK["cat"][0], BRAND_DARK["cat"][1], BRAND_DARK["cat"][2], BRAND_DARK["cat"][3]):
+        assert hex_value in out_html, f"missing tool-class palette hex {hex_value}"
+    assert "raw-beads/raw-git = where Beadhive isn" in out_html
 
     # (10) recommendations + prose — previously entirely missing from this artifact.
     assert "A.recommendations" in out_html
     assert "Recommendations" in out_html
     assert "Usage-pattern" in out_html
     assert "Beadhive product improvements" in out_html
+
+    # (11) rich recommendation boxes: each item renders as a what/why card, not a bare <li>.
+    assert "rec-card" in out_html and "rec-what" in out_html
+    assert "recCards(s,r.usagePattern)" in out_html
+    assert "recCards(s,r.productImprovements)" in out_html
+
+    # (12) maintainer copy-feedback button: Clipboard API primary path, select-text fallback
+    # (file:// contexts often deny navigator.clipboard), message grounded in concrete
+    # failures.examples (offending command + error text + session id) and the version stamp.
+    assert "Copy feedback" in out_html
+    assert "navigator.clipboard" in out_html and "navigator.clipboard.writeText" in out_html
+    assert "fb-fallback" in out_html and "Select & copy below" in out_html
+    assert "buildFeedbackMessage" in out_html
+    assert "A.failures&&A.failures.examples" in out_html or "A.failures && A.failures.examples" in out_html
+
+    # (13) full-width SVG charts: the shared SVG() helper sizes by container (width:'100%' +
+    # preserveAspectRatio), not a fixed pixel width attribute that letterboxes in a wider card.
+    assert "width:'100%'" in out_html
+    assert "preserveAspectRatio:'xMidYMid meet'" in out_html
+    assert "width:w,height:h" not in out_html  # the old fixed-size attribute pair is gone
     # grounded in this fixture's actual numbers, not generic filler:
     assert "Handoff opportunity in session sess-1" in out_html  # from cache.expiryEvents
     assert "pricing.json has no rate for model family/families claude-mystery-1" in out_html

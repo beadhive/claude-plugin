@@ -2,7 +2,7 @@
 
 Single source of truth for how each metric is computed and how ambiguous cases are labelled.
 `scripts/analyze.py` implements this file exactly; if the two disagree, this file is the spec —
-fix the script. Nine metric families:
+fix the script. Ten metric families:
 
 ## (a) Bead lifecycle verb mapping
 
@@ -200,3 +200,49 @@ usage-pattern fix and a product fix have different owners and different shelf li
    is stale. Include a short paste-ready machine-readable handoff block (e.g. the offending
    command, the error text, the session id) so a maintainer can act without re-deriving it from
    `analysis.json`.
+
+## (j) Tool-call classification (`toolClasses`)
+
+Every `toolEvent` (across every session) is classified into exactly one of four classes by
+`classify_tool_event()` — the single function `toolClasses` and the skill-invocation 3-way
+breakdown in `skillReads.byClass` both call, so the two never disagree on where an event lands:
+
+| Class | Matches |
+|---|---|
+| **beadhive** | A native `bh <verb>` Bash call that is **not** `bh bd`/`bh git` (e.g. `bh work …`, `bh plan …`, `bh rig …`); or a `bh:*` Skill invocation. |
+| **raw-beads** | A direct `bd …` Bash call, **or** a `bh bd …` passthrough — both reach for beads directly, bypassing bh verbs; or a `beads:*` Skill invocation. |
+| **raw-git** | A direct `git …` Bash call, **or** a `bh git …` passthrough. |
+| **other** | Everything else — non-bd/bh/git Bash, other Skills, Read/Write/Edit/Grep/Glob/…. |
+
+`raw-beads` and `raw-git` each carry a **direct vs. passthrough** sub-split (`direct` = the bare
+`bd …`/`git …` form; `passthrough` = the `bh bd …`/`bh git …` form) — both sub-cases reach for the
+raw tool instead of a native `bh` verb, but the passthrough form at least stayed inside `bh`'s
+CLI surface, so the split is worth keeping separate rather than collapsing it away. A Skill event
+classified `raw-beads` (a `beads:*` skill) has no passthrough concept and is bucketed under
+`direct`.
+
+`analysis.json`'s `toolClasses` reports, per class: `total` and `failed` call counts, a `byTool`
+breakdown (keyed by skill id for a `Skill` event — the granularity the skill-invocations chart
+needs — or by tool type, e.g. `Bash`/`Read`/`Edit`, for everything else, matching what the
+failures chart already used), and (for `raw-beads`/`raw-git` only) `direct`/`passthrough`
+sub-totals in the same `{total, failed}` shape.
+
+**Direct `git …` capture**: `extract.py`'s command-detail regex (previously `bd`/`bh`-prefixed
+commands only) now also captures a bare `git …` Bash command's text, so a direct git call is
+visible to `classify_tool_event()` at all — before this, only `bh git …` passthrough calls (which
+already matched the `bh`-prefix capture) carried command text; a plain `git commit` would have had
+no `detail` and silently fallen out of every classification. `bh`'s own passthrough form was
+always captured (it starts with `bh`); this closes the gap for the direct form.
+
+**Back-compat**: the pre-existing `failures` (`beadsBh`/`other`) and `skillReads`
+(`invocations.bhBeads`/`invocations.other`) keys are **unchanged in value** — they still use the
+original 2-way `bd`/`bh`-prefix check (`is_beads_bh`), which counts a `bh git …` failure as
+`beadsBh` even though `toolClasses` now buckets it under `raw-git`. `toolClasses` and
+`skillReads.byClass` are additive, not a replacement.
+
+**Concrete failure examples**: `failures.examples` is a new, bounded (`FAILURE_EXAMPLE_LIMIT = 5`)
+list of actual failing tool calls — `sessionId`, `ts`, `tool`, `class`, `detail` (the offending
+command), and `errorText` (the failing `tool_result`'s text, truncated to 300 chars by
+`extract.py`, empty when not an error) — so a maintainer-facing recommendation (or the
+maintainer copy-feedback message in `render_artifact.py`) can cite a real instance instead of just
+an aggregate count.

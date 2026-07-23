@@ -101,8 +101,8 @@ is documentation of what the script does, not a menu to hand-implement):
 | `activity` distribution | aggregate stacked bar + capped, sorted small multiples (one per session, top-N by activity — see scaling below) | status (planning/implementing/diagnosing/fixing are discrete states) |
 | `cache.expiryEvents` | scatter/timeline — idle gap (x) × wasted tokens (y) | status (warning-toned points; magnitude via radius, not hue) |
 | `lifecycle.byEpic` | top-N + "+N more" aggregate bar (see scaling below) | sequential/ordinal (planned→implemented→merged) |
-| `failures` | grouped bar, beads/bh vs other | status (failed vs not) |
-| `skillReads` | top-N + "+N more" aggregate bar, bh:/beads: vs other | categorical (skill identity is unordered) |
+| `failures` (colored via `toolClasses`) | stacked bar, beadhive / raw-beads / raw-git / other | categorical (tool class is unordered; palette slots 1-4) |
+| `skillReads` (colored via `toolClasses`) | top-N + "+N more" aggregate stacked bar, beadhive / raw-beads / raw-git / other | categorical (skill identity + tool class, both unordered) |
 
 **Scaling guidance (high-cardinality families)**: `lifecycle.byEpic` and `activity`'s per-session
 small multiples are both unbounded by construction — a real run had ~81 epics and ~41 sessions,
