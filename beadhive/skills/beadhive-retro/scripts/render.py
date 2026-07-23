@@ -23,6 +23,25 @@ import os
 
 import _rundir
 
+# ---------------------------------------------------------------------------
+# Beadhive honeycomb brand palette — mirrors ../references/palette.md verbatim.
+# Keep these two files in sync by hand (palette.md is the single source of
+# truth; this is just its "Chart chrome & ink" + brand-accent rows hardcoded
+# as CSS-ready constants, not parsed from markdown).
+# ---------------------------------------------------------------------------
+BRAND = {
+    "surface": "#17140c",
+    "surface_panel": "#2a2413",  # hex-grid tint
+    "surface_page": "#0a0702",
+    "ink_primary": "#f3e9d5",  # cream ink
+    "ink_secondary": "#c8972e",  # bronze
+    "ink_muted": "#a99a79",  # muted-tan
+    "accent": "#f2b617",  # amber, brand primary
+    "gridline": "#2a2413",
+    "border": "rgba(243,233,213,0.12)",
+    "good": "#409d48",
+}
+
 
 def esc(value) -> str:
     return html.escape(str(value))
@@ -282,7 +301,8 @@ def render_recommendations(recs: dict) -> str:
     return section("Recommendations", "recommendations", body)
 
 
-CSS = """
+# Old unstyled fallback — kept behind --plain, not the default.
+PLAIN_CSS = """
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0;
        padding: 2rem; max-width: 960px; margin-inline: auto; color: #1a1a1a; line-height: 1.5; }
 h1 { margin-bottom: 0.25rem; }
@@ -300,6 +320,31 @@ nav a { margin-right: 1rem; }
 footer { margin-top: 3rem; color: #888; font-size: 0.8rem; }
 """
 
+# Branded, dark-first honeycomb theme — the default. Values sourced from
+# ../references/palette.md's "Chart chrome & ink" table; keep the two in sync.
+BRANDED_CSS = f"""
+body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0;
+       padding: 2rem; max-width: 960px; margin-inline: auto; line-height: 1.5;
+       background: {BRAND['surface']}; color: {BRAND['ink_primary']}; }}
+h1 {{ margin-bottom: 0.25rem; color: {BRAND['accent']}; letter-spacing: 0.01em; }}
+h2 {{ border-bottom: 2px solid {BRAND['gridline']}; padding-bottom: 0.25rem; margin-top: 2.5rem;
+     color: {BRAND['accent']}; }}
+h3 {{ margin-top: 1.5rem; color: {BRAND['ink_secondary']}; }}
+a {{ color: {BRAND['ink_secondary']}; }}
+table {{ border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }}
+th, td {{ border: 1px solid {BRAND['border']}; padding: 0.4rem 0.6rem; text-align: left; }}
+th {{ background: {BRAND['surface_panel']}; color: {BRAND['ink_primary']}; }}
+tr:nth-child(even) {{ background: {BRAND['surface_panel']}; }}
+.note {{ color: {BRAND['ink_muted']}; font-size: 0.85rem; font-style: italic; }}
+.stat {{ font-size: 1.05rem; color: {BRAND['ink_primary']}; }}
+.stat strong {{ color: {BRAND['accent']}; }}
+.empty {{ color: {BRAND['ink_muted']}; font-style: italic; }}
+nav {{ margin: 1.5rem 0; }}
+nav a {{ margin-right: 1rem; }}
+footer {{ margin-top: 3rem; color: {BRAND['ink_muted']}; font-size: 0.8rem;
+         border-top: 1px solid {BRAND['border']}; padding-top: 1rem; }}
+"""
+
 SECTION_ORDER = [
     ("lifecycle", "Lifecycle"),
     ("tokens", "Tokens"),
@@ -313,7 +358,7 @@ SECTION_ORDER = [
 ]
 
 
-def render_html(analysis: dict) -> str:
+def render_html(analysis: dict, plain: bool = False) -> str:
     meta = analysis.get("meta", {})
     cost = analysis.get("cost", {})
     recs = generate_recommendations(analysis)
@@ -333,12 +378,13 @@ def render_html(analysis: dict) -> str:
         ]
     )
 
+    css = PLAIN_CSS if plain else BRANDED_CSS
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Beadhive Retro Report</title>
-<style>{CSS}</style>
+<style>{css}</style>
 </head>
 <body>
 <h1>Beadhive Retro Report</h1>
@@ -419,6 +465,19 @@ def selftest() -> None:
     assert len(recs["usagePattern"]) >= 1
     assert len(recs["productImprovements"]) <= 3
 
+    # branded-by-default: no flag needed, honeycomb palette hex values present.
+    assert BRAND["surface"] in out_html
+    assert BRAND["accent"] in out_html
+    assert BRAND["ink_secondary"] in out_html
+    assert "PLAIN_CSS" not in out_html  # sanity: didn't leak the variable name itself
+
+    # --plain escape hatch: old unstyled gray theme, no brand hex present.
+    plain_html = render_html(analysis, plain=True)
+    assert BRAND["surface"] not in plain_html
+    assert BRAND["accent"] not in plain_html
+    assert "#1a1a1a" in plain_html  # old plain body color still there
+    assert plain_html.startswith("<!DOCTYPE html>")
+
     # run-dir resolution: explicit flags win; else resolved run-dir; else legacy cwd filenames.
     orig_root, orig_latest = _rundir.RETROS_ROOT, _rundir.LATEST_POINTER
     tmpdir = tempfile.mkdtemp()
@@ -452,6 +511,10 @@ def main() -> None:
     parser.add_argument("--in", dest="infile", default=None, help="analysis.json path (default: <run-dir>/analysis.json)")
     parser.add_argument("--out", default=None, help="default: <run-dir>/report.html")
     parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve analysis.json/report.html in (default: latest pointer, else cwd)")
+    parser.add_argument(
+        "--plain", action="store_true",
+        help="render the old unstyled gray theme instead of the branded honeycomb default",
+    )
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
 
@@ -464,7 +527,7 @@ def main() -> None:
         analysis = json.load(f)
 
     with open(out, "w") as f:
-        f.write(render_html(analysis))
+        f.write(render_html(analysis, plain=args.plain))
 
     print(f"render.py: rendered {infile} -> {out}")
 
