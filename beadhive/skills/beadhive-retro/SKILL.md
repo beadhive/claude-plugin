@@ -39,8 +39,9 @@ guesswork.
 ## Read `analysis.json`, then write the report
 
 `analysis.json` has one top-level key per metric family — `lifecycle`, `failures`, `skillReads`,
-`tokens`, `cache`, `activity`. The exact formula behind each is **not** repeated here — read
-`references/metrics.md` before interpreting a number you're unsure about, especially:
+`tokens`, `cache`, `activity`, `models`, `cost`, `meta`. The exact formula behind each is **not**
+repeated here — read `references/metrics.md` before interpreting a number you're unsure about,
+especially:
 
 - `tokens.approximateFileIo` is an **estimate** (chars/4), not exact — never present it as
   precise in the report.
@@ -50,6 +51,13 @@ guesswork.
   when a call is close.
 - `cache.expiryEvents` are pre-filtered candidates; `significant: true` ones are the ones worth
   quoting directly in the report ("cache expired here — a fresh handoff would have been cheaper").
+- `models.beadsByModel` is an **approximate** ts→model attribution (metrics.md (f)) — label it as
+  such, don't present it as verified.
+- `cost.*` is an **estimate**, never a billed figure — transcripts carry no raw cost. Always cite
+  `cost.pricingAsOf` and say "estimated" in the same breath as any dollar figure. An unpriced
+  model family shows up in `cost.unpriced`, not silently dropped.
+- `meta.bhVersion` is the best-effort observed `bh`/`bd` version at analysis time — this is what
+  maintainer recommendation items get stamped with (see step 4 below).
 
 Write the report (optionally to `report.md`) with:
 
@@ -64,10 +72,27 @@ Write the report (optionally to `report.md`) with:
    grouping is inferred from bead-id shape, not a verified parent link.
 3. **Cache-expiry call-outs** — for every `cache.expiryEvents` entry with `significant: true`,
    name the session, the idle gap, and the wasted-token count, grounded in that real event (never
-   invent one).
-4. **3–5 concrete efficiency recommendations** — derived from what the numbers actually show
-   (e.g. a low cache ratio, a cluster of failed `bd`/`bh` calls, a specific skill re-read
-   repeatedly, a significant expiry event that suggests a handoff point).
+   invent one). Beside each call-out, cite `cost.cacheWasteUSD` (the dollar estimate of that
+   waste) so the "a handoff would've been cheaper" observation lands as a number, not a vibe.
+4. **Model usage** — a `models.bySession` table (models used, `dominant`) and a
+   `models.beadsByModel` table (bead lifecycle events per model, labelled approximate per
+   metrics.md (f)).
+5. **Estimated cost** — a `cost.byModel` table (input/output/cache-read/cache-write cost per
+   family + `totalCost`) plus the `cost.total` grand total; cite `cost.pricingAsOf` and state
+   plainly this is an estimate from `references/pricing.json`, not a billed number. List any
+   `cost.unpriced` model families and their raw token counts rather than omitting them.
+6. **Recommendations — two labelled tiers**, each item grounded in a specific number from
+   `analysis.json` (never invent one):
+   - **Usage-pattern (for you)** — 3–5 items actionable this run: model over-provisioning (a
+     session's `models`/`cost` show opus/sonnet spend where a cheaper family would likely have
+     done the job), a handoff point at a significant cache-expiry event (cite the wasted tokens
+     and `cost.cacheWasteUSD`), batch-vs-fanout dispatch shape, a cluster of failed `bd`/`bh`
+     calls (`failures`), or a skill re-read repeatedly (`skillReads.skillMdReads`).
+   - **Beadhive product improvements (for maintainers)** — 0–3 items where the data points at a
+     Beadhive tooling gap rather than a usage fix. Stamp each one `observed on bh
+     <meta.bhVersion> (CC <meta.ccVersions>)` — framed version-relative, since a later `bh`
+     release may already have addressed it — with a short paste-ready block (offending command,
+     error text, session id) a maintainer can act on without re-deriving it from `analysis.json`.
 
 Progressive disclosure: keep the report's prose short and let `references/metrics.md` carry the
 formula detail — link to it rather than re-deriving formulas in the report.
