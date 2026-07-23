@@ -277,7 +277,12 @@ def generate_recommendations(analysis: dict) -> dict:
         usage.append(f"SKILL.md was read {skill_md_reads} times across sessions — a shorter refresher pointer may cut repeat reads.")
 
     meta = analysis.get("meta", {})
-    version_stamp = f"observed on bh {meta.get('bhVersion', 'unknown')} (CC {', '.join(meta.get('ccVersions', []) or ['unknown'])})"
+    version_stamp = (
+        f"observed on bh {meta.get('bhVersion', 'unknown')} / "
+        f"plugin {meta.get('pluginVersion', 'unknown')} / "
+        f"bd {meta.get('bdVersion', 'unknown')} "
+        f"(CC {', '.join(meta.get('ccVersions', []) or ['unknown'])})"
+    )
     if unpriced_models:
         product.append(
             f"pricing.json has no rate for model family/families {', '.join(unpriced_models)} "
@@ -389,6 +394,7 @@ def render_html(analysis: dict, plain: bool = False) -> str:
 <body>
 <h1>Beadhive Retro Report</h1>
 <p class="note">generated {esc(meta.get('generatedAt', 'unknown'))} · bh {esc(meta.get('bhVersion', 'unknown'))}
+· plugin {esc(meta.get('pluginVersion', 'unknown'))} · bd {esc(meta.get('bdVersion', 'unknown'))}
 · CC {esc(', '.join(meta.get('ccVersions', []) or ['unknown']))} · pricing as of {esc(cost.get('pricingAsOf', 'unknown'))}</p>
 <nav>{nav}</nav>
 {body_sections}
@@ -443,7 +449,14 @@ def selftest() -> None:
             "pricingAsOf": "2026-07",
             "approximate": True,
         },
-        "meta": {"bhVersion": "bd version 1.1.0", "ccVersions": ["2.1.207"], "pricingAsOf": "2026-07", "generatedAt": "2026-07-23T19:46:26Z"},
+        "meta": {
+            "bhVersion": "0.5.1",
+            "pluginVersion": "0.3.0",
+            "bdVersion": "bd version 1.1.0",
+            "ccVersions": ["2.1.207"],
+            "pricingAsOf": "2026-07",
+            "generatedAt": "2026-07-23T19:46:26Z",
+        },
     }
 
     out_html = render_html(analysis)
@@ -459,11 +472,24 @@ def selftest() -> None:
     assert "claude-sonnet-5" in out_html
     assert "Handoff opportunity in session sess-1" in out_html  # recommendation grounded in the expiry event
     assert "pricing.json has no rate for model family/families claude-mystery-1" in out_html
-    assert "observed on bh bd version 1.1.0" in out_html
+    assert "observed on bh 0.5.1" in out_html  # distinct bhVersion, not bd's
+    assert "plugin 0.3.0" in out_html
+    assert "bd bd version 1.1.0" in out_html
 
     recs = generate_recommendations(analysis)
     assert len(recs["usagePattern"]) >= 1
     assert len(recs["productImprovements"]) <= 3
+
+    # conditional unpriced caveat (bh-cp-og2.2 fix 7): the caveat text is NOT hardcoded --
+    # it disappears once cost.unpriced.models is empty (e.g. once fable is priced, per
+    # bh-cp-8xo). Re-render with an all-priced cost block and confirm the caveat is gone.
+    priced_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": [],
+    }}}
+    priced_html = render_html(priced_analysis)
+    assert "unpriced model families" not in priced_html
+    assert "pricing.json has no rate for model family/families" not in priced_html
+    assert "claude-mystery-1" not in priced_html
 
     # branded-by-default: no flag needed, honeycomb palette hex values present.
     assert BRAND["surface"] in out_html

@@ -26,6 +26,10 @@ import json
 import os
 
 import _rundir
+# render.py is this script's non-charted sibling; its generate_recommendations() already
+# implements the two-tier grounded roll-up (metrics.md (i)) — reuse it rather than forking
+# a second copy of the same logic (recommendations were the biggest gap in this artifact).
+from render import generate_recommendations
 
 # ---------------------------------------------------------------------------
 # Beadhive honeycomb brand palette — mirrors ../references/palette.md's "Chart chrome &
@@ -133,6 +137,8 @@ def build_css() -> str:
   .sm .t{{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
   svg{{display:block;max-width:100%;height:auto}}
   rect.bar:hover,circle.dot:hover,rect.seg:hover{{opacity:.82;cursor:default}}
+  .pctbar{{display:flex;width:100%;height:26px;border-radius:5px;overflow:hidden}}
+  .pctseg:hover{{opacity:.82;cursor:default}}
   #tip{{position:fixed;pointer-events:none;background:var(--plane);color:var(--ink);
     border:1px solid var(--ring);border-radius:7px;padding:.4rem .55rem;font-size:.78rem;
     opacity:0;transition:opacity .08s;z-index:9;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:260px}}
@@ -171,15 +177,18 @@ function sec(title,noteHtml){const s=$(`<section><h2>${title}</h2>${noteHtml?`<d
 function legend(s,items){const l=$('<div class="legend"></div>');items.forEach(([c,t])=>l.appendChild($(`<span><i class="sw" style="background:${c}"></i>${t}</span>`)));s.appendChild(l);}
 function table(s,head,rows){const t=$('<table></table>');t.appendChild($(`<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`));const b=$('<tbody></tbody>');rows.forEach(r=>b.appendChild($(`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`)));t.appendChild(b);s.appendChild(t);}
 
-// horizontal stacked bar (single group, e.g. token split)
+// full-width percent-of-total bar (single group, e.g. token split). CSS flex/%-width
+// segments, not a fixed-viewBox SVG — a 760px SVG width attribute never grows past
+// 760px even in a wider card (max-width:100% only shrinks), which is what let the v1
+// bar letterbox off-center. A %-width div always fills the card.
 function stackedBar(s,segments){
- const total=segments.reduce((a,b)=>a+b.value,0)||1,W=760,H=46;
- const svg=SVG(W,H);let x=0;
- segments.forEach(sg=>{const w=Math.max(0,sg.value/total*W-1);
-   const r=E('rect',{class:'seg',x:x,y:8,width:w,height:24,rx:4,fill:sg.color});
-   hov(r,`<b>${sg.label}</b><br>${fmt(sg.value)} tok · ${(sg.value/total*100).toFixed(1)}%`);
-   svg.appendChild(r);x+=sg.value/total*W;});
- s.appendChild(svg);}
+ const total=segments.reduce((a,b)=>a+b.value,0)||1;
+ const bar=$('<div class="pctbar"></div>');
+ segments.forEach(sg=>{const pct=sg.value/total*100;
+   const seg=$(`<div class="pctseg" style="width:${pct}%;background:${sg.color}"></div>`);
+   hov(seg,`<b>${sg.label}</b><br>${fmt(sg.value)} tok · ${pct.toFixed(1)}%`);
+   bar.appendChild(seg);});
+ s.appendChild(bar);}
 
 // vertical bars (grouped or stacked). groups with `.aggregate` (the "+N more" top-N-cap
 // bucket) render lower-opacity + dashed to signal "rolled up, not a single real entity".
@@ -214,7 +223,7 @@ function smallMultiple(grid,keys,cols,label,counts){
  cell.appendChild(svg);grid.appendChild(cell);}
 
 document.getElementById('sub').innerHTML =
-  `${Object.keys(A.activity).length} sessions · bh <code>${A.meta.bhVersion}</code> · CC ${(A.meta.ccVersions||['unknown']).join(',')} · cost <span class="est">estimated</span> asOf ${A.cost.pricingAsOf}`;
+  `${Object.keys(A.activity).length} sessions · bh <code>${A.meta.bhVersion}</code> · plugin <code>${A.meta.pluginVersion}</code> · bd <code>${A.meta.bdVersion}</code> · CC ${(A.meta.ccVersions||['unknown']).join(',')} · cost <span class="est">estimated</span> asOf ${A.cost.pricingAsOf}`;
 document.getElementById('foot').textContent =
   `Generated ${A.meta.generatedAt} · every number bound verbatim from analysis.json · cost is an estimate, not a billed figure`;
 
@@ -270,17 +279,25 @@ document.getElementById('foot').textContent =
  const s=sec('Cache-expiry events <span class="accent">·</span> idle gap × wasted tokens',
    'each point = a cache that went cold after an idle gap and had to be re-fed. Up-and-right = a fresh handoff would have been cheaper.');
  if(ev.length){
- const W=760,H=300,mL=54,mB=42,mT=12,plotW=W-mL-12,plotH=H-mT-mB;
+ const W=760,H=300,mL=60,mB=42,mT=20,plotW=W-mL-12,plotH=H-mT-mB;
  const xs=ev.map(e=>Math.log10(Math.max(1,e.idleGapSeconds))),xmin=Math.min(...xs),xmax=Math.max(...xs);
  const ymax=Math.max(...ev.map(e=>e.wastedTokens))||1;
  const svg=SVG(W,H);
  for(let i=0;i<=4;i++){const y=mT+plotH-plotH*i/4;
    svg.appendChild(E('line',{x1:mL,y1:y,x2:W-12,y2:y,stroke:'var(--grid)'}));
    svg.appendChild(T({x:mL-6,y:y+3,'text-anchor':'end','font-size':10,fill:'var(--muted)'},fmt(ymax*i/4)));}
- [[60,'1m'],[300,'5m'],[600,'10m'],[3600,'1h'],[10800,'3h'],[36000,'10h']].forEach(([g,lab])=>{
+ // Y-axis title (rotated) so the tick numbers above read as a token count, not a bare
+ // scalar — the v1 axis had no unit label at all.
+ svg.appendChild(T({x:14,y:mT+plotH/2,'text-anchor':'middle','font-size':10,fill:'var(--muted)',transform:`rotate(-90 14 ${mT+plotH/2})`},'wasted tokens'));
+ // Dense human-scale candidate ticks spanning sec/min/hr; only the ones landing inside
+ // [xmin,xmax] render, so the visible set adapts to the actual idle-gap range instead of
+ // the old sparse fixed set. Ticks render bolder (ink2, not muted) so they're legible
+ // against the dashed gridlines, not faint.
+ [[15,'15s'],[30,'30s'],[60,'1m'],[120,'2m'],[300,'5m'],[600,'10m'],[900,'15m'],[1800,'30m'],
+  [3600,'1h'],[7200,'2h'],[10800,'3h'],[21600,'6h'],[36000,'10h'],[86400,'24h']].forEach(([g,lab])=>{
    const lx=Math.log10(g);if(lx<xmin-0.15||lx>xmax+0.15)return;const x=mL+(lx-xmin)/((xmax-xmin)||1)*plotW;
    svg.appendChild(E('line',{x1:x,y1:mT,x2:x,y2:mT+plotH,stroke:'var(--grid)','stroke-dasharray':'2 3'}));
-   svg.appendChild(T({x:x,y:H-mB+16,'text-anchor':'middle','font-size':10,fill:'var(--muted)'},lab));});
+   svg.appendChild(T({x:x,y:H-mB+16,'text-anchor':'middle','font-size':10,'font-weight':600,fill:'var(--ink2)'},lab));});
  ev.forEach(e=>{const x=mL+(Math.log10(Math.max(1,e.idleGapSeconds))-xmin)/((xmax-xmin)||1)*plotW;
    const y=mT+plotH-e.wastedTokens/ymax*plotH,r=4+Math.sqrt(e.wastedTokens)/90;
    const dot=E('circle',{class:'dot',cx:x,cy:y,r:r,fill:'var(--warning)','fill-opacity':0.8,stroke:'var(--surface)','stroke-width':1});
@@ -316,13 +333,17 @@ document.getElementById('foot').textContent =
 {const rows=Object.entries(A.lifecycle.byEpic).map(([e,v])=>({name:e,vals:[v.planned,v.implemented,v.merged]}))
    .sort((a,b)=>(b.vals[0]+b.vals[1]+b.vals[2])-(a.vals[0]+a.vals[1]+a.vals[2]));
  const topN=rows.slice(0,EPIC_TOP_N),rest=rows.slice(EPIC_TOP_N);
+ // The "+N more" bundle is intentionally OMITTED from the bar chart itself: a bundle of
+ // 69 rolled-up epics dwarfs any single real epic's bar, flattening the top-N differences
+ // this chart exists to show. It's kept as a text note + one table row instead — real
+ // numbers, just not fighting the top-N bars for vertical scale.
  const groups=topN.map(r=>({name:r.name.replace('bh-',''),vals:r.vals}));
  let restSums=[0,0,0];
- if(rest.length){rest.forEach(r=>r.vals.forEach((v,i)=>restSums[i]+=v));groups.push({name:`+${rest.length} more`,vals:restSums,aggregate:true});}
+ if(rest.length)rest.forEach(r=>r.vals.forEach((v,i)=>restSums[i]+=v));
  const stages=[['planned',CATS[0]],['implemented',CATS[1]],['merged',CATS[3]]];
  const s=sec(`Lifecycle by epic <span class="accent">·</span> top ${EPIC_TOP_N} of ${rows.length}`,
    `source: <code>${A.lifecycle.source}</code> — epic grouping inferred from bead-id shape, not verified parent links.` +
-   (rest.length?` Top ${EPIC_TOP_N} epics by activity shown; remaining ${rest.length} folded into one aggregate bar (SKILL.md scaling rule).`:''));
+   (rest.length?` Top ${EPIC_TOP_N} epics by activity shown in the chart; remaining ${rest.length} epics' bundled totals (${fmt(restSums[0])} planned, ${fmt(restSums[1])} impl, ${fmt(restSums[2])} merged) are large enough to dwarf the real top-N bars, so they're omitted from the chart and folded into one "+N more" table row instead.`:''));
  legend(s,stages.map(x=>[x[1],x[0]]));
  vbars(s,groups,stages.map(st=>({name:st[0],color:st[1]})),{stacked:true});
  const tableRows=topN.map(r=>[r.name,r.vals[0],r.vals[1],r.vals[2]]);
@@ -332,30 +353,58 @@ document.getElementById('foot').textContent =
 // skill reads — top-N + aggregate bar (categorical color job: skill names are unordered).
 // Absent from the v1 form-map; added per SKILL.md's form-map coverage fix.
 {const inv=A.skillReads.invocations||{};
- const flat=Object.assign({},inv.bhBeads,inv.other);
- const rows=Object.entries(flat).sort((a,b)=>b[1]-a[1]);
+ const bh=inv.bhBeads||{},oth=inv.other||{};
+ const rows=Object.entries(Object.assign({},bh,oth)).sort((a,b)=>b[1]-a[1]);
  const shown=rows.slice(0,SKILL_TOP_N),rest=rows.slice(SKILL_TOP_N);
- const groups=shown.map(([k,v])=>({name:k,vals:[v]}));
- if(rest.length)groups.push({name:`+${rest.length} more`,vals:[rest.reduce((a,[,v])=>a+v,0)],aggregate:true});
+ // One bar per skill NAME, stacked/colored by the same binary bh:/beads: vs other tier
+ // used for the failed-tool-calls chart — a skill only ever lands in one tier, so this
+ // reads as "bar height = invocations, bar color = which tier", not a real 2-part stack.
+ const groups=shown.map(([k])=>({name:k,vals:[bh[k]||0,oth[k]||0]}));
+ let restSum=0;if(rest.length)restSum=rest.reduce((a,[,v])=>a+v,0);
  const s=sec('Skill invocations <span class="accent">·</span> bh:/beads: vs other',
-   `by invocation count, top ${SKILL_TOP_N} shown. SKILL.md itself was read ${A.skillReads.skillMdReads} time(s) across sessions.`);
- legend(s,[[CATS[0],'invocations']]);
- if(groups.length)vbars(s,groups,[{name:'invocations',color:CATS[0]}],{});
+   `by invocation count, top ${SKILL_TOP_N} of ${rows.length} shown in the chart` +
+   (rest.length?` (remaining ${rest.length} skills — ${fmt(restSum)} invocations — see the table below)`:'') +
+   `. SKILL.md itself was read ${A.skillReads.skillMdReads} time(s) across sessions.`);
+ legend(s,[[CATS[0],'bh:/beads:'],[CATS[7],'other']]);
+ if(groups.length)vbars(s,groups,[{name:'bh:/beads:',color:CATS[0]},{name:'other',color:CATS[7]}],{stacked:true});
  table(s,['skill','invocations'],rows.map(([k,v])=>[k,v]));}
 
 // failed tool calls — grouped bar (status color job: failed is a state, beads/bh vs other
 // is the grouping). Absent from the v1 form-map; added per SKILL.md's form-map coverage fix.
-{const f=A.failures;const beadsBhTotal=Object.values(f.beadsBh||{}).reduce((a,b)=>a+b,0);
- const otherTotal=Object.values(f.other||{}).reduce((a,b)=>a+b,0);
- const s=sec('Failed tool calls <span class="accent">·</span> beads/bh vs other',
-   'grouped by whether the failing call was a bd/bh invocation or another tool.');
- legend(s,[[CATS[7],'failed calls']]);
- vbars(s,[{name:'beads/bh',vals:[beadsBhTotal]},{name:'other',vals:[otherTotal]}],
-   [{name:'failed',color:CATS[7]}],{});
- const rows=Object.entries(f.beadsBh||{}).map(([k,v])=>['beads/bh · '+k,v])
-   .concat(Object.entries(f.other||{}).map(([k,v])=>['other · '+k,v]))
+{const f=A.failures;const bh=f.beadsBh||{},oth=f.other||{};
+ // One bar per failing TOOL NAME (Bash, Edit, Read, ...), stacked/colored by the binary
+ // beads/bh vs other tier — a tool like Bash can fail in both tiers (a beads/bh command
+ // vs any other), so this is a real 2-color stack, unlike the skill-invocations chart.
+ const toolNames=Array.from(new Set([...Object.keys(bh),...Object.keys(oth)]))
+   .sort((a,b)=>((bh[b]||0)+(oth[b]||0))-((bh[a]||0)+(oth[a]||0)));
+ const s=sec('Failed tool calls <span class="accent">·</span> by tool, beads/bh vs other',
+   'one bar per failing tool; stacked/colored by whether that failure was a bd/bh invocation or another tool.');
+ legend(s,[[CATS[0],'beads/bh'],[CATS[7],'other']]);
+ if(toolNames.length){
+   vbars(s,toolNames.map(t=>({name:t,vals:[bh[t]||0,oth[t]||0]})),
+     [{name:'beads/bh',color:CATS[0]},{name:'other',color:CATS[7]}],{stacked:true});
+ }else{s.appendChild($('<p class="note">No failed tool calls this run.</p>'));}
+ const rows=Object.entries(bh).map(([k,v])=>['beads/bh · '+k,v])
+   .concat(Object.entries(oth).map(([k,v])=>['other · '+k,v]))
    .sort((a,b)=>b[1]-a[1]);
  table(s,['group / tool','count'],rows);}
+
+// recommendations — grounded two-tier roll-up, ported from render.py's
+// generate_recommendations() (the biggest gap in this artifact per SKILL.md): a short
+// prose summary, then Usage-pattern (for the user) and Beadhive product-improvement
+// (for maintainers, version-stamped) tiers. Every item cites a specific analysis.json
+// number -- computed once in Python, this block only renders what A.recommendations
+// already carries.
+{const r=A.recommendations||{prose:'',usagePattern:[],productImprovements:[]};
+ const s=sec('Recommendations');
+ if(r.prose)s.appendChild($(`<p class="note">${r.prose}</p>`));
+ const bullets=(items)=>items.length
+   ?`<ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul>`
+   :`<p class="note">None grounded in this run's data.</p>`;
+ s.appendChild($('<h3 style="margin:.9rem 0 .3rem;color:var(--ink2);font-size:.92rem">Usage-pattern <span style="color:var(--muted);font-weight:400">(for you)</span></h3>'));
+ s.appendChild($(bullets(r.usagePattern)));
+ s.appendChild($('<h3 style="margin:.9rem 0 .3rem;color:var(--ink2);font-size:.92rem">Beadhive product improvements <span style="color:var(--muted);font-weight:400">(for maintainers)</span></h3>'));
+ s.appendChild($(bullets(r.productImprovements)));}
 """
 
 HTML_SHELL = """<!doctype html>
@@ -382,7 +431,39 @@ HTML_SHELL = """<!doctype html>
 """
 
 
+def build_prose_summary(analysis: dict, recs: dict) -> str:
+    """A short prose lead-in for the recommendations section, grounded in the same
+    headline numbers as the "Headline" tiles above it -- never invents a figure."""
+    cache = analysis.get("cache", {})
+    cost = analysis.get("cost", {})
+    n_sessions = len(analysis.get("activity", {}))
+    n_usage = len(recs["usagePattern"])
+    n_product = len(recs["productImprovements"])
+    summary = (
+        f"{n_sessions} session(s) analyzed; est. cost ${cost.get('total', 0):,.2f} at a "
+        f"{cache.get('cacheRatio', 0):.1f}\u00d7 cache reuse ratio."
+    )
+    if n_usage or n_product:
+        summary += (
+            f" {n_usage} usage-pattern item(s) and {n_product} product-improvement item(s) "
+            "below, each grounded in a specific analysis.json number."
+        )
+    else:
+        summary += " No grounded recommendations surfaced from this run's numbers."
+    return summary
+
+
 def render_html(analysis: dict) -> str:
+    recs = generate_recommendations(analysis)
+    # Shallow copy + one added key -- never mutate the caller's analysis dict.
+    analysis = {
+        **analysis,
+        "recommendations": {
+            "prose": build_prose_summary(analysis, recs),
+            "usagePattern": recs["usagePattern"],
+            "productImprovements": recs["productImprovements"],
+        },
+    }
     # ensure_ascii=True (the default) escapes non-ASCII as \\uXXXX, which sidesteps the
     # U+2028/2029 line-separator gotcha; the "</" guard below is what actually matters for
     # not breaking out of the enclosing <script> tag if a value happens to contain it.
@@ -457,7 +538,14 @@ def selftest() -> None:
             "pricingAsOf": "2026-07",
             "approximate": True,
         },
-        "meta": {"bhVersion": "bd version 1.1.0", "ccVersions": ["2.1.207"], "pricingAsOf": "2026-07", "generatedAt": "2026-07-23T19:46:26Z"},
+        "meta": {
+            "bhVersion": "0.5.1",
+            "pluginVersion": "0.3.0",
+            "bdVersion": "bd version 1.1.0",
+            "ccVersions": ["2.1.207"],
+            "pricingAsOf": "2026-07",
+            "generatedAt": "2026-07-23T19:46:26Z",
+        },
     }
 
     out_html = render_html(analysis)
@@ -473,7 +561,10 @@ def selftest() -> None:
     assert innerhtml_raw_marks is None, "raw <rect>/<circle> tags must never be assigned via innerHTML"
 
     # (2) — every analysis.json metric family is bound into the chart JS.
-    for family in ("lifecycle", "failures", "skillReads", "tokens", "cache", "activity", "models", "cost", "meta"):
+    for family in (
+        "lifecycle", "failures", "skillReads", "tokens", "cache", "activity", "models",
+        "cost", "meta", "recommendations",
+    ):
         assert f"A.{family}" in out_html, f"missing {family} family binding"
 
     # (3) — brand hexes from references/palette.md appear in the output.
@@ -491,6 +582,49 @@ def selftest() -> None:
 
     # cost caveat lands on the visual itself (an SVG footnote), not just surrounding prose.
     assert "footnote" in out_html and "under-count" in out_html
+
+    # conditional unpriced caveat (fix 7): the chart JS's "Unpriced & excluded" ternary
+    # is static source text either way (both branches of a client-side conditional are
+    # always present in the shipped script), so the meaningful check is the DATA side --
+    # re-render with an all-priced cost block and confirm the unpriced model id itself
+    # (embedded only via A.cost.unpriced.models) is gone from the emitted analysis JSON.
+    priced_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": [],
+    }}}
+    priced_html = render_html(priced_analysis)
+    assert "claude-mystery-1" not in priced_html
+
+    # header shows all four distinct meta.* version fields (og2.1), not just bh/CC.
+    assert "A.meta.pluginVersion" in out_html
+    assert "A.meta.bdVersion" in out_html
+
+    # (5) cache-expiry scatter: Y-axis is labelled with units, not a bare number scale.
+    assert "wasted tokens" in out_html
+
+    # (6) percentage bars are CSS %-width segments, not a fixed-viewBox SVG bar that
+    # letterboxes inside a wider card.
+    assert "pctbar" in out_html and "pctseg" in out_html
+    assert "width:${pct}%" in out_html
+
+    # (7) lifecycle-by-epic: the "+N more" bundle is a text/table note, not a chart bar
+    # that dwarfs the real top-N epics.
+    assert "omitted from the chart" in out_html
+
+    # (8) failed tool calls are grouped per tool name, stacked/colored by beads/bh vs other.
+    assert "by tool, beads/bh vs other" in out_html
+    assert "toolNames" in out_html
+
+    # (9) skill invocations get the same two-tier (bh:/beads: vs other) stacked treatment.
+    assert "'bh:/beads:'" in out_html
+
+    # (10) recommendations + prose — previously entirely missing from this artifact.
+    assert "A.recommendations" in out_html
+    assert "Recommendations" in out_html
+    assert "Usage-pattern" in out_html
+    assert "Beadhive product improvements" in out_html
+    # grounded in this fixture's actual numbers, not generic filler:
+    assert "Handoff opportunity in session sess-1" in out_html  # from cache.expiryEvents
+    assert "pricing.json has no rate for model family/families claude-mystery-1" in out_html
 
     # run-dir resolution: explicit flags win; else resolved run-dir; else legacy cwd filenames.
     orig_root, orig_latest = _rundir.RETROS_ROOT, _rundir.LATEST_POINTER
