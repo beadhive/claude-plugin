@@ -2,14 +2,19 @@
 default:
     @just --list
 
-# fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint
+# fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-hooks lint-md
+check: check-json check-links check-residue check-hooks lint-md check-types
 
 # self-test the PreToolUse hook scripts (bd steering + read-only auto-approve)
 [group('check')]
 check-hooks:
     ./scripts/test-hooks.sh
+
+# type-check the retro skill's python scripts (only python source in the repo)
+[group('check')]
+check-types:
+    uvx pyright beadhive/skills/beadhive-retro/scripts/
 
 # validate the three JSON manifests parse
 [group('check')]
