@@ -2,15 +2,23 @@
 """Phase 2: normalize identified session transcripts into events + usage series. No judgment —
 pure extraction. See ../references/metrics.md for the fields this feeds.
 
+By default, resolves identify.json/writes extract.jsonl+events.jsonl in the same run-dir as
+identify.py: explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative
+defaults. `--in`/`--out`/`--events` always override individually.
+
 Usage:
-    extract.py [--in identify.json] [--session <path>] [--out extract.jsonl] [--events events.jsonl]
+    extract.py [--in identify.json] [--session <path>] [--out extract.jsonl]
+                [--events events.jsonl] [--run-dir DIR]
     extract.py --selftest
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+
+import _rundir
 
 # Capture the FULL bd/bh invocation up to the next shell terminator, not just 2 words — a short
 # capture silently drops the bead id on commands like `bh work merge bh-cp-1` (3 words after
@@ -262,15 +270,54 @@ def selftest() -> None:
 
     assert result["ccVersions"] == ["2.1.207", "2.1.208"], result["ccVersions"]
 
+    # run-dir resolution: explicit flags win; else resolved run-dir; else legacy cwd filenames.
+    orig_root, orig_latest = _rundir.RETROS_ROOT, _rundir.LATEST_POINTER
+    tmpdir = tempfile.mkdtemp()
+    _rundir.RETROS_ROOT = os.path.join(tmpdir, "retros")
+    _rundir.LATEST_POINTER = os.path.join(_rundir.RETROS_ROOT, "latest")
+    try:
+        assert resolve_paths(None, None, None, None) == ("identify.json", "extract.jsonl", "events.jsonl")
+
+        run_dir, _ = _rundir.new_run_dir("20260101-000000-deadbeef")
+        _rundir.write_latest_pointer(run_dir)
+        assert resolve_paths(None, None, None, None) == (
+            os.path.join(run_dir, "identify.json"),
+            os.path.join(run_dir, "extract.jsonl"),
+            os.path.join(run_dir, "events.jsonl"),
+        )
+        assert resolve_paths("custom.json", None, None, None) == (
+            "custom.json",
+            os.path.join(run_dir, "extract.jsonl"),
+            os.path.join(run_dir, "events.jsonl"),
+        )
+        assert resolve_paths(None, None, None, "/explicit/dir") == (
+            "/explicit/dir/identify.json",
+            "/explicit/dir/extract.jsonl",
+            "/explicit/dir/events.jsonl",
+        )
+    finally:
+        _rundir.RETROS_ROOT, _rundir.LATEST_POINTER = orig_root, orig_latest
+
     print("extract.py --selftest: OK")
+
+
+def resolve_paths(infile, out, events, run_dir_arg) -> tuple[str, str, str]:
+    """(infile, out, events) with explicit flags winning, else the resolved run-dir, else
+    legacy cwd-relative filenames."""
+    run_dir = _rundir.resolve_run_dir(run_dir_arg)
+    infile = infile or (os.path.join(run_dir, "identify.json") if run_dir else "identify.json")
+    out = out or (os.path.join(run_dir, "extract.jsonl") if run_dir else "extract.jsonl")
+    events = events or (os.path.join(run_dir, "events.jsonl") if run_dir else "events.jsonl")
+    return infile, out, events
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--in", dest="infile", default="identify.json", help="identify.json path")
+    parser.add_argument("--in", dest="infile", default=None, help="identify.json path (default: <run-dir>/identify.json)")
     parser.add_argument("--session", help="extract a single session file instead of an identify.json")
-    parser.add_argument("--out", default="extract.jsonl")
-    parser.add_argument("--events", default="events.jsonl")
+    parser.add_argument("--out", default=None, help="default: <run-dir>/extract.jsonl")
+    parser.add_argument("--events", default=None, help="default: <run-dir>/events.jsonl")
+    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve identify.json/extract.jsonl/events.jsonl in (default: latest pointer, else cwd)")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
 
@@ -278,27 +325,29 @@ def main() -> None:
         selftest()
         return
 
+    infile, out, events_out = resolve_paths(args.infile, args.out, args.events, args.run_dir)
+
     if args.session:
         paths = [args.session]
     else:
-        with open(args.infile) as f:
+        with open(infile) as f:
             identify = json.load(f)
         paths = [s["path"] for s in identify["sessions"]]
 
     sessions = run(paths)
 
-    with open(args.out, "w") as f:
+    with open(out, "w") as f:
         for session in sessions:
             f.write(json.dumps(session) + "\n")
 
-    with open(args.events, "w") as f:
+    with open(events_out, "w") as f:
         for session in sessions:
             for event in session["toolEvents"]:
                 rolled = dict(event)
                 rolled["sessionId"] = session["sessionId"]
                 f.write(json.dumps(rolled) + "\n")
 
-    print(f"extract.py: {len(sessions)} sessions -> {args.out}, events -> {args.events}")
+    print(f"extract.py: {len(sessions)} sessions -> {out}, events -> {events_out}")
 
 
 if __name__ == "__main__":

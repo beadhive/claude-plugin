@@ -13,30 +13,65 @@ description: >-
 # beadhive-retro — retrospective efficiency analysis
 
 Answers "how efficient were our recent Beadhive sessions" with real numbers pulled from Claude
-Code's own session transcripts, not vibes. Three stdlib-only Python scripts do the scripted work
-(identification, extraction, aggregation); you do the judgment work (labelling ambiguous
-sessions, writing the narrative, picking recommendations).
+Code's own session transcripts, not vibes. Stdlib-only Python scripts do the scripted work
+(identification, extraction, aggregation, and — opt-in — HTML rendering); you do the judgment
+work (labelling ambiguous sessions, writing the narrative, picking recommendations).
 
 ## Run the pipeline, in order
 
 From this skill's directory (`scripts/` is relative to `SKILL.md`):
 
 ```bash
-python3 scripts/identify.py --since auto        # -> identify.json
-python3 scripts/extract.py                       # reads identify.json -> extract.jsonl, events.jsonl
-python3 scripts/analyze.py                        # reads extract.jsonl -> analysis.json
+python3 scripts/identify.py --since auto   # -> ~/.beadhive/retros/<run-id>/identify.json
+python3 scripts/extract.py                 # -> extract.jsonl, events.jsonl in the same run-dir
+python3 scripts/analyze.py                 # -> analysis.json in the same run-dir
 ```
 
-Each phase's output feeds the next; run them from a scratch/working directory (they read/write
-the current directory by default). Pass `--since <iso>` to `identify.py` to override
-auto-detection with an explicit boundary. Each script also has `--selftest` — run it if you
-change one of them; it must stay green.
+No path args needed for the common case: `identify.py` creates a fresh, datetime-named run
+folder under `~/.beadhive/retros/<YYYYMMDD-HHMMSS>-<hash8>/` (the id is derived from the run's
+own `since`/`generatedAt`/session-count — see `scripts/_rundir.py`), writes `identify.json`
+there, and points `~/.beadhive/retros/latest` at it. `extract.py` and `analyze.py` pick up that
+same run-dir automatically via the `latest` pointer, so each run's four artifacts
+(`identify.json`, `extract.jsonl`, `events.jsonl`, `analysis.json`) land together and accumulate
+run-over-run for comparison.
+
+Pass `--since <iso>` to `identify.py` to override auto-window-detection with an explicit
+boundary. Pass `--run-dir <dir>` (all three scripts) or `--out`/`--in`/`--events` (individually)
+to target an arbitrary directory instead — e.g. for an ad-hoc or CI invocation that shouldn't
+touch `~/.beadhive/retros/` or the `latest` pointer. Each script also has `--selftest` — run it
+if you change one of them; it must stay green.
 
 **This is the acceptance bar for this skill**: invoking it must actually run all three phases
 end to end and produce a report grounded in `analysis.json`'s numbers, not a summary written from
 guesswork.
 
+## Artifact mode: render report.html instead of the in-chat report
+
+**Default behavior (no flag) is unchanged**: write the report inline in chat per the section
+below. If the user asks for an artifact / file / HTML report (or says "artifact mode"), run a
+fourth, opt-in step after `analyze.py`:
+
+```bash
+python3 scripts/render.py   # reads <run-dir>/analysis.json -> <run-dir>/report.html
+```
+
+`render.py` resolves the same run-dir as the other three scripts (via the `latest` pointer or
+`--run-dir`) and writes a single self-contained `report.html` (inline CSS, no JS framework, no
+new dependencies) next to `analysis.json` — tables for every metric family plus the significant
+cache-expiry call-outs and a two-tier recommendations section, all computed straight from
+`analysis.json`.
+
+When artifact mode is requested, **present `report.html` to the user instead of writing the full
+report in chat**: give its path and tell them to open it. A short in-chat summary (a couple of
+headline numbers) is fine, but don't re-paste the full per-section report — that's what the
+artifact is for. The numbers must still be the same ones grounded in `analysis.json`; `render.py`
+just formats them.
+
 ## Read `analysis.json`, then write the report
+
+This section is the default in-chat report (no artifact flag). If artifact mode was requested,
+skip straight to presenting `report.html` (see above) — the same grounding rules below still
+apply to what `render.py` put in it, you just aren't retyping it into chat.
 
 `analysis.json` has one top-level key per metric family — `lifecycle`, `failures`, `skillReads`,
 `tokens`, `cache`, `activity`, `models`, `cost`, `meta`. The exact formula behind each is **not**
