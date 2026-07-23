@@ -37,6 +37,9 @@ RECREATION_SPIKE_TOKENS = 5000
 SIGNIFICANT_WASTED_TOKENS = 10000
 
 PRICING_PATH = Path(__file__).resolve().parent.parent / "references" / "pricing.json"
+# Plugin root is 4 dirs up from this script (scripts -> beadhive-retro -> skills -> plugin
+# root), a layout shared by a dev checkout and the installed plugin cache alike.
+PLUGIN_JSON_PATH = Path(__file__).resolve().parents[3] / ".claude-plugin" / "plugin.json"
 
 
 def parse_ts(ts: str):
@@ -429,17 +432,63 @@ def analyze_cost(sessions: list, pricing: dict, cache: dict) -> dict:
     }
 
 
+def _run_version_cmd(cmd: list) -> str | None:
+    """Run a version-probe subprocess, best-effort. None on any failure (missing binary,
+    non-zero exit, empty output) — never raises."""
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    output = (result.stdout or result.stderr or "").strip()
+    if result.returncode == 0 and output:
+        return output
+    return None
+
+
 def bh_version() -> str:
-    """Best-effort maintainer-recommendation version stamp: `bh version`, falling back to
-    `bd version`, else 'unknown'. Never raises."""
-    for cmd in (["bh", "version"], ["bd", "version"]):
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-        except (OSError, subprocess.SubprocessError):
+    """Best-effort bh CLI version: `bh --version`, falling back to `bh version` (some
+    releases expose it as a subcommand instead), else 'unknown'. Never raises."""
+    for cmd in (["bh", "--version"], ["bh", "version"]):
+        version = _run_version_cmd(cmd)
+        if version:
+            return version
+    return "unknown"
+
+
+def bd_version() -> str:
+    """Best-effort bd CLI version: `bd version`, else 'unknown'. Never raises."""
+    return _run_version_cmd(["bd", "version"]) or "unknown"
+
+
+def plugin_version() -> str:
+    """Best-effort bh claude-plugin version: read the installed plugin's plugin.json
+    (PLUGIN_JSON_PATH, relative to this script — the same offset works for a dev checkout
+    and the installed plugin cache), falling back to parsing `claude plugin list` for the
+    'bh@<marketplace>' entry's version. 'unknown' if both fail. Never raises."""
+    try:
+        with open(PLUGIN_JSON_PATH) as f:
+            data = json.load(f)
+        version = data.get("version")
+        if version:
+            return str(version)
+    except (OSError, ValueError):
+        pass
+
+    try:
+        result = subprocess.run(["claude", "plugin", "list"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if result.returncode != 0:
+        return "unknown"
+    lines = (result.stdout or "").splitlines()
+    for i, line in enumerate(lines):
+        if not re.search(r"\bbh@\S+", line):
             continue
-        output = (result.stdout or result.stderr or "").strip()
-        if result.returncode == 0 and output:
-            return output
+        for follow in lines[i + 1 : i + 3]:
+            m = re.search(r"Version:\s*(\S+)", follow)
+            if m:
+                return m.group(1)
+        break
     return "unknown"
 
 
@@ -447,6 +496,8 @@ def analyze_meta(sessions: list, pricing: dict) -> dict:
     cc_versions = sorted({v for s in sessions for v in s.get("ccVersions", [])})
     return {
         "bhVersion": bh_version(),
+        "pluginVersion": plugin_version(),
+        "bdVersion": bd_version(),
         "ccVersions": cc_versions,
         "pricingAsOf": pricing.get("asOf"),
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -675,7 +726,11 @@ def selftest() -> None:
     meta = result2["meta"]
     assert meta["ccVersions"] == ["9.9.9"]
     assert meta["pricingAsOf"] == "2026-07"
+    # bhVersion/pluginVersion/bdVersion are distinct best-effort fields (never conflated,
+    # never raise even when bh/bd/claude aren't on PATH — "unknown" is a valid value).
     assert isinstance(meta["bhVersion"], str) and meta["bhVersion"]
+    assert isinstance(meta["pluginVersion"], str) and meta["pluginVersion"]
+    assert isinstance(meta["bdVersion"], str) and meta["bdVersion"]
     assert "generatedAt" in meta
 
     # run-dir resolution: explicit flags win; else resolved run-dir; else legacy cwd filenames.
