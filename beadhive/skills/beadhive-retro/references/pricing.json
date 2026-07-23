@@ -5,7 +5,8 @@
   "models": {
     "sonnet": {"inputPerM": 3.00, "outputPerM": 15.00},
     "opus":   {"inputPerM": 5.00, "outputPerM": 25.00},
-    "haiku":  {"inputPerM": 1.00, "outputPerM": 5.00}
+    "haiku":  {"inputPerM": 1.00, "outputPerM": 5.00},
+    "fable":  {"inputPerM": 10.00, "outputPerM": 50.00}
   },
   "default": "sonnet"
 }

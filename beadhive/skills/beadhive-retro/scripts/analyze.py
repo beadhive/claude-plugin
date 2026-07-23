@@ -369,6 +369,10 @@ def analyze_cost(sessions: list, pricing: dict, cache: dict) -> dict:
         for u in session["usageSeries"]:
             model_id = u.get("model")
             family = model_family(model_id, pricing)
+            # Any model absent from pricing.json's families lands here — including the
+            # empty string and the literal "<synthetic>" model id Claude Code stamps on
+            # synthetic (non-billed) messages. Neither is a real family to add a rate
+            # for; both are explicitly bucketed into cost.unpriced, not silently dropped.
             if family is None:
                 unpriced["input"] += u["input"]
                 unpriced["output"] += u["output"]
@@ -612,6 +616,16 @@ def selftest() -> None:
     assert "sonnet" in loaded_pricing["models"]
     assert loaded_pricing.get("asOf")
 
+    # fable must be priced (bh-cp-8xo) — the single largest cache_read consumer that used
+    # to fall silently into cost.unpriced; <synthetic> and "" stay unpriced on purpose.
+    assert "fable" in loaded_pricing["models"]
+    assert loaded_pricing["models"]["fable"]["inputPerM"] > 0
+    assert loaded_pricing["models"]["fable"]["outputPerM"] > 0
+    assert model_family("claude-fable-5", loaded_pricing) == "fable"
+    assert model_family("<synthetic>", loaded_pricing) is None
+    assert model_family("", loaded_pricing) is None
+    assert model_family(None, loaded_pricing) is None
+
     # --- two-model synthetic: models / cost / meta / beadsByModel attribution ---
     # A fixed pricing table (independent of the user-editable pricing.json contents) so this
     # test's "known cost" stays hand-checkable even if a user re-rates pricing.json.
@@ -667,6 +681,31 @@ def selftest() -> None:
                     "isSidechain": False,
                     "model": "claude-mystery-1",
                 },
+                {
+                    # Claude Code's synthetic (non-billed) message marker -> also unpriced,
+                    # also counted (not silently dropped).
+                    "ts": "2026-07-21T09:15:00Z",
+                    "input": 500_000,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_creation": 0,
+                    "eph5m": 0,
+                    "eph1h": 0,
+                    "isSidechain": False,
+                    "model": "<synthetic>",
+                },
+                {
+                    # Missing/empty model id -> unpriced too, tokens still counted.
+                    "ts": "2026-07-21T09:20:00Z",
+                    "input": 300_000,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_creation": 0,
+                    "eph5m": 0,
+                    "eph1h": 0,
+                    "isSidechain": False,
+                    "model": "",
+                },
             ],
             "toolEvents": [
                 {"ts": "2026-07-21T09:00:00Z", "tool": "Bash", "detail": "bd create bh-cp-2", "error": False},
@@ -688,7 +727,7 @@ def selftest() -> None:
     assert opus_main["input"] == 1_000_000 and opus_main["cache_read"] == 1_000_000
     assert models["bySession"]["s2"]["dominant"] == "claude-opus-4-20250514"
     assert sorted(models["bySession"]["s2"]["models"]) == [
-        "claude-mystery-1", "claude-opus-4-20250514", "claude-sonnet-5",
+        "<synthetic>", "claude-mystery-1", "claude-opus-4-20250514", "claude-sonnet-5", "unknown",
     ]
 
     # beadsByModel: bh-cp-2 planned under sonnet's ts, implemented under opus's ts.
@@ -705,8 +744,10 @@ def selftest() -> None:
     assert round(cost["byModel"]["sonnet"]["totalCost"], 2) == 18.00
     assert round(cost["byModel"]["opus"]["totalCost"], 2) == 13.25
     assert round(cost["total"], 2) == 31.25
-    assert cost["unpriced"]["input"] == 2_000_000
-    assert cost["unpriced"]["models"] == ["claude-mystery-1"]
+    # unpriced totals sum every unpriced usage entry's tokens: mystery (2M) + <synthetic>
+    # (500k) + "" (300k) = 2.8M -- none silently dropped, both edge-case models included.
+    assert cost["unpriced"]["input"] == 2_800_000
+    assert cost["unpriced"]["models"] == ["<synthetic>", "claude-mystery-1", "unknown"]
     assert cost["currency"] == "USD"
     assert cost["approximate"] is True
     assert cost["pricingAsOf"] == "2026-07"
