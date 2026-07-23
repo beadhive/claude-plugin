@@ -279,16 +279,16 @@ async function copyFeedback(btn,fallbackTa){
  btn.textContent='Select & copy below';reset();}
 
 document.getElementById('sub').innerHTML =
-  `${Object.keys(A.activity).length} sessions · bh <code>${A.meta.bhVersion}</code> · plugin <code>${A.meta.pluginVersion}</code> · bd <code>${A.meta.bdVersion}</code> · CC ${(A.meta.ccVersions||['unknown']).join(',')} · cost <span class="est">estimated</span> asOf ${A.cost.pricingAsOf}`;
+  `${Object.keys(A.activity).length} sessions · bh <code>${A.meta.bhVersion}</code> · plugin <code>${A.meta.pluginVersion}</code> · bd <code>${A.meta.bdVersion}</code> · CC ${(A.meta.ccVersions||['unknown']).join(',')} · cost <span class="est">estimated</span> · pricing as of ${A.cost.pricingAsOf}`;
 document.getElementById('foot').textContent =
-  `Generated ${A.meta.generatedAt} · every number bound verbatim from analysis.json · cost is an estimate, not a billed figure`;
+  `Generated ${A.meta.generatedAt} · all figures read directly from the analysis data; cost is an estimate, not a billed figure`;
 
 // headline tiles
 {const s=sec('Headline');const g=$('<div class="tiles"></div>');
- [[A.cache.cacheRatio.toFixed(1)+'×','cache reuse ratio (read ÷ uncached+writes)'],
-  [A.cache.significantExpiryEventCount,'significant cache-expiry events'],
-  [usd(A.cost.total),'est. cost (priced models only)'],
-  [usd(A.cost.cacheWasteUSD),'est. cache-waste cost'],
+ [[A.cache.cacheRatio.toFixed(1)+'×','cache reuse: cache-read tokens per fresh token (cold input + cache writes); higher is better.'],
+  [A.cache.significantExpiryEventCount,'cache-expiry events ≥10k wasted tokens'],
+  [usd(A.cost.total),'estimated total cost'],
+  [usd(A.cost.cacheWasteUSD),'est. avoidable cache-waste (already in the total above)'],
   [Object.keys(A.activity).length,'Beadhive sessions']
  ].forEach(([n,l])=>g.appendChild($(`<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`)));
  s.appendChild(g);}
@@ -296,27 +296,34 @@ document.getElementById('foot').textContent =
 // tokens — stacked bar (categorical color job: token category is unordered, one hue each)
 {const t=A.tokens.exact.totals;
  const s=sec('Token split <span class="accent">·</span> where the tokens went',
-   'cache_read dominates when the pipeline is cache-heavy. approximateFileIo omitted (chars/4 estimate, not exact).');
+   'cache_read dominates when the pipeline is cache-heavy. Estimated file read/write tokens omitted (rough chars÷4 estimate).');
  const order=[['input',t.input,CATS[0]],['output',t.output,CATS[1]],['cache_read',t.cache_read,CATS[2]],['cache_creation',t.cache_creation,CATS[3]]];
  legend(s,order.map(o=>[o[2],o[0]]));
  stackedBar(s,order.map(o=>({label:o[0],value:o[1],color:o[2]})));
  const tot=order.reduce((a,o)=>a+o[1],0)||1;
  table(s,['category','tokens','% of total'],order.map(o=>[o[0],fmt(o[1]),(o[1]/tot*100).toFixed(1)+'%']));}
 
-// cost by model — stacked bar (categorical: cost components), unpriced caveat is a
-// footnote baked into the chart itself (not just the surrounding prose).
-{const bm=A.cost.byModel,fams=Object.keys(bm),up=A.cost.unpriced||{models:[],cache_read:0};
+// cost by model — stacked bar (categorical: cost components). Unpriced text is gated on
+// actual unpriced TOKEN VOLUME (not just A.cost.unpriced.models being non-empty — a synthetic
+// sentinel model id is always present with 0 tokens in the normal case, so a models-length
+// gate always fired). The sentinel is stripped server-side (render_html()) before A is ever
+// embedded, so `up.models` here is already real model ids only.
+{const bm=A.cost.byModel,fams=Object.keys(bm);
+ const up=A.cost.unpriced||{models:[]},upModels=up.models||[];
+ const upTokens=(up.input||0)+(up.output||0)+(up.cache_read||0)+(up.eph5m||0)+(up.eph1h||0);
+ const hasUnpriced=upTokens>0;
+ const unpricedFootnote=hasUnpriced?
+   `* Excludes ${fmt(upTokens)} tokens from model(s) ${upModels.join(', ')} with no configured rate — total is a slight under-count.`:
+   '* Estimate only — not a billed figure.';
  const comps=[['inputCost','input',CATS[0]],['outputCost','output',CATS[1]],['cacheReadCost','cache read',CATS[2]],['cacheWriteCost','cache write',CATS[3]]];
- const hasUnpriced=(up.models||[]).length>0;
  const s=sec('Estimated cost by model',
-   `estimate from references/pricing.json (asOf ${A.cost.pricingAsOf}), not billed.` +
-   (hasUnpriced?` <b class="est">Unpriced &amp; excluded:</b> ${up.models.join(', ')} — ${fmt(up.cache_read||0)} cache-read tokens with no rate, so the ${usd(A.cost.total)} total is an <b>under-count</b>.`:''));
+   `estimate from references/pricing.json (asOf ${A.cost.pricingAsOf}), not billed.`);
  legend(s,comps.map(c=>[c[2],c[1]]));
  vbars(s,fams.map(f=>({name:f.replace('claude-',''),vals:comps.map(c=>bm[f][c[0]])})),
    comps.map(c=>({name:c[1],color:c[2]})),
-   {stacked:true,fmtY:usd,footnote:hasUnpriced?`* excludes unpriced: ${up.models.join(', ')} — estimate is an under-count`:'* estimate only, not a billed figure'});
+   {stacked:true,fmtY:usd,footnote:unpricedFootnote});
  const rows=fams.map(f=>[f.replace('claude-',''),usd(bm[f].inputCost),usd(bm[f].outputCost),usd(bm[f].cacheReadCost),usd(bm[f].cacheWriteCost),usd(bm[f].totalCost)]);
- if(hasUnpriced)rows.push(['unpriced ('+up.models.join('+')+')','—','—',fmt(up.cache_read||0)+' tok','—','n/a']);
+ if(hasUnpriced)rows.push(['unpriced ('+upModels.join('+')+')','—','—',fmt(up.cache_read||0)+' tok','—','n/a']);
  table(s,['model','input','output','cache read','cache write','total'],rows);}
 
 // bead lifecycle events by model — stacked bar (ordered/sequential color job: the stages
@@ -324,7 +331,7 @@ document.getElementById('foot').textContent =
 {const bbm=A.models.beadsByModel,fams=Object.keys(bbm);
  const stages=[['planned',CATS[0]],['implemented',CATS[1]],['merged',CATS[3]]];
  const s=sec('Bead lifecycle events by model',
-   'approximate ts→model attribution (metrics.md f).');
+   'Model attribution is approximate — each tool call is credited to whichever model\'s turn shares its timestamp.');
  legend(s,stages.map(x=>[x[1],x[0]]));
  vbars(s,fams.map(f=>({name:f.replace('claude-',''),vals:stages.map(st=>bbm[f][st[0]])})),
    stages.map(st=>({name:st[0],color:st[1]})),{});
@@ -333,7 +340,7 @@ document.getElementById('foot').textContent =
 // cache-expiry scatter — idle gap (x, log) x wasted tokens (y); status color (warning)
 {const ev=A.cache.expiryEvents.slice();
  const s=sec('Cache-expiry events <span class="accent">·</span> idle gap × wasted tokens',
-   'each point = a cache that went cold after an idle gap and had to be re-fed. Up-and-right = a fresh handoff would have been cheaper.');
+   'each point is a cache that expired during an idle gap, forcing context to be re-sent. Up-and-right = starting a fresh session instead of resuming would likely have cost less.');
  if(ev.length){
  const W=760,H=300,mL=60,mB=42,mT=20,plotW=W-mL-12,plotH=H-mT-mB;
  const xs=ev.map(e=>Math.log10(Math.max(1,e.idleGapSeconds))),xmin=Math.min(...xs),xmax=Math.max(...xs);
@@ -372,11 +379,11 @@ document.getElementById('foot').textContent =
  const sorted=acts.slice().sort((a,b)=>keys.reduce((x,k)=>x+b[1].counts[k],0)-keys.reduce((x,k)=>x+a[1].counts[k],0));
  const shown=sorted.slice(0,SESSION_TOP_N),rest=sorted.slice(SESSION_TOP_N);
  const s=sec('Activity distribution',
-   `aggregate turn-signals across ${acts.length} sessions; small multiples capped at top ${SESSION_TOP_N} by signal volume` +
-   (rest.length?`, remaining ${rest.length} folded into one "+N more" tile (SKILL.md scaling rule).`:'.'));
+   `Each session's turns are tagged planning/implementing/diagnosing/fixing (a turn can raise >1 tag); bars show how many turns raised each tag. Small multiples capped at top ${SESSION_TOP_N} by total tagged turns` +
+   (rest.length?`, remaining ${rest.length} folded into one "+N more" tile to keep the chart readable.`:'.'));
  legend(s,keys.map((k,i)=>[cols[i],k]));
  stackedBar(s,keys.map((k,i)=>({label:k,value:agg[k],color:cols[i]})));
- table(s,['activity','total turn-signals'],keys.map(k=>[k,agg[k]]));
+ table(s,['activity','turns tagged'],keys.map(k=>[k,agg[k]]));
  const grid=$('<div class="sm-grid" style="margin-top:.8rem"></div>');
  shown.forEach(([sid,v])=>smallMultiple(grid,keys,cols,`${sid.slice(0,8)} · ${v.suggested||'—'}`,v.counts));
  if(rest.length){const restAgg={planning:0,implementing:0,diagnosing:0,fixing:0};
@@ -397,14 +404,14 @@ document.getElementById('foot').textContent =
  let restSums=[0,0,0];
  if(rest.length)rest.forEach(r=>r.vals.forEach((v,i)=>restSums[i]+=v));
  const stages=[['planned',CATS[0]],['implemented',CATS[1]],['merged',CATS[3]]];
- const s=sec(`Lifecycle by epic <span class="accent">·</span> top ${EPIC_TOP_N} of ${rows.length}`,
-   `source: <code>${A.lifecycle.source}</code> — epic grouping inferred from bead-id shape, not verified parent links.` +
-   (rest.length?` Top ${EPIC_TOP_N} epics by activity shown in the chart; remaining ${rest.length} epics' bundled totals (${fmt(restSums[0])} planned, ${fmt(restSums[1])} impl, ${fmt(restSums[2])} merged) are large enough to dwarf the real top-N bars, so they're omitted from the chart and folded into one "+N more" table row instead.`:''));
+ const s=sec(`Bead group (by id prefix) <span class="accent">·</span> top ${EPIC_TOP_N} of ${rows.length}`,
+   `Bead ids grouped by bead-id prefix, a heuristic — not verified epic/parent links; many groups are a single bead. source: <code>${A.lifecycle.source}</code>.` +
+   (rest.length?` Top ${EPIC_TOP_N} groups by activity shown in the chart; remaining ${rest.length} groups' bundled totals (${fmt(restSums[0])} planned, ${fmt(restSums[1])} impl, ${fmt(restSums[2])} merged) are large enough to dwarf the real top-N bars, so they're omitted from the chart and folded into one "+N more" table row instead.`:''));
  legend(s,stages.map(x=>[x[1],x[0]]));
  vbars(s,groups,stages.map(st=>({name:st[0],color:st[1]})),{stacked:true});
  const tableRows=topN.map(r=>[r.name,r.vals[0],r.vals[1],r.vals[2]]);
  if(rest.length)tableRows.push([`+${rest.length} more`,restSums[0],restSums[1],restSums[2]]);
- table(s,['epic','planned','impl','merged'],tableRows);}
+ table(s,['group','planned','impl','merged'],tableRows);}
 
 // Tool-class coloring shared by the skill-invocations and failed-tool-calls charts below:
 // four fixed classes, in fixed order, mapped to the categorical palette's slots 1-4
@@ -413,7 +420,7 @@ document.getElementById('foot').textContent =
 // sub-case (toolClasses.byTool already sums direct+passthrough into the class total).
 const TOOL_CLASSES=['beadhive','raw-beads','raw-git','other'];
 const TOOL_CLASS_COLORS=[CATS[0],CATS[1],CATS[2],CATS[3]];
-const TOOL_CLASS_CAPTION='raw-beads/raw-git = where Beadhive isn\'t handling it and the agent reached for the raw tool.';
+const TOOL_CLASS_CAPTION='beadhive = native bh commands and bh: skills; raw-beads / raw-git = the agent used bd/git directly instead of a bh verb; other = everything else (Read/Write/Edit/…).';
 const byTool=(c,name)=>((A.toolClasses||{})[c]||{}).byTool?.[name];
 
 // skill reads — top-N + aggregate bar (categorical color job: skill names are unordered),
@@ -473,10 +480,11 @@ const byTool=(c,name)=>((A.toolClasses||{})[c]||{}).byTool?.[name];
  // productImprovements + failures.examples (see buildFeedbackMessage), with a
  // select-text fallback for contexts (e.g. file://) where the Clipboard API is denied.
  const fbWrap=$('<div style="margin-top:.7rem"></div>');
+ const fbHelp=$('<p class="note">Copies a paste-ready summary (versions + concrete failing calls) to send to the Beadhive maintainers.</p>');
  const fbBtn=$('<button type="button" class="copy-fb-btn">Copy feedback</button>');
  const fbTa=$('<textarea class="fb-fallback" readonly></textarea>');
  fbBtn.addEventListener('click',()=>copyFeedback(fbBtn,fbTa));
- fbWrap.appendChild(fbBtn);fbWrap.appendChild(fbTa);
+ fbWrap.appendChild(fbHelp);fbWrap.appendChild(fbBtn);fbWrap.appendChild(fbTa);
  s.appendChild(fbWrap);}
 """
 
@@ -518,8 +526,8 @@ def build_prose_summary(analysis: dict, recs: dict) -> str:
     )
     if n_usage or n_product:
         summary += (
-            f" {n_usage} usage-pattern item(s) and {n_product} product-improvement item(s) "
-            "below, each grounded in a specific analysis.json number."
+            f" {n_usage} usage-pattern item(s) and {n_product} product-improvement item(s), "
+            "each tied to a specific measured number below."
         )
     else:
         summary += " No grounded recommendations surfaced from this run's numbers."
@@ -528,9 +536,16 @@ def build_prose_summary(analysis: dict, recs: dict) -> str:
 
 def render_html(analysis: dict) -> str:
     recs = generate_recommendations(analysis)
-    # Shallow copy + one added key -- never mutate the caller's analysis dict.
+    # Shallow copy + one added key -- never mutate the caller's analysis dict. Also strip the
+    # '<synthetic>' sentinel model id (always present in cost.unpriced.models, normally with 0
+    # tokens in every bucket) here, once, server-side -- so it's never embedded in A and can't
+    # leak into rendered copy however the client JS slices it (H1 anchor fix).
+    cost = analysis.get("cost", {})
+    unpriced = cost.get("unpriced", {})
+    clean_unpriced = {**unpriced, "models": [m for m in unpriced.get("models", []) if m != "<synthetic>"]}
     analysis = {
         **analysis,
+        "cost": {**cost, "unpriced": clean_unpriced},
         "recommendations": {
             "prose": build_prose_summary(analysis, recs),
             "usagePattern": recs["usagePattern"],
@@ -693,16 +708,39 @@ def selftest() -> None:
     # cost caveat lands on the visual itself (an SVG footnote), not just surrounding prose.
     assert "footnote" in out_html and "under-count" in out_html
 
-    # conditional unpriced caveat (fix 7): the chart JS's "Unpriced & excluded" ternary
-    # is static source text either way (both branches of a client-side conditional are
-    # always present in the shipped script), so the meaningful check is the DATA side --
-    # re-render with an all-priced cost block and confirm the unpriced model id itself
-    # (embedded only via A.cost.unpriced.models) is gone from the emitted analysis JSON.
+    # conditional unpriced caveat (fix 7): the chart JS's cost-by-model footnote is static
+    # source text either way (both branches of a client-side conditional are always present
+    # in the shipped script), so the meaningful check is the DATA side -- re-render with an
+    # all-priced cost block and confirm the unpriced model id itself (embedded only via
+    # A.cost.unpriced.models) is gone from the emitted analysis JSON.
     priced_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
         "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": [],
     }}}
     priced_html = render_html(priced_analysis)
     assert "claude-mystery-1" not in priced_html
+
+    # (H1 anchor) the '<synthetic>' sentinel -- always present in cost.unpriced.models with 0
+    # tokens in every bucket in the normal case -- must never leak into the emitted analysis
+    # JSON (and therefore can never be interpolated into rendered copy), whether or not there's
+    # also a real unpriced model alongside it. The client-side gate/footnote text itself is
+    # static JS source present in every render (both ternary branches always ship, per the
+    # comment above) -- true text-visibility coverage for the "0 tokens -> emit nothing" gate
+    # lives in render.py's selftest, which renders server-side with no client JS involved and
+    # whose recommendations render.py's generate_recommendations() feeds this artifact too.
+    synthetic_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": ["<synthetic>"],
+    }}}
+    synthetic_html = render_html(synthetic_analysis)
+    assert "<synthetic>" not in synthetic_html
+    assert "claude-mystery-1" not in synthetic_html
+
+    mixed_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 5, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0,
+        "models": ["<synthetic>", "claude-mystery-1"],
+    }}}
+    mixed_html = render_html(mixed_analysis)
+    assert "<synthetic>" not in mixed_html
+    assert "claude-mystery-1" in mixed_html
 
     # header shows all four distinct meta.* version fields (og2.1), not just bh/CC.
     assert "A.meta.pluginVersion" in out_html
@@ -734,7 +772,7 @@ def selftest() -> None:
     assert "TOOL_CLASSES" in out_html and "TOOL_CLASS_COLORS" in out_html
     for hex_value in (BRAND_DARK["cat"][0], BRAND_DARK["cat"][1], BRAND_DARK["cat"][2], BRAND_DARK["cat"][3]):
         assert hex_value in out_html, f"missing tool-class palette hex {hex_value}"
-    assert "raw-beads/raw-git = where Beadhive isn" in out_html
+    assert "beadhive = native bh commands and bh: skills" in out_html
 
     # (10) recommendations + prose — previously entirely missing from this artifact.
     assert "A.recommendations" in out_html

@@ -20,6 +20,7 @@ import argparse
 import html
 import json
 import os
+from datetime import datetime
 
 import _rundir
 
@@ -68,6 +69,40 @@ def fmt_pct(n) -> str:
         return esc(n)
 
 
+def fmt_ratio(n) -> str:
+    try:
+        return f"{float(n):.1f}×"
+    except (TypeError, ValueError):
+        return esc(n)
+
+
+def _humanize_duration(seconds) -> str:
+    """Compact human duration for an idle-gap seconds count, e.g. 9951 -> '~2h46m'."""
+    try:
+        secs = float(seconds)
+    except (TypeError, ValueError):
+        return "~unknown"
+    if secs < 60:
+        return f"~{round(secs)}s"
+    total_minutes = round(secs / 60)
+    hours, minutes = divmod(total_minutes, 60)
+    if hours:
+        return f"~{hours}h{minutes}m" if minutes else f"~{hours}h"
+    return f"~{minutes}m"
+
+
+def _humanize_ts(ts) -> str:
+    """Render an ISO-8601 timestamp as compact, human-readable text; falls back to the raw
+    string (or 'unknown time') on anything that doesn't parse -- never raises."""
+    if not isinstance(ts, str) or not ts:
+        return "unknown time"
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d %H:%M UTC")
+    except ValueError:
+        return ts
+
+
 def table(headers: list[str], rows: list[list]) -> str:
     if not rows:
         return "<p class='empty'>No data.</p>"
@@ -92,15 +127,18 @@ def section(title: str, anchor: str, body: str, note: str | None = None) -> str:
 def render_lifecycle(lifecycle: dict) -> str:
     by_epic = lifecycle.get("byEpic", {})
     rows = [
-        [epic, counts.get("planned", 0), counts.get("implemented", 0), counts.get("merged", 0)]
-        for epic, counts in sorted(by_epic.items())
+        [group, counts.get("planned", 0), counts.get("implemented", 0), counts.get("merged", 0)]
+        for group, counts in sorted(by_epic.items())
     ]
-    body = table(["Epic", "Planned", "Implemented", "Merged"], rows)
+    body = table(["Group", "Planned", "Implemented", "Merged"], rows)
     return section(
-        "Lifecycle",
+        "Bead group (by id prefix)",
         "lifecycle",
         body,
-        note=f"source: {lifecycle.get('source', 'unknown')} (offline id-heuristic, not a verified parent link)",
+        note=(
+            f"source: {lifecycle.get('source', 'unknown')} — grouped by bead-id prefix, a "
+            "heuristic — not verified epic/parent links; many groups are a single bead."
+        ),
     )
 
 
@@ -120,7 +158,7 @@ def render_tokens(tokens: dict) -> str:
 
 
 def render_cache(cache: dict, cache_waste_usd) -> str:
-    body = f"<p class='stat'>cache ratio: <strong>{fmt_pct(cache.get('cacheRatio', 0))}</strong></p>"
+    body = f"<p class='stat'>cache ratio: <strong>{fmt_ratio(cache.get('cacheRatio', 0))}</strong></p>"
     significant = [e for e in cache.get("expiryEvents", []) if e.get("significant")]
     rows = [
         [e.get("sessionId"), e.get("ts"), f"{e.get('idleGapSeconds', 0):.0f}s", fmt_int(e.get("wastedTokens", 0))]
@@ -154,7 +192,10 @@ def render_models(models: dict) -> str:
         "Models",
         "models",
         body,
-        note="model attribution is approximate (ts→model join) per metrics.md (f)",
+        note=(
+            "Model attribution is approximate — each tool call is credited to whichever "
+            "model's turn shares its timestamp."
+        ),
     )
 
 
@@ -175,14 +216,17 @@ def render_cost(cost: dict) -> str:
     body += f"<p class='stat'>grand total (estimate): <strong>{fmt_usd(cost.get('total', 0))}</strong></p>"
 
     unpriced = cost.get("unpriced", {})
-    unpriced_models = unpriced.get("models", [])
-    if unpriced_models:
-        unpriced_tokens = sum(
-            unpriced.get(k, 0) for k in ("input", "output", "cache_read", "eph5m", "eph1h")
-        )
+    unpriced_models = [m for m in unpriced.get("models", []) if m != "<synthetic>"]
+    unpriced_tokens = sum(unpriced.get(k, 0) for k in ("input", "output", "cache_read", "eph5m", "eph1h"))
+    # Gate on actual unpriced TOKEN VOLUME, not model-list length -- the '<synthetic>' sentinel
+    # is always present in unpriced.models with 0 tokens in the normal case, so a
+    # models-list-length gate always fired (H1 anchor bug). When there's no real unpriced
+    # volume, emit nothing at all.
+    if unpriced_tokens > 0:
         body += (
-            f"<p class='note'>unpriced model families (not included above): {esc(', '.join(unpriced_models))} "
-            f"— {fmt_int(unpriced_tokens)} raw tokens</p>"
+            f"<p class='note'>* Excludes {fmt_int(unpriced_tokens)} tokens from model(s) "
+            f"{esc(', '.join(unpriced_models))} with no configured rate — total is a slight "
+            "under-count.</p>"
         )
 
     return section(
@@ -241,6 +285,8 @@ def render_activity(activity: dict) -> str:
 # ---------------------------------------------------------------------------
 
 CACHE_CALLOUT_LIMIT = 5
+# L4: raised from 2 -- a bare couple of re-reads isn't yet a signal worth flagging.
+SKILL_MD_REREAD_THRESHOLD = 3
 
 
 def generate_recommendations(analysis: dict) -> dict:
@@ -250,17 +296,22 @@ def generate_recommendations(analysis: dict) -> dict:
     cache = analysis.get("cache", {})
     significant = [e for e in cache.get("expiryEvents", []) if e.get("significant")]
     for e in significant[:CACHE_CALLOUT_LIMIT]:
+        session_id = str(e.get("sessionId") or "")[:8]
         usage.append(
-            f"Handoff opportunity in session {e.get('sessionId')} at {e.get('ts')}: cache expired "
-            f"after a {e.get('idleGapSeconds', 0):.0f}s idle gap, wasting "
-            f"{fmt_int(e.get('wastedTokens', 0))} tokens."
+            f"Handoff opportunity in session {session_id} at {_humanize_ts(e.get('ts'))} — "
+            f"cache expired after a {_humanize_duration(e.get('idleGapSeconds', 0))} idle gap, "
+            f"wasting {fmt_int(e.get('wastedTokens', 0))} tokens."
         )
 
     cost = analysis.get("cost", {})
     unpriced = cost.get("unpriced", {})
-    unpriced_models = unpriced.get("models", [])
+    # H1: gate on actual unpriced TOKEN VOLUME, not model-list length -- the '<synthetic>'
+    # sentinel is always present in unpriced.models with 0 tokens in every bucket in the
+    # normal case, so a models-list-length gate always fired. Strip it before it's ever
+    # joined into copy.
+    unpriced_models = [m for m in unpriced.get("models", []) if m != "<synthetic>"]
     unpriced_tokens = sum(unpriced.get(k, 0) for k in ("input", "output", "cache_read", "eph5m", "eph1h"))
-    if unpriced_models:
+    if unpriced_tokens > 0:
         usage.append(
             f"{fmt_int(unpriced_tokens)} tokens were spent on unpriced model family/families "
             f"({', '.join(unpriced_models)}) — cost estimates above exclude them."
@@ -270,11 +321,17 @@ def generate_recommendations(analysis: dict) -> dict:
     beads_bh_failures = sum(failures.get("beadsBh", {}).values())
     if beads_bh_failures:
         breakdown = ", ".join(f"{tool}: {n}" for tool, n in failures.get("beadsBh", {}).items())
-        usage.append(f"{beads_bh_failures} failed bd/bh tool call(s) ({breakdown}) — worth a look in events.jsonl.")
+        usage.append(
+            f"{beads_bh_failures} failed bd/bh tool call(s) ({breakdown}) — worth a look in "
+            "the raw session log."
+        )
 
     skill_md_reads = analysis.get("skillReads", {}).get("skillMdReads", 0)
-    if skill_md_reads > 2:
-        usage.append(f"SKILL.md was read {skill_md_reads} times across sessions — a shorter refresher pointer may cut repeat reads.")
+    if skill_md_reads > SKILL_MD_REREAD_THRESHOLD:
+        usage.append(
+            f"The retro guide was re-read {skill_md_reads} times — a shorter quick-reference "
+            "might reduce that."
+        )
 
     meta = analysis.get("meta", {})
     version_stamp = (
@@ -283,7 +340,7 @@ def generate_recommendations(analysis: dict) -> dict:
         f"bd {meta.get('bdVersion', 'unknown')} "
         f"(CC {', '.join(meta.get('ccVersions', []) or ['unknown'])})"
     )
-    if unpriced_models:
+    if unpriced_tokens > 0:
         product.append(
             f"pricing.json has no rate for model family/families {', '.join(unpriced_models)} "
             f"({fmt_int(unpriced_tokens)} raw tokens went unpriced) — {version_stamp}."
@@ -476,9 +533,30 @@ def selftest() -> None:
     assert "plugin 0.3.0" in out_html
     assert "bd bd version 1.1.0" in out_html
 
+    # H2: cacheRatio is a ratio ('0.4×'), never a percentage (fmt_pct is no longer used for
+    # this value in either renderer).
+    assert "0.4×" in out_html
+
     recs = generate_recommendations(analysis)
     assert len(recs["usagePattern"]) >= 1
     assert len(recs["productImprovements"]) <= 3
+
+    # M8: recommendation-card text is humanized (session id truncated, idle gaps/timestamps
+    # readable, no internal filenames), and each item splits cleanly on exactly one ' — '
+    # (what/why) -- the delimiter recCard()/recCards() split on in render_artifact.py.
+    all_recs = recs["usagePattern"] + recs["productImprovements"]
+    handoff_item = next(i for i in recs["usagePattern"] if i.startswith("Handoff opportunity"))
+    assert "1200s" not in handoff_item  # raw seconds, e.g. the old f"{secs:.0f}s" format
+    assert "~20m" in handoff_item  # humanized idle gap (1200s), not "1200s"
+    assert "2026-07-20 10:20 UTC" in handoff_item  # humanized timestamp, not raw ISO-8601
+    assert not any("events.jsonl" in i for i in all_recs)
+    assert any("the raw session log" in i for i in all_recs)
+    for item in all_recs:
+        assert item.count(" — ") == 1, f"expected exactly one ' — ' delimiter: {item!r}"
+
+    # H1 (anchor): with real unpriced token volume, exactly one '*' footnote in the exact
+    # spec wording lands in the Cost section.
+    assert "* Excludes 5 tokens from model(s) claude-mystery-1 with no configured rate — total is a slight under-count." in out_html
 
     # conditional unpriced caveat (bh-cp-og2.2 fix 7): the caveat text is NOT hardcoded --
     # it disappears once cost.unpriced.models is empty (e.g. once fable is priced, per
@@ -490,6 +568,35 @@ def selftest() -> None:
     assert "unpriced model families" not in priced_html
     assert "pricing.json has no rate for model family/families" not in priced_html
     assert "claude-mystery-1" not in priced_html
+
+    # H1 (anchor): zero unpriced tokens -> emit NOTHING unpriced-related at all -- no note,
+    # no cost-table row, no usage/maintainer recommendation about it.
+    assert "under-count" not in priced_html
+    assert "Excludes" not in priced_html
+    assert "unpriced" not in priced_html.lower()
+    priced_recs = generate_recommendations(priced_analysis)
+    assert not any("unpriced" in item.lower() for item in priced_recs["usagePattern"])
+    assert not any("pricing.json has no rate" in item for item in priced_recs["productImprovements"])
+
+    # H1 (anchor): the '<synthetic>' sentinel -- always present in cost.unpriced.models with 0
+    # tokens in every bucket in the normal case -- must never leak into rendered copy, even
+    # when explicitly present in the input analysis.json.
+    synthetic_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 0, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0, "models": ["<synthetic>"],
+    }}}
+    synthetic_html = render_html(synthetic_analysis)
+    assert "<synthetic>" not in synthetic_html
+    assert "under-count" not in synthetic_html
+    assert "Excludes" not in synthetic_html
+
+    mixed_analysis = {**analysis, "cost": {**analysis["cost"], "unpriced": {
+        "input": 5, "output": 0, "cache_read": 0, "eph5m": 0, "eph1h": 0,
+        "models": ["<synthetic>", "claude-mystery-1"],
+    }}}
+    mixed_html = render_html(mixed_analysis)
+    assert "<synthetic>" not in mixed_html
+    assert "claude-mystery-1" in mixed_html
+    assert "under-count" in mixed_html
 
     # branded-by-default: no flag needed, honeycomb palette hex values present.
     assert BRAND["surface"] in out_html
