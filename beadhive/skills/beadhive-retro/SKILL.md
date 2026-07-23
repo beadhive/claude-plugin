@@ -13,9 +13,9 @@ description: >-
 # beadhive-retro — retrospective efficiency analysis
 
 Answers "how efficient were our recent Beadhive sessions" with real numbers pulled from Claude
-Code's own session transcripts, not vibes. Three stdlib-only Python scripts do the scripted work
-(identification, extraction, aggregation); you do the judgment work (labelling ambiguous
-sessions, writing the narrative, picking recommendations).
+Code's own session transcripts, not vibes. Stdlib-only Python scripts do the scripted work
+(identification, extraction, aggregation, and — opt-in — HTML rendering); you do the judgment
+work (labelling ambiguous sessions, writing the narrative, picking recommendations).
 
 ## Run the pipeline, in order
 
@@ -45,7 +45,33 @@ if you change one of them; it must stay green.
 end to end and produce a report grounded in `analysis.json`'s numbers, not a summary written from
 guesswork.
 
+## Artifact mode: render report.html instead of the in-chat report
+
+**Default behavior (no flag) is unchanged**: write the report inline in chat per the section
+below. If the user asks for an artifact / file / HTML report (or says "artifact mode"), run a
+fourth, opt-in step after `analyze.py`:
+
+```bash
+python3 scripts/render.py   # reads <run-dir>/analysis.json -> <run-dir>/report.html
+```
+
+`render.py` resolves the same run-dir as the other three scripts (via the `latest` pointer or
+`--run-dir`) and writes a single self-contained `report.html` (inline CSS, no JS framework, no
+new dependencies) next to `analysis.json` — tables for every metric family plus the significant
+cache-expiry call-outs and a two-tier recommendations section, all computed straight from
+`analysis.json`.
+
+When artifact mode is requested, **present `report.html` to the user instead of writing the full
+report in chat**: give its path and tell them to open it. A short in-chat summary (a couple of
+headline numbers) is fine, but don't re-paste the full per-section report — that's what the
+artifact is for. The numbers must still be the same ones grounded in `analysis.json`; `render.py`
+just formats them.
+
 ## Read `analysis.json`, then write the report
+
+This section is the default in-chat report (no artifact flag). If artifact mode was requested,
+skip straight to presenting `report.html` (see above) — the same grounding rules below still
+apply to what `render.py` put in it, you just aren't retyping it into chat.
 
 `analysis.json` has one top-level key per metric family — `lifecycle`, `failures`, `skillReads`,
 `tokens`, `cache`, `activity`, `models`, `cost`, `meta`. The exact formula behind each is **not**
