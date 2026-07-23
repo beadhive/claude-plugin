@@ -154,12 +154,29 @@ fresh handoff would've been cheaper" call-outs into a dollar figure, most useful
 
 ## (h) `meta` block
 
-`analysis.json`'s `meta` family carries run provenance, not a metric: `bhVersion` (best-effort —
-`bh version` via `subprocess`, falling back to `bd version`, else the literal string
-`"unknown"` if neither succeeds — this is the version stamp used on maintainer recommendations,
-see (i)), `ccVersions` (the union of every session's `ccVersions`, i.e. the distinct Claude Code
-build(s) seen in the analyzed window — see extract.py), `pricingAsOf` (echoing `pricing.json`),
-and `generatedAt` (analysis run timestamp, UTC ISO 8601).
+`analysis.json`'s `meta` family carries run provenance, not a metric — FOUR distinct
+version fields plus two provenance fields, all best-effort (subprocess/file reads that
+never raise; each falls back to the literal string `"unknown"` on any failure):
+
+- `bhVersion` — the bh CLI's own version: `bh --version`, falling back to `bh version`
+  (some releases expose it as a subcommand instead).
+- `pluginVersion` — the bh claude-plugin's version: read from the installed plugin's
+  `plugin.json` (resolved relative to this script — the offset from
+  `scripts/analyze.py` to the plugin root's `.claude-plugin/plugin.json` is the same for
+  a dev checkout and the installed plugin cache), falling back to parsing `claude plugin
+  list` for the `bh@<marketplace>` entry.
+- `bdVersion` — the bd CLI's own version: `bd version`.
+- `ccVersions` — the union of every session's `ccVersions`, i.e. the distinct Claude Code
+  build(s) seen in the analyzed window (see extract.py).
+
+These four were previously conflated: `bhVersion` used to fall back to `bd version` when
+`bh` wasn't on PATH, silently mixing the two tools' versions into one field. They're now
+independent — `bhVersion` and `bdVersion` never substitute for each other; each is
+`"unknown"` on its own if its own probe fails.
+
+`meta` also carries `pricingAsOf` (echoing `pricing.json`) and `generatedAt` (analysis run
+timestamp, UTC ISO 8601). The maintainer-recommendation stamp in (i) below now cites
+`bhVersion`, `pluginVersion`, and `bdVersion` together (not just `bhVersion`).
 
 ## (i) Two-tier recommendation taxonomy
 
