@@ -12,12 +12,26 @@ import argparse
 import json
 import re
 
-BD_BH_TOKEN_RE = re.compile(r"(?:^|&&|;|\n)\s*((?:bd|bh)\s+\S+(?:\s+\S+)?)")
+# Capture the FULL bd/bh invocation up to the next shell terminator, not just 2 words — a short
+# capture silently drops the bead id on commands like `bh work merge bh-cp-1` (3 words after
+# bd/bh: work, merge, <id>). Cap the length so a long --description doesn't bloat output.
+BD_BH_TOKEN_RE = re.compile(
+    r"(?:^|&&|;|\n)\s*((?:bd|bh)\s+(?:(?!&&|;|\||\n).)*)", re.DOTALL
+)
+# ^ stops at &&, ;, |, or newline (shell chaining) but NOT a lone '&' — a redirect like
+# '2>&1' must not truncate the command before a trailing bead id.
+BD_BH_DETAIL_MAXLEN = 200
+# `bd create` / `bh plan` never carry the new bead's id in the command (it's assigned and
+# printed in the tool_result, e.g. "Created issue: bh-cp-1 ..."), so extract.py also scans
+# tool_result text for ids and attaches them to the originating Bash event as `resultIds`.
+BEAD_ID_RE = re.compile(r"\bbh-[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)?\b")
 
 
 def bd_bh_detail(command: str):
     m = BD_BH_TOKEN_RE.search(command)
-    return m.group(1).strip() if m else None
+    if not m:
+        return None
+    return m.group(1).strip()[:BD_BH_DETAIL_MAXLEN]
 
 
 def tool_detail(name: str, inp: dict):
@@ -47,10 +61,28 @@ def content_chars(content) -> int:
     return len(str(content))
 
 
+def content_text(content) -> str:
+    """Flatten a tool_result content field to plain text for bead-id scanning."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                parts.append(str(block.get("text", "")))
+            else:
+                parts.append(str(block))
+        return "\n".join(parts)
+    return str(content)
+
+
 def extract_session(path: str) -> dict:
     usage_series = []
     tool_events = []  # each: {ts, tool, isSidechain, detail, tool_use_id}
     error_by_id = {}  # tool_use_id -> is_error
+    result_ids_by_id = {}  # tool_use_id -> [bead ids found in that tool_result's text]
     read_chars = 0
     write_chars = 0
     session_id = None
@@ -115,12 +147,18 @@ def extract_session(path: str) -> dict:
                 elif block.get("type") == "tool_result":
                     tool_use_id = block.get("tool_use_id")
                     is_error = bool(block.get("is_error", False))
+                    result_content = block.get("content")
                     if tool_use_id:
                         error_by_id[tool_use_id] = is_error
-                    read_chars += content_chars(block.get("content"))
+                        ids = BEAD_ID_RE.findall(content_text(result_content))
+                        if ids:
+                            result_ids_by_id[tool_use_id] = sorted(set(ids))
+                    read_chars += content_chars(result_content)
 
     for event in tool_events:
-        event["error"] = error_by_id.get(event["tool_use_id"], False)
+        tool_use_id = event["tool_use_id"]
+        event["error"] = error_by_id.get(tool_use_id, False)
+        event["resultIds"] = result_ids_by_id.get(tool_use_id, [])
 
     return {
         "sessionId": session_id,
@@ -160,6 +198,8 @@ def selftest() -> None:
                 "content": [
                     {"type": "tool_use", "id": "tu1", "name": "Bash", "input": {"command": "bd show bh-cp-1"}},
                     {"type": "tool_use", "id": "tu2", "name": "Write", "input": {"file_path": "/tmp/f.py", "content": "hello world"}},
+                    {"type": "tool_use", "id": "tu3", "name": "Bash", "input": {"command": "bh work merge bh-cp-9 2>&1 | tail -5"}},
+                    {"type": "tool_use", "id": "tu4", "name": "Bash", "input": {"command": "bd create --title x"}},
                 ],
             },
         },
@@ -171,6 +211,7 @@ def selftest() -> None:
                 "role": "user",
                 "content": [
                     {"type": "tool_result", "tool_use_id": "tu1", "is_error": True, "content": "error: not found"},
+                    {"type": "tool_result", "tool_use_id": "tu4", "is_error": False, "content": "Created issue: bh-cp-42 — x"},
                 ],
             },
         },
@@ -188,17 +229,29 @@ def selftest() -> None:
     assert u["eph5m"] == 5 and u["eph1h"] == 0
     assert u["model"] == "claude-sonnet-5"
 
-    assert len(result["toolEvents"]) == 2
-    bash_event = next(e for e in result["toolEvents"] if e["tool"] == "Bash")
+    assert len(result["toolEvents"]) == 4
+    bash_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu1")
     assert bash_event["detail"] == "bd show bh-cp-1", bash_event["detail"]
     assert bash_event["error"] is True
 
-    write_event = next(e for e in result["toolEvents"] if e["tool"] == "Write")
+    write_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu2")
     assert write_event["detail"] == "/tmp/f.py"
     assert write_event["error"] is False
 
+    # regression: the id must survive on a 3-word-after-bd/bh command (work merge <id>),
+    # even with a trailing `2>&1 | tail` redirect/pipe.
+    merge_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu3")
+    assert "bh-cp-9" in merge_event["detail"], merge_event["detail"]
+    assert merge_event["detail"].startswith("bh work merge bh-cp-9"), merge_event["detail"]
+
+    # bd create's id only appears in the tool_result, not the command -> resultIds
+    create_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu4")
+    assert create_event["detail"] == "bd create --title x", create_event["detail"]
+    assert create_event["resultIds"] == ["bh-cp-42"], create_event["resultIds"]
+    assert bash_event["resultIds"] == []
+
     assert result["contentSizes"]["writeChars"] == len("hello world")
-    assert result["contentSizes"]["readChars"] == len("error: not found")
+    assert result["contentSizes"]["readChars"] == len("error: not found") + len("Created issue: bh-cp-42 — x")
 
     print("extract.py --selftest: OK")
 

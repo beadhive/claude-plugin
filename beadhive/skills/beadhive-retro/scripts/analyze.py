@@ -68,7 +68,8 @@ def analyze_lifecycle(sessions: list) -> dict:
             stage = lifecycle_stage(detail)
             if not stage:
                 continue
-            for bead_id in BEAD_ID_RE.findall(detail):
+            ids = set(BEAD_ID_RE.findall(detail)) | set(event.get("resultIds") or [])
+            for bead_id in ids:
                 key = (stage, bead_id)
                 if key in seen:
                     continue
