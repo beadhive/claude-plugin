@@ -20,15 +20,22 @@ import re
 
 import _rundir
 
-# Capture the FULL bd/bh invocation up to the next shell terminator, not just 2 words — a short
-# capture silently drops the bead id on commands like `bh work merge bh-cp-1` (3 words after
-# bd/bh: work, merge, <id>). Cap the length so a long --description doesn't bloat output.
+# Capture the FULL bd/bh/git invocation up to the next shell terminator, not just 2 words — a
+# short capture silently drops the bead id on commands like `bh work merge bh-cp-1` (3 words
+# after bd/bh: work, merge, <id>). Cap the length so a long --description doesn't bloat output.
+# `git` is included alongside `bd`/`bh` so analyze.py's tool-class split (metrics.md) can tell a
+# direct `git ...` call apart from a `bh git ...` passthrough — both already matched `bh git`
+# before this addition (it starts with `bh`); only the bare `git ...` case is new here.
 BD_BH_TOKEN_RE = re.compile(
-    r"(?:^|&&|;|\n)\s*((?:bd|bh)\s+(?:(?!&&|;|\||\n).)*)", re.DOTALL
+    r"(?:^|&&|;|\n)\s*((?:bd|bh|git)\s+(?:(?!&&|;|\||\n).)*)", re.DOTALL
 )
 # ^ stops at &&, ;, |, or newline (shell chaining) but NOT a lone '&' — a redirect like
 # '2>&1' must not truncate the command before a trailing bead id.
 BD_BH_DETAIL_MAXLEN = 200
+# How much of a failing tool_result's text to retain as errorText — enough to be a useful
+# concrete example (e.g. in the maintainer copy-feedback message) without bloating extract
+# output with full stack traces/logs.
+ERROR_TEXT_MAXLEN = 300
 # `bd create` / `bh plan` never carry the new bead's id in the command (it's assigned and
 # printed in the tool_result, e.g. "Created issue: bh-cp-1 ..."), so extract.py also scans
 # tool_result text for ids and attaches them to the originating Bash event as `resultIds`.
@@ -91,6 +98,7 @@ def extract_session(path: str) -> dict:
     tool_events = []  # each: {ts, tool, isSidechain, detail, tool_use_id}
     error_by_id = {}  # tool_use_id -> is_error
     result_ids_by_id = {}  # tool_use_id -> [bead ids found in that tool_result's text]
+    error_text_by_id = {}  # tool_use_id -> truncated tool_result text, only when is_error
     read_chars = 0
     write_chars = 0
     session_id = None
@@ -165,12 +173,15 @@ def extract_session(path: str) -> dict:
                         ids = BEAD_ID_RE.findall(content_text(result_content))
                         if ids:
                             result_ids_by_id[tool_use_id] = sorted(set(ids))
+                        if is_error:
+                            error_text_by_id[tool_use_id] = content_text(result_content)[:ERROR_TEXT_MAXLEN]
                     read_chars += content_chars(result_content)
 
     for event in tool_events:
         tool_use_id = event["tool_use_id"]
         event["error"] = error_by_id.get(tool_use_id, False)
         event["resultIds"] = result_ids_by_id.get(tool_use_id, [])
+        event["errorText"] = error_text_by_id.get(tool_use_id, "")
 
     return {
         "sessionId": session_id,
@@ -214,6 +225,7 @@ def selftest() -> None:
                     {"type": "tool_use", "id": "tu2", "name": "Write", "input": {"file_path": "/tmp/f.py", "content": "hello world"}},
                     {"type": "tool_use", "id": "tu3", "name": "Bash", "input": {"command": "bh work merge bh-cp-9 2>&1 | tail -5"}},
                     {"type": "tool_use", "id": "tu4", "name": "Bash", "input": {"command": "bd create --title x"}},
+                    {"type": "tool_use", "id": "tu5", "name": "Bash", "input": {"command": "git commit -m 'wip'"}},
                 ],
             },
         },
@@ -244,10 +256,12 @@ def selftest() -> None:
     assert u["eph5m"] == 5 and u["eph1h"] == 0
     assert u["model"] == "claude-sonnet-5"
 
-    assert len(result["toolEvents"]) == 4
+    assert len(result["toolEvents"]) == 5
     bash_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu1")
     assert bash_event["detail"] == "bd show bh-cp-1", bash_event["detail"]
     assert bash_event["error"] is True
+    # errorText: truncated tool_result text, only captured for is_error events.
+    assert bash_event["errorText"] == "error: not found", bash_event["errorText"]
 
     write_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu2")
     assert write_event["detail"] == "/tmp/f.py"
@@ -264,6 +278,12 @@ def selftest() -> None:
     assert create_event["detail"] == "bd create --title x", create_event["detail"]
     assert create_event["resultIds"] == ["bh-cp-42"], create_event["resultIds"]
     assert bash_event["resultIds"] == []
+    assert create_event["errorText"] == "", create_event["errorText"]  # no error -> empty
+
+    # direct `git ...` (not bd/bh-prefixed) is now also captured, so analyze.py can tell it
+    # apart from a `bh git ...` passthrough (metrics.md / tool-class split).
+    git_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu5")
+    assert git_event["detail"] == "git commit -m 'wip'", git_event["detail"]
 
     assert result["contentSizes"]["writeChars"] == len("hello world")
     assert result["contentSizes"]["readChars"] == len("error: not found") + len("Created issue: bh-cp-42 — x")

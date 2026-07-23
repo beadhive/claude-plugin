@@ -36,6 +36,12 @@ CACHE_MISS_RATIO = 0.5
 RECREATION_SPIKE_TOKENS = 5000
 SIGNIFICANT_WASTED_TOKENS = 10000
 
+# Tool-call classification (metrics.md (j)) — see classify_tool_event().
+TOOL_CLASSES = ("beadhive", "raw-beads", "raw-git", "other")
+# Bounded so a noisy run doesn't bloat analysis.json / the maintainer copy-feedback message
+# with every failure ever seen — just enough concrete examples to ground it.
+FAILURE_EXAMPLE_LIMIT = 5
+
 PRICING_PATH = Path(__file__).resolve().parent.parent / "references" / "pricing.json"
 # Plugin root is 4 dirs up from this script (scripts -> beadhive-retro -> skills -> plugin
 # root), a layout shared by a dev checkout and the installed plugin cache alike.
@@ -87,6 +93,56 @@ def is_beads_bh(event: dict) -> bool:
     return False
 
 
+def classify_tool_event(event: dict) -> tuple[str, bool]:
+    """Classify one tool event into a TOOL_CLASSES bucket (metrics.md (j)):
+
+    - beadhive  — a native `bh <verb>` Bash call that is NOT `bh bd`/`bh git` (e.g. `bh work`,
+                  `bh plan`, `bh rig`); or a `bh:*` Skill invocation.
+    - raw-beads — a direct `bd ...` Bash call, OR a `bh bd ...` passthrough (both reach for
+                  beads directly, bypassing bh verbs); or a `beads:*` Skill invocation.
+    - raw-git   — a direct `git ...` Bash call, OR a `bh git ...` passthrough.
+    - other     — everything else (non-bd/bh/git Bash, other Skills, Read/Write/Edit/...).
+
+    Returns (class, passthrough). `passthrough` is True only for the `bh bd`/`bh git`
+    sub-case of raw-beads/raw-git — the direct `bd`/`git` sub-case of those same two classes,
+    and every other class, always report `passthrough=False`.
+
+    This is the single source of the classification rule — analyze_tool_classes() and the
+    skill-invocation 3-way breakdown in analyze_skill_reads() both call this, rather than
+    each re-implementing the bd/bh/git prefix regexes.
+    """
+    tool = event.get("tool")
+    detail = str(event.get("detail") or "")
+    if tool == "Skill":
+        if detail.startswith("bh:"):
+            return "beadhive", False
+        if detail.startswith("beads:"):
+            return "raw-beads", False
+        return "other", False
+    if tool == "Bash":
+        if re.match(r"^bh\s+bd\b", detail):
+            return "raw-beads", True
+        if re.match(r"^bh\s+git\b", detail):
+            return "raw-git", True
+        if re.match(r"^bd\b", detail):
+            return "raw-beads", False
+        if re.match(r"^git\b", detail):
+            return "raw-git", False
+        if re.match(r"^bh\b", detail):
+            return "beadhive", False
+        return "other", False
+    return "other", False
+
+
+def _tool_class_key(event: dict) -> str:
+    """The 'name' axis for toolClasses.byTool: a Skill event keys by its skill id (the
+    granularity the skill-invocations chart needs); everything else keys by tool type
+    (Bash/Read/Write/...), the granularity the failures chart already used."""
+    if event.get("tool") == "Skill":
+        return str(event.get("detail") or "unknown")
+    return str(event.get("tool") or "unknown")
+
+
 def lifecycle_stage(detail: str):
     if PLANNED_RE.match(detail):
         return "planned"
@@ -121,18 +177,45 @@ def analyze_lifecycle(sessions: list) -> dict:
 
 
 def analyze_failures(sessions: list) -> dict:
+    # beadsBh/other back-compat: values UNCHANGED from before toolClasses existed (still
+    # is_beads_bh's 2-way split) — do not derive these from classify_tool_event, which draws
+    # the raw-git line differently (a `bh git ...` failure used to count as beadsBh here; it
+    # now lands in toolClasses.raw-git instead, but this key's values must not shift).
     by_tool = {"beadsBh": {}, "other": {}}
+    # `examples`: a few concrete failing calls (session, command, error text) — new, additive
+    # — grounds the maintainer copy-feedback message (SKILL.md / render_artifact.py) in real
+    # instances instead of just aggregate counts.
+    examples = []
     for session in sessions:
         for event in session["toolEvents"]:
             if not event.get("error"):
                 continue
             bucket = by_tool["beadsBh"] if is_beads_bh(event) else by_tool["other"]
             bucket[event["tool"]] = bucket.get(event["tool"], 0) + 1
-    return by_tool
+            if len(examples) < FAILURE_EXAMPLE_LIMIT:
+                cls, _passthrough = classify_tool_event(event)
+                examples.append(
+                    {
+                        "sessionId": session.get("sessionId"),
+                        "ts": event.get("ts"),
+                        "tool": event.get("tool"),
+                        "class": cls,
+                        "detail": event.get("detail") or "",
+                        "errorText": event.get("errorText") or "",
+                    }
+                )
+    return {**by_tool, "examples": examples}
 
 
 def analyze_skill_reads(sessions: list) -> dict:
+    # invocations (bhBeads/other) back-compat: values UNCHANGED — same 2-way bh:/beads: vs
+    # other prefix check as before toolClasses existed.
     skills = {"bhBeads": {}, "other": {}}
+    # byClass: the new 3-way split (beadhive / raw-beads / other — a Skill event never
+    # classifies as raw-git), via the SAME classify_tool_event() toolClasses uses, so this
+    # and toolClasses' Skill-derived byTool entries never disagree on where a skill lands.
+    by_class = {"beadhive": {}, "rawBeads": {}, "other": {}}
+    class_key = {"beadhive": "beadhive", "raw-beads": "rawBeads", "other": "other"}
     skill_md_reads = 0
     for session in sessions:
         for event in session["toolEvents"]:
@@ -140,11 +223,43 @@ def analyze_skill_reads(sessions: list) -> dict:
                 name = str(event.get("detail") or "unknown")
                 bucket = skills["bhBeads"] if (name.startswith("bh:") or name.startswith("beads:")) else skills["other"]
                 bucket[name] = bucket.get(name, 0) + 1
+                cls, _passthrough = classify_tool_event(event)
+                cbucket = by_class[class_key[cls]]
+                cbucket[name] = cbucket.get(name, 0) + 1
             elif event["tool"] == "Read":
                 path = str(event.get("detail") or "")
                 if path.endswith("SKILL.md"):
                     skill_md_reads += 1
-    return {"invocations": skills, "skillMdReads": skill_md_reads}
+    return {"invocations": skills, "skillMdReads": skill_md_reads, "byClass": by_class}
+
+
+def analyze_tool_classes(sessions: list) -> dict:
+    """(j) toolClasses: every tool event bucketed via classify_tool_event() into TOOL_CLASSES,
+    with total/failed counts, a per-name breakdown (see _tool_class_key), and a direct/
+    passthrough split for the two classes where that distinction applies (raw-beads, raw-git)."""
+    classes = {c: {"total": 0, "failed": 0, "byTool": {}} for c in TOOL_CLASSES}
+    for c in ("raw-beads", "raw-git"):
+        classes[c]["direct"] = {"total": 0, "failed": 0}
+        classes[c]["passthrough"] = {"total": 0, "failed": 0}
+
+    for session in sessions:
+        for event in session["toolEvents"]:
+            cls, passthrough = classify_tool_event(event)
+            failed = bool(event.get("error"))
+            bucket = classes[cls]
+            bucket["total"] += 1
+            if failed:
+                bucket["failed"] += 1
+            tbucket = bucket["byTool"].setdefault(_tool_class_key(event), {"total": 0, "failed": 0})
+            tbucket["total"] += 1
+            if failed:
+                tbucket["failed"] += 1
+            if cls in ("raw-beads", "raw-git"):
+                sub = bucket["passthrough"] if passthrough else bucket["direct"]
+                sub["total"] += 1
+                if failed:
+                    sub["failed"] += 1
+    return classes
 
 
 def analyze_tokens(sessions: list) -> dict:
@@ -516,6 +631,7 @@ def analyze(sessions: list, pricing: dict | None = None) -> dict:
         "lifecycle": analyze_lifecycle(sessions),
         "failures": analyze_failures(sessions),
         "skillReads": analyze_skill_reads(sessions),
+        "toolClasses": analyze_tool_classes(sessions),
         "tokens": analyze_tokens(sessions),
         "cache": cache,
         "activity": analyze_activity(sessions),
@@ -569,6 +685,13 @@ def selftest() -> None:
                 {"ts": "2026-07-20T10:30:00Z", "tool": "Edit", "detail": "/tmp/g.py", "error": False},
                 {"ts": "2026-07-20T10:35:00Z", "tool": "Skill", "detail": "other:thing", "error": False},
                 {"ts": "2026-07-20T10:35:00Z", "tool": "Read", "detail": "/x/SKILL.md", "error": False},
+                # tool-class fixtures (metrics.md j): one of each class, incl. both the
+                # direct and bh-passthrough sub-case of raw-beads/raw-git.
+                {"ts": "2026-07-20T10:40:00Z", "tool": "Bash", "detail": "bh bd status", "error": False},
+                {"ts": "2026-07-20T10:41:00Z", "tool": "Bash", "detail": "git commit -m 'x'", "error": False},
+                {"ts": "2026-07-20T10:42:00Z", "tool": "Bash", "detail": "bh git push", "error": False},
+                {"ts": "2026-07-20T10:43:00Z", "tool": "Bash", "detail": "bh work submit bh-cp-5", "error": False},
+                {"ts": "2026-07-20T10:44:00Z", "tool": "Skill", "detail": "beads:search", "error": False},
             ],
             "contentSizes": {"readChars": 400, "writeChars": 40},
         }
@@ -588,6 +711,59 @@ def selftest() -> None:
     assert reads["invocations"]["bhBeads"]["bh:planner"] == 1
     assert reads["invocations"]["other"]["other:thing"] == 1
     assert reads["skillMdReads"] == 1
+    # new 3-way skill breakdown (beadhive/raw-beads/other), derived from the same
+    # classify_tool_event() toolClasses uses.
+    assert reads["byClass"]["beadhive"]["bh:planner"] == 1
+    assert reads["byClass"]["rawBeads"]["beads:search"] == 1
+    assert reads["byClass"]["other"]["other:thing"] == 1
+
+    # classify_tool_event(): the three required classification facts, asserted directly
+    # (metrics.md j) — the exact wording the epic called out.
+    assert classify_tool_event({"tool": "Bash", "detail": "bh bd status"}) == ("raw-beads", True)
+    assert classify_tool_event({"tool": "Bash", "detail": "git commit -m 'x'"}) == ("raw-git", False)
+    assert classify_tool_event({"tool": "Bash", "detail": "bh git push"}) == ("raw-git", True)
+    assert classify_tool_event({"tool": "Bash", "detail": "bh work submit bh-cp-9"}) == ("beadhive", False)
+
+    # toolClasses: full-pipeline shape + counts, incl. the direct/passthrough split, over the
+    # fixture's tool-class events (10:40-10:44 above) plus the pre-existing bd/bh/Skill events.
+    tc = result["toolClasses"]
+    assert set(tc.keys()) == set(TOOL_CLASSES)
+    # raw-beads: 'bd create issue' (direct), 'bd show broken' (direct, failed),
+    # 'beads:search' (skill, direct-bucketed) + 'bh bd status' (passthrough).
+    assert tc["raw-beads"]["total"] == 4
+    assert tc["raw-beads"]["failed"] == 1
+    assert tc["raw-beads"]["direct"] == {"total": 3, "failed": 1}
+    assert tc["raw-beads"]["passthrough"] == {"total": 1, "failed": 0}
+    assert tc["raw-beads"]["byTool"]["Bash"] == {"total": 3, "failed": 1}
+    assert tc["raw-beads"]["byTool"]["beads:search"] == {"total": 1, "failed": 0}
+    # raw-git: 'git commit' (direct) + 'bh git push' (passthrough).
+    assert tc["raw-git"]["total"] == 2
+    assert tc["raw-git"]["failed"] == 0
+    assert tc["raw-git"]["direct"] == {"total": 1, "failed": 0}
+    assert tc["raw-git"]["passthrough"] == {"total": 1, "failed": 0}
+    # beadhive: 'bh:planner' skill + 'bh work submit bh-cp-1'/'bh work merge bh-cp-1'/
+    # 'bh work submit bh-cp-5' Bash calls.
+    assert tc["beadhive"]["total"] == 4
+    assert tc["beadhive"]["failed"] == 0
+    assert tc["beadhive"]["byTool"]["bh:planner"] == {"total": 1, "failed": 0}
+    assert tc["beadhive"]["byTool"]["Bash"] == {"total": 3, "failed": 0}
+    # other: two Edits, one 'other:thing' skill, one SKILL.md Read.
+    assert tc["other"]["total"] == 4
+    assert tc["other"]["failed"] == 0
+    assert "direct" not in tc["other"]  # direct/passthrough only tracked for raw-beads/raw-git
+
+    # failures.examples: back-compat beadsBh/other unchanged, plus the new concrete examples
+    # (grounds the maintainer copy-feedback message).
+    assert fail["examples"] == [
+        {
+            "sessionId": "s1",
+            "ts": "2026-07-20T10:25:00Z",
+            "tool": "Bash",
+            "class": "raw-beads",
+            "detail": "bd show broken",
+            "errorText": "",
+        }
+    ]
 
     tok = result["tokens"]
     assert tok["exact"]["totals"]["input"] == 15
