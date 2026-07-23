@@ -18,7 +18,6 @@ import glob
 import json
 import os
 import re
-import sys
 from datetime import datetime, timedelta, timezone
 
 import _rundir
@@ -150,7 +149,7 @@ def resolve_since_auto(sessions: list, now: datetime) -> tuple:
 
     best_gap = None
     best_size = None
-    for (prev_start, prev_end), (next_start, next_end) in zip(merged, merged[1:]):
+    for (_, prev_end), (next_start, _) in zip(merged, merged[1:]):
         midpoint = prev_end + (next_start - prev_end) / 2
         if window_start <= midpoint <= window_end:
             size = next_start - prev_end
@@ -182,7 +181,6 @@ def run(since: str, projects_glob: str) -> dict:
         boundary_iso, detected = parse_ts(since).isoformat(), True
 
     qualifying = [s for s in sessions if qualifies(s, boundary_iso)]
-    project_root = PROJECTS_ROOT
     for s in qualifying:
         s["project"] = os.path.basename(os.path.dirname(s["path"]))
 

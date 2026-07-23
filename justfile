@@ -11,10 +11,10 @@ check: check-json check-links check-residue check-hooks lint-md check-types
 check-hooks:
     ./scripts/test-hooks.sh
 
-# type-check the retro skill's python scripts (only python source in the repo)
+# type-check the retro skill's python scripts, failing on unused imports/vars (scoped pyrightconfig.json)
 [group('check')]
 check-types:
-    uvx pyright beadhive/skills/beadhive-retro/scripts/
+    uvx pyright -p beadhive/skills/beadhive-retro/scripts/pyrightconfig.json beadhive/skills/beadhive-retro/scripts/
 
 # validate the three JSON manifests parse
 [group('check')]
