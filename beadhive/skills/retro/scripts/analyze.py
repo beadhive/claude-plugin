@@ -43,7 +43,7 @@ TOOL_CLASSES = ("beadhive", "raw-beads", "raw-git", "other")
 FAILURE_EXAMPLE_LIMIT = 5
 
 PRICING_PATH = Path(__file__).resolve().parent.parent / "references" / "pricing.json"
-# Plugin root is 4 dirs up from this script (scripts -> beadhive-retro -> skills -> plugin
+# Plugin root is 4 dirs up from this script (scripts -> retro -> skills -> plugin
 # root), a layout shared by a dev checkout and the installed plugin cache alike.
 PLUGIN_JSON_PATH = Path(__file__).resolve().parents[3] / ".claude-plugin" / "plugin.json"
 

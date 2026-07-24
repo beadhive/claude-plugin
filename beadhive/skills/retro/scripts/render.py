@@ -471,7 +471,7 @@ def render_html(analysis: dict, plain: bool = False) -> str:
 · CC {esc(', '.join(meta.get('ccVersions', []) or ['unknown']))} · pricing as of {esc(cost.get('pricingAsOf', 'unknown'))}</p>
 <nav>{nav}</nav>
 {body_sections}
-<footer>Rendered by beadhive-retro's render.py from analysis.json. All figures are estimates
+<footer>Rendered by retro's render.py from analysis.json. All figures are estimates
 derived from Claude Code session transcripts — never billed/verified numbers.</footer>
 </body>
 </html>
