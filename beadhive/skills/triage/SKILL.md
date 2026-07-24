@@ -1,5 +1,5 @@
 ---
-name: bv-triage
+name: triage
 description: >-
   bv (Beads Viewer) robot-mode command reference for bead triage, grooming, planning, and
   scheduling — the AI-agent entry points (--robot-triage, --robot-next, --robot-plan,
@@ -17,6 +17,9 @@ adds graph-aware analysis: dependency-respecting execution plans, structural ins
 (fan-in/fan-out, cycles, stale clusters), and a single unified triage recommendation. Bare
 `bv` launches an interactive TUI for humans — agents use the `--robot-*` flags instead, which
 are deterministic and machine-parseable.
+
+Triage/grooming/planning/scheduling: try `bv --robot-*` output first if `bv` is installed
+(`command -v bv`); otherwise use raw `bd ready` / `bh work schedule`.
 
 **Precondition** — this only applies when `bv` is on `PATH` (`command -v bv`). If it isn't
 installed, keep using `bd ready` / `bh work schedule` / `bh work list` as normal; nothing here

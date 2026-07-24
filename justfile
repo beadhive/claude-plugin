@@ -14,7 +14,7 @@ check-hooks:
 # type-check the retro skill's python scripts, failing on unused imports/vars (scoped pyrightconfig.json)
 [group('check')]
 check-types:
-    uvx pyright -p beadhive/skills/beadhive-retro/scripts/pyrightconfig.json beadhive/skills/beadhive-retro/scripts/
+    uvx pyright -p beadhive/skills/retro/scripts/pyrightconfig.json beadhive/skills/retro/scripts/
 
 # validate the three JSON manifests parse
 [group('check')]

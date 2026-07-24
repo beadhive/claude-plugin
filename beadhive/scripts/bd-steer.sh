@@ -19,7 +19,7 @@ if grep -qE '(^|[;&|][;&|]?[[:space:]]*)bd[[:space:]]+(ready|list|blocked|stale|
   # steering there over raw bv, same as bh over raw bd above.
   enabled=$(bh config get integrations.bv.enabled 2>/dev/null)
   if [[ "$enabled" != false ]]; then
-    msg+=' For triage/grooming/planning/scheduling, bv is installed — prefer its --robot-triage/--robot-next/--robot-plan/--robot-insights output over bd queries (see the bv-triage skill).'
+    msg+=' For triage/grooming/planning/scheduling, bv is installed — prefer its --robot-triage/--robot-next/--robot-plan/--robot-insights output over bd queries (the triage skill).'
   fi
 fi
 

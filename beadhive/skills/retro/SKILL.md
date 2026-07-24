@@ -1,5 +1,5 @@
 ---
-name: beadhive-retro
+name: retro
 description: >-
   Retrospective efficiency analysis over recent Claude Code sessions that used Beadhive. Use
   when asked "how did we do since the last reset", "what did the last week of Beadhive sessions
@@ -10,7 +10,7 @@ description: >-
   with real numbers — never hand-waves a retrospective from memory.
 ---
 
-# beadhive-retro — retrospective efficiency analysis
+# retro — retrospective efficiency analysis
 
 Answers "how efficient were our recent Beadhive sessions" with real numbers pulled from Claude
 Code's own session transcripts, not vibes. Stdlib-only Python scripts do the scripted work
