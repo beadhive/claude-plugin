@@ -29,7 +29,10 @@ import _rundir
 # render.py is this script's non-charted sibling; its generate_recommendations() already
 # implements the two-tier grounded roll-up (metrics.md (i)) — reuse it rather than forking
 # a second copy of the same logic (recommendations were the biggest gap in this artifact).
-from render import generate_recommendations
+# SYNTHETIC_MODEL/is_synthetic_model are render.py's single source of truth for the
+# '<synthetic>' skip rule (Claude Code's non-billed-message marker, not a real model) — reuse
+# them here too rather than duplicating the literal string in a second file.
+from render import SYNTHETIC_MODEL, generate_recommendations, is_synthetic_model
 
 # ---------------------------------------------------------------------------
 # Beadhive honeycomb brand palette — mirrors ../references/palette.md's "Chart chrome &
@@ -537,15 +540,25 @@ def build_prose_summary(analysis: dict, recs: dict) -> str:
 def render_html(analysis: dict) -> str:
     recs = generate_recommendations(analysis)
     # Shallow copy + one added key -- never mutate the caller's analysis dict. Also strip the
-    # '<synthetic>' sentinel model id (always present in cost.unpriced.models, normally with 0
-    # tokens in every bucket) here, once, server-side -- so it's never embedded in A and can't
-    # leak into rendered copy however the client JS slices it (H1 anchor fix).
+    # '<synthetic>' sentinel model id (SYNTHETIC_MODEL, always present in cost.unpriced.models,
+    # normally with 0 tokens in every bucket; also possibly a models.beadsByModel key,
+    # ts-attributed independent of pricing) here, once, server-side -- so it's never embedded
+    # in A and can't leak into rendered copy however the client JS slices it (H1 anchor fix,
+    # extended to models.beadsByModel per bh-cp-cmv). analysis.json itself is never touched --
+    # this is a display-only filter on the copy embedded in the artifact.
     cost = analysis.get("cost", {})
     unpriced = cost.get("unpriced", {})
-    clean_unpriced = {**unpriced, "models": [m for m in unpriced.get("models", []) if m != "<synthetic>"]}
+    clean_unpriced = {**unpriced, "models": [m for m in unpriced.get("models", []) if not is_synthetic_model(m)]}
+    models = analysis.get("models", {})
+    beads_by_model = models.get("beadsByModel", {})
+    clean_models = {
+        **models,
+        "beadsByModel": {m: v for m, v in beads_by_model.items() if not is_synthetic_model(m)},
+    }
     analysis = {
         **analysis,
         "cost": {**cost, "unpriced": clean_unpriced},
+        "models": clean_models,
         "recommendations": {
             "prose": build_prose_summary(analysis, recs),
             "usagePattern": recs["usagePattern"],
@@ -741,6 +754,24 @@ def selftest() -> None:
     mixed_html = render_html(mixed_analysis)
     assert "<synthetic>" not in mixed_html
     assert "claude-mystery-1" in mixed_html
+
+    # bh-cp-cmv: '<synthetic>' (SYNTHETIC_MODEL) also shows up as a models.beadsByModel key --
+    # attributed straight off tool-event timestamps, independent of pricing -- feeding the
+    # "Bead lifecycle events by model" chart+table. Must never render there either, while a
+    # real model alongside it still does.
+    beads_by_model_analysis = {
+        **analysis,
+        "models": {
+            **analysis["models"],
+            "beadsByModel": {
+                SYNTHETIC_MODEL: {"planned": 1, "implemented": 0, "merged": 0},
+                "claude-sonnet-5": {"planned": 1, "implemented": 1, "merged": 0},
+            },
+        },
+    }
+    beads_by_model_html = render_html(beads_by_model_analysis)
+    assert SYNTHETIC_MODEL not in beads_by_model_html
+    assert "sonnet-5" in beads_by_model_html
 
     # header shows all four distinct meta.* version fields (og2.1), not just bh/CC.
     assert "A.meta.pluginVersion" in out_html

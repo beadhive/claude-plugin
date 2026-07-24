@@ -43,6 +43,18 @@ BRAND = {
     "good": "#409d48",
 }
 
+# Claude Code's internal marker for non-billed synthetic messages -- not a real Claude model.
+# It's already excluded from cost.byModel (model_family() returns None for it, so its tokens
+# land in cost.unpriced instead); this is the single skip rule for excluding it from every
+# other model-attributed display too (models.bySession's "models used" list,
+# models.beadsByModel, and the unpriced-models callouts below) -- never duplicate the literal
+# string at each call site.
+SYNTHETIC_MODEL = "<synthetic>"
+
+
+def is_synthetic_model(model_id) -> bool:
+    return model_id == SYNTHETIC_MODEL
+
 
 def esc(value) -> str:
     return html.escape(str(value))
@@ -174,9 +186,12 @@ def render_cache(cache: dict, cache_waste_usd) -> str:
 
 
 def render_models(models: dict) -> str:
+    # '<synthetic>' is stripped from both views below -- it's an internal non-billed-message
+    # marker, not a real model a session/bead was ever "attributed to" for display purposes
+    # (see SYNTHETIC_MODEL). The underlying analysis.json is untouched; this is display-only.
     by_session = models.get("bySession", {})
     rows = [
-        [sid, ", ".join(info.get("models", [])), info.get("dominant")]
+        [sid, ", ".join(m for m in info.get("models", []) if not is_synthetic_model(m)), info.get("dominant")]
         for sid, info in sorted(by_session.items())
     ]
     body = table(["Session", "Models used", "Dominant"], rows)
@@ -185,6 +200,7 @@ def render_models(models: dict) -> str:
     rows2 = [
         [model, counts.get("planned", 0), counts.get("implemented", 0), counts.get("merged", 0)]
         for model, counts in sorted(beads_by_model.items())
+        if not is_synthetic_model(model)
     ]
     body += "<h3>Bead lifecycle events by model</h3>"
     body += table(["Model", "Planned", "Implemented", "Merged"], rows2)
@@ -216,7 +232,7 @@ def render_cost(cost: dict) -> str:
     body += f"<p class='stat'>grand total (estimate): <strong>{fmt_usd(cost.get('total', 0))}</strong></p>"
 
     unpriced = cost.get("unpriced", {})
-    unpriced_models = [m for m in unpriced.get("models", []) if m != "<synthetic>"]
+    unpriced_models = [m for m in unpriced.get("models", []) if not is_synthetic_model(m)]
     unpriced_tokens = sum(unpriced.get(k, 0) for k in ("input", "output", "cache_read", "eph5m", "eph1h"))
     # Gate on actual unpriced TOKEN VOLUME, not model-list length -- the '<synthetic>' sentinel
     # is always present in unpriced.models with 0 tokens in the normal case, so a
@@ -309,7 +325,7 @@ def generate_recommendations(analysis: dict) -> dict:
     # sentinel is always present in unpriced.models with 0 tokens in every bucket in the
     # normal case, so a models-list-length gate always fired. Strip it before it's ever
     # joined into copy.
-    unpriced_models = [m for m in unpriced.get("models", []) if m != "<synthetic>"]
+    unpriced_models = [m for m in unpriced.get("models", []) if not is_synthetic_model(m)]
     unpriced_tokens = sum(unpriced.get(k, 0) for k in ("input", "output", "cache_read", "eph5m", "eph1h"))
     if unpriced_tokens > 0:
         usage.append(
@@ -597,6 +613,27 @@ def selftest() -> None:
     assert "<synthetic>" not in mixed_html
     assert "claude-mystery-1" in mixed_html
     assert "under-count" in mixed_html
+
+    # bh-cp-cmv: '<synthetic>' also shows up as a model_id in models.bySession's "models used"
+    # list and as a models.beadsByModel key (both attributed straight off usageSeries/event
+    # timestamps, independent of pricing) -- must be filtered from both display sites too,
+    # while a real model alongside it still renders.
+    synthetic_models_analysis = {
+        **analysis,
+        "models": {
+            **analysis["models"],
+            "bySession": {
+                "sess-1": {"models": ["<synthetic>", "claude-sonnet-5"], "dominant": "claude-sonnet-5"},
+            },
+            "beadsByModel": {
+                "<synthetic>": {"planned": 1, "implemented": 0, "merged": 0},
+                "claude-sonnet-5": {"planned": 1, "implemented": 1, "merged": 0},
+            },
+        },
+    }
+    synthetic_models_html = render_html(synthetic_models_analysis)
+    assert "<synthetic>" not in synthetic_models_html
+    assert "claude-sonnet-5" in synthetic_models_html
 
     # branded-by-default: no flag needed, honeycomb palette hex values present.
     assert BRAND["surface"] in out_html
