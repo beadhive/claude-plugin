@@ -1,7 +1,7 @@
 {
   "name": "bh",
   "description": "Agents and skills for Claude Code to perform roles in a Beadhive Factory — the role-typed seat agents and role skills the bh CLI drives, including the setup onboarding driver and git-workspace first-timer walkthrough",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "requires": {
     "bh": ">=0.3.0"
   },

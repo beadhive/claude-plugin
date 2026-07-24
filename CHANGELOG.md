@@ -1,3 +1,34 @@
+## v0.4.0 (2026-07-23)
+
+### Feat
+
+- **beadhive-retro**: classify tool calls into beadhive/raw-beads/raw-git/other
+- **retro**: ship scripted charted-artifact renderer, fix SKILL.md form-map gaps
+- **retro**: brand + chart the report artifact by default
+- **retro-skill**: add opt-in stdlib HTML report artifact (bh-cp-6sg)
+- **retro-skill**: default pipeline output to ~/.beadhive/retros/<run-id>/ run folders (bh-cp-8hd)
+- **beadhive-retro**: add models, cost, meta families to analyze.py (bh-cp-ory.3)
+- **beadhive-retro**: capture Claude Code version into ccVersions in extract.py (bh-cp-ory.2)
+- **beadhive-retro**: add pricing.json + metrics.md docs for model/cost/recommendations (bh-cp-ory.1)
+- **beadhive-retro**: wire identify/extract/analyze into a runnable skill (bh-cp-jlk.5)
+- **beadhive-retro**: add analyze.py metric aggregation (bh-cp-jlk.4)
+- **beadhive-retro**: add extract.py transcript normalization (bh-cp-jlk.3)
+- **beadhive-retro**: add identify.py session identification + window resolution (bh-cp-jlk.2)
+- **beadhive-retro**: define metric formulas and classification heuristics (bh-cp-jlk.1)
+- **plugin**: steer bead triage toward bv when installed
+
+### Fix
+
+- **retro**: filter <synthetic> sentinel from model-usage displays
+- **beadhive-retro**: gate unpriced-cost copy on token volume, not model-list length
+- **beadhive-retro**: full-width charts, rich recommendations, tool-class coloring
+- **retro**: render_artifact.py chart/section fixes from artifact review
+- **retro**: price fable in pricing.json, keep synthetic explicitly unpriced
+- **retro**: capture distinct bh/plugin/bd version fields in meta
+- **retro-skill**: remove unused vars/imports in identify.py (bh-cp-rxc)
+- **retro-skill**: resolve pyright type/lint issues in analyze.py
+- **beadhive-retro**: stop truncating bead ids in bd/bh commands, link create-time ids from tool_result (bh-cp-jlk.6)
+
 ## v0.3.0 (2026-07-17)
 
 ### Feat
