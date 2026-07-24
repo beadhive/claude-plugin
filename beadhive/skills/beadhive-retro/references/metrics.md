@@ -58,9 +58,10 @@ present it as exact.
 ## (d) Cache-ratio formula and expiry-significance threshold
 
 **Cache ratio** (a session or the whole window): `cache_read_input_tokens / (input_tokens +
-cache_creation_input_tokens)` — the share of context that was served from cache versus fed fresh
-(cold input + re-created cache). Computed per-session and as a window-wide aggregate (sum of
-numerators / sum of denominators, not an average of ratios).
+cache_creation_input_tokens)` — ratio of cache-read tokens to freshly-fed tokens (cold input +
+cache writes); >1× means more reuse than fresh feeding, higher is better. Computed per-session
+and as a window-wide aggregate (sum of numerators / sum of denominators, not an average of
+ratios).
 
 **Cache-expiry event**: walking a session's ordered usage series (one entry per assistant
 message), a turn `t` (with previous turn `t-1`) is flagged as a cache-expiry event when **all**
