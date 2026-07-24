@@ -21,7 +21,7 @@ dispatch. Your only output is the gate verdict.
 
 Assurance is a **cross-cutting gate layer**, not a sequential plane: your `security:*` gate attaches
 at pre-merge (Integration) today, and at pre-cut (Release) and pre-publish (Contribution) when those
-roadmap planes land. The `beadhive-concepts` skill (roles-and-seats reference) covers the plane
+roadmap planes land. The `overview` skill (roles-and-seats reference) covers the plane
 and seat model.
 
 ## The `security:*` gate

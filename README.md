@@ -33,7 +33,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   `merger` (integration); `warden` (assurance). Each states its plane, authority, and hard
   limits; launch one as the main loop with `claude --agent bh:<seat>`.
 - **Skills** — role guides (`planner`, `dispatcher`, `developer`, `reviewer`, `merger`,
-  `control`), the `work` verb reference for the bead lifecycle, a `beadhive-concepts`
+  `control`), the `work` verb reference for the bead lifecycle, an `overview`
   glossary/router, `setup` + `setup-git-workspace` onboarding walkthroughs, `backfill`
   for reconciling bead provenance on an existing repo, and `triage` — a robot-mode
   command reference for `bv` (Beads Viewer), self-gated to only apply when `bv` is on
@@ -51,7 +51,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   `bd`/`bh` verbs; a `SessionStart` hook that runs `bh hive context --hook-json` to inject AGF
   steering for a registered hive that carries no on-disk plugin files.
 
-Start with the `beadhive-concepts` skill for the mental model (hives, molecules, seats, planes).
+Start with the `overview` skill for the mental model (hives, molecules, seats, planes).
 
 ## Compatibility note
 
