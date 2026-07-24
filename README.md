@@ -35,7 +35,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
 - **Skills** — role guides (`planner`, `dispatcher`, `developer`, `reviewer`, `merger`,
   `control`), the `work` verb reference for the bead lifecycle, a `beadhive-concepts`
   glossary/router, `setup` + `setup-git-workspace` onboarding walkthroughs, `backfill`
-  for reconciling bead provenance on an existing repo, and `bv-triage` — a robot-mode
+  for reconciling bead provenance on an existing repo, and `triage` — a robot-mode
   command reference for `bv` (Beads Viewer), self-gated to only apply when `bv` is on
   `PATH`.
 - **Commands** — planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
@@ -47,7 +47,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
 - **MCP server** — `bh-mcp` (stdio), exposing planning and hive-management tools.
 - **Hooks** — `PreToolUse` steering that nudges direct `bd` calls to the hive-aware `bh bd`
   passthrough (and, for triage/groom/plan/schedule shaped calls, further points at `bv`'s
-  `--robot-*` commands when `bv` is installed — see `bv-triage`) and auto-approves read-only
+  `--robot-*` commands when `bv` is installed — see `triage`) and auto-approves read-only
   `bd`/`bh` verbs; a `SessionStart` hook that runs `bh hive context --hook-json` to inject AGF
   steering for a registered hive that carries no on-disk plugin files.
 
