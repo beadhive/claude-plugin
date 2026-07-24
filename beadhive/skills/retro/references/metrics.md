@@ -1,4 +1,4 @@
-# beadhive-retro — metric definitions
+# retro — metric definitions
 
 Single source of truth for how each metric is computed and how ambiguous cases are labelled.
 `scripts/analyze.py` implements this file exactly; if the two disagree, this file is the spec —

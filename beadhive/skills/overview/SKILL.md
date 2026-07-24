@@ -1,5 +1,5 @@
 ---
-name: beadhive-concepts
+name: overview
 description: >-
   Getting-Started concept guide for Beadhive — the software factory that runs Beadflow (the
   bead-based agentic git-flow process) on beads. Use to answer "what is a hive / HQ / hub / Head

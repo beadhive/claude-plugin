@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared run-folder helpers for the beadhive-retro pipeline scripts.
+"""Shared run-folder helpers for the retro pipeline scripts.
 
 Stdlib only, no CLI of its own. A "run-dir" is `~/.beadhive/retros/<run-id>/`, where
 `run-id` = `<YYYYMMDD-HHMMSS>-<hash8>` derived from a run's own `window.since`,
