@@ -1,3 +1,11 @@
+## v0.4.1 (2026-07-23)
+
+### Fix
+
+- **overview**: rename beadhive-concepts skill to overview (de-stutter bh: id)
+- **triage**: rename bv-triage skill to triage, clarify bv-first / raw-bd fallback
+- **retro**: rename beadhive-retro skill to retro (de-stutter bh: id)
+
 ## v0.4.0 (2026-07-23)
 
 ### Feat
