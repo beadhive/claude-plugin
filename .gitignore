@@ -9,3 +9,7 @@
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# beads: zero-footprint hive (furnish: none) — .beads/ is local-only state.
+# bd takes its gate lock at the REPO ROOT, so a .beads/ rule alone misses it.
+.beads.gate.lock
