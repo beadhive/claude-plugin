@@ -41,6 +41,14 @@ FOUR WASTE QUESTIONS THIS SPLITS SESSION SPAN INTO
   4. test churn        -> the same test command re-run N times in a session, and test runs that
                           follow a merge/submit call inside a short window.
 
+  A fifth figure, `humanGate`, is not a fifth slice of session span: AskUserQuestion /
+  ExitPlanMode / EnterPlanMode block on a human answer but are recorded as ordinary tool calls,
+  so their wait time is already folded into toolSec/toolTime above and invisible there as
+  anything but ordinary tool execution. `humanGate` pulls it back out as its own reported
+  figure, INSIDE tool time (see humanGate.note) — this plus humanIdle.recoverableSec
+  (approval-shaped idle) is the "plausibly automatable" total surfaced in
+  `plausiblyAutomatable`, deliberately excluding humanIdle's direction/parked time.
+
 By default, resolves identify.json/writes wallclock.json in the same run-dir as the other three
 phases: explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative
 defaults. `--in`/`--out` always override individually.
@@ -98,9 +106,15 @@ APPROVAL_RE = re.compile(
     r"perfect|great|nice|thanks?|ty|\U0001f44d|\+1)\W*$",
     re.I,
 )
-# Tools that themselves block on a human answer. Referenced here only to sharpen human-idle
-# classification (an idle wait right after one of these is "answering a question", distinct
-# from unprompted "direction"); a dedicated humanGate time-family is a later phase's job.
+# Tools that themselves block on a human answer. Two consumers:
+#   1. classify_idle() below — an idle wait right after one of these is "answering a question",
+#      distinct from unprompted "direction".
+#   2. aggregate()'s humanGate family — AskUserQuestion/ExitPlanMode/EnterPlanMode calls are
+#      recorded as ordinary tool calls, so their durationSec already lands inside toolSec /
+#      toolTime.byClass/byTool; humanGate pulls them out as a separately-reported, explicitly
+#      labelled SUBSET of tool time (same tool_result-ts-minus-assistant-ts measurement), not a
+#      fifth bucket of session span. See humanGate.note in the output for the double-count
+#      warning.
 GATE_TOOLS = {"AskUserQuestion", "ExitPlanMode", "EnterPlanMode"}
 
 
@@ -362,6 +376,17 @@ def aggregate(sessions: list, top: int) -> dict:
         b["sec"] += c["durationSec"]
         b["failed"] += int(c["isError"])
 
+    # 5. human-gate tool wait: AskUserQuestion/ExitPlanMode/EnterPlanMode block on a human
+    # answer but are recorded as ordinary tool calls, so this is a labelled SUBSET of
+    # toolSec/toolTime above (see GATE_TOOLS), not a fifth partition of session span.
+    gate_calls = [c for c in all_tools if c["tool"] in GATE_TOOLS]
+    gate_by_tool = defaultdict(lambda: {"count": 0, "sec": 0.0})
+    for c in gate_calls:
+        b = gate_by_tool[c["tool"]]
+        b["count"] += 1
+        b["sec"] += c["durationSec"]
+    gate_sec = sum(c["durationSec"] for c in gate_calls)
+
     churn = defaultdict(lambda: {"runs": 0, "sec": 0.0, "sessions": set(), "example": ""})
     for c in all_tools:
         if c["class"] not in ("test", "build", "lint"):
@@ -512,6 +537,35 @@ def aggregate(sessions: list, top: int) -> dict:
             "note": f"every sec figure here is {TIMING_CAVEAT} (per-call tool_result ts minus "
             "assistant ts, summed).",
         },
+        "humanGate": {
+            "count": len(gate_calls),
+            "sec": gate_sec,
+            "byTool": {
+                k: v for k, v in sorted(gate_by_tool.items(), key=lambda kv: -kv[1]["sec"])
+            },
+            "top": sorted(gate_calls, key=lambda c: -c["durationSec"])[:top],
+            "note": "AskUserQuestion/ExitPlanMode/EnterPlanMode block on a human answer but are "
+            "recorded as ordinary tool calls (class \"other\", since classify_command() only "
+            "runs for Bash), so this figure is a labelled SUBSET already INSIDE totals.toolSec "
+            "/ toolTime.byClass['other'] / toolTime.byTool above — do NOT add humanGate.sec on "
+            "top of those or you will double count. "
+            f"durationSec per call is {TIMING_CAVEAT} (tool_result ts minus the assistant "
+            "record carrying the tool_use) — the same measurement as toolTime, distinct from "
+            "humanIdle's record-gap measurement, which is why gate-tool wait is invisible to a "
+            "naive humanIdle implementation (the answer comes back as a tool_result, not a "
+            "human-prompt record).",
+        },
+        "plausiblyAutomatable": {
+            "sec": recoverable + gate_sec,
+            "humanIdleRecoverableSec": recoverable,
+            "humanGateSec": gate_sec,
+            "note": "approval-shaped human idle (humanIdle.recoverableSec) plus gate-tool wait "
+            "(humanGate.sec) — the portion of this window a supervisor-agent loop could "
+            "plausibly have answered without a human. Deliberately EXCLUDES humanIdle's "
+            "direction and parked time, which no auto-approver should touch. humanGateSec is "
+            "also counted inside totals.toolSec (see humanGate.note), so this total is not a "
+            "partition of session span alongside totals — it answers a different question.",
+        },
         "suspectedApprovalGate": {
             "count": len(gated),
             "sec": sum(c["durationSec"] for c in gated),
@@ -654,13 +708,21 @@ def _aggregate_selftest() -> None:
     agg = aggregate(
         [{
             "sessionId": "s", "spanSec": 100.0, "inferenceSec": 0.0, "toolSec": 0.0,
-            "humanIdleSec": 0.0, "unattributedSec": 100.0, "inference": [], "idleEvents": [],
+            "humanIdleSec": 0.0, "unattributedSec": 100.0, "inference": [],
+            "idleEvents": [
+                {"sessionId": "s", "ts": "2026-01-01T00:03:00+00:00", "gapSec": 20.0,
+                 "class": "approval-shaped", "replyChars": 3, "replyHead": "yes",
+                 "precededBy": []},
+            ],
             "toolCalls": [
                 {"sessionId": "s", "ts": "2026-01-01T00:00:00+00:00", "tool": "Bash",
                  "cmd": "bh work merge bh-1", "class": "beadhive", "durationSec": 5.0,
                  "outChars": 10, "isError": False},
                 {"sessionId": "s", "ts": "2026-01-01T00:02:00+00:00", "tool": "Bash",
                  "cmd": "pytest -q", "class": "test", "durationSec": 30.0,
+                 "outChars": 10, "isError": False},
+                {"sessionId": "s", "ts": "2026-01-01T00:04:00+00:00", "tool": "AskUserQuestion",
+                 "cmd": "", "class": "other", "durationSec": 45.0,
                  "outChars": 10, "isError": False},
             ],
         }], top=5)
@@ -670,7 +732,10 @@ def _aggregate_selftest() -> None:
 
     # every duration family carries the "derived from record gaps, not measured" caveat
     # verbatim, in the output itself (not only in prose) — this is an acceptance requirement.
-    for family in ("totals", "humanIdle", "inferenceRate", "toolTime", "testChurn", "suspectedApprovalGate"):
+    for family in (
+        "totals", "humanIdle", "inferenceRate", "toolTime", "testChurn",
+        "suspectedApprovalGate", "humanGate",
+    ):
         notes = " ".join(str(v) for k, v in agg[family].items() if "note" in k.lower())
         assert TIMING_CAVEAT in notes, f"{family} is missing the '{TIMING_CAVEAT}' caveat: {notes!r}"
 
@@ -678,8 +743,24 @@ def _aggregate_selftest() -> None:
     # (which uses the batch span) — assert the label exists and the two views can diverge.
     assert "inflated" in agg["toolTime"]["byClassNote"]
     per_call_sum = sum(v["sec"] for v in agg["toolTime"]["byClass"].values())
-    assert per_call_sum == 35.0  # 5 + 30, an independent per-call sum from this fixture's
+    assert per_call_sum == 80.0  # 5 + 30 + 45, an independent per-call sum from this fixture's
     # single-session toolSec=0.0 above — demonstrating byClass is not derived from toolSec.
+
+    # humanGate: AskUserQuestion is pulled out of the ordinary tool-call pile into its own
+    # reported figure, INSIDE toolTime/toolSec (not a fifth session-span bucket) — the
+    # acceptance-critical case for this bead.
+    assert agg["humanGate"]["count"] == 1
+    assert agg["humanGate"]["sec"] == 45.0
+    assert agg["humanGate"]["byTool"]["AskUserQuestion"] == {"count": 1, "sec": 45.0}
+    # its seconds are also still present inside toolTime.byTool/byClass — a subset, not removed
+    assert agg["toolTime"]["byTool"]["AskUserQuestion"]["sec"] == 45.0
+    assert agg["toolTime"]["byClass"]["other"]["sec"] == 45.0
+
+    # plausiblyAutomatable = approval-shaped human idle + gate-tool wait, excluding
+    # direction/parked idle — the "automatable without a human" acceptance requirement.
+    assert agg["plausiblyAutomatable"]["humanIdleRecoverableSec"] == 20.0
+    assert agg["plausiblyAutomatable"]["humanGateSec"] == 45.0
+    assert agg["plausiblyAutomatable"]["sec"] == 65.0
 
 
 def _resolve_paths_selftest() -> None:
