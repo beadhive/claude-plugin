@@ -254,8 +254,23 @@ function recCards(container,items){
 
 // Maintainer copy-feedback message: paste-ready, grounded in THIS run's concrete data —
 // the productImprovements bullets (already version-stamped by generate_recommendations()) plus
-// a handful of actual failing calls from failures.examples (offending command, error text,
-// session id) so a maintainer has a real instance to act on, not just an aggregate count.
+// real failing calls so a maintainer has an instance to act on, not just an aggregate count.
+//
+// Failing calls come from failures.groups (ranked by count) when present: "this failed 6
+// times" with the COMPLETE error text beats five arbitrary chronological examples, which in
+// the window that motivated this were four unrelated classifier denials. failures.examples is
+// the fallback for an analysis.json written before grouping existed.
+const FEEDBACK_GROUP_TOP_N=3, FEEDBACK_ERROR_MAXLEN=1200;
+function feedbackFailureLines(){
+ const groups=(A.failures&&A.failures.groups)||[];
+ if(groups.length){
+   return groups.slice(0,FEEDBACK_GROUP_TOP_N).map(g=>{
+     const sig=(g.signatures&&g.signatures[0])||{}, ex=sig.exemplar||{};
+     const text=(ex.errorText||'').slice(0,FEEDBACK_ERROR_MAXLEN);
+     const clipped=(ex.errorChars||0)>text.length?` …[${ex.errorChars} chars total]`:'';
+     return `- ${g.count}× \`${g.commandShape}\` (${(g.classes||[]).join('/')}), e.g. session ${ex.sessionId} at ${ex.ts}:\n    $ ${ex.command||ex.detail||''}\n    ${text}${clipped}`;});}
+ const examples=(A.failures&&A.failures.examples)||[];
+ return examples.map(e=>`- session ${e.sessionId} · ${e.tool} (${e.class}): \`${e.detail}\`${e.errorText?` — error: ${e.errorText}`:''}`);}
 function buildFeedbackMessage(){
  const meta=A.meta||{};
  const stamp=`bh ${meta.bhVersion} / plugin ${meta.pluginVersion} / bd ${meta.bdVersion} (CC ${(meta.ccVersions||['unknown']).join(',')})`;
@@ -263,10 +278,10 @@ function buildFeedbackMessage(){
  const prod=(A.recommendations&&A.recommendations.productImprovements)||[];
  lines.push('Observations:');
  lines.push(prod.length?prod.map((p,i)=>`${i+1}. ${p}`).join('\n'):'(none grounded in this run\'s data)');
- const examples=(A.failures&&A.failures.examples)||[];
- if(examples.length){
-   lines.push('','Concrete examples from this run:');
-   examples.forEach(e=>{lines.push(`- session ${e.sessionId} · ${e.tool} (${e.class}): \`${e.detail}\`${e.errorText?` — error: ${e.errorText}`:''}`);});}
+ const failures=feedbackFailureLines();
+ if(failures.length){
+   lines.push('','Failing calls from this run (most frequent first):');
+   failures.forEach(l=>lines.push(l));}
  return lines.join('\n');}
 
 // Primary path: the async Clipboard API. Fallback (Clipboard API absent/denied -- common under
@@ -480,7 +495,7 @@ const byTool=(c,name)=>((A.toolClasses||{})[c]||{}).byTool?.[name];
  s.appendChild($('<h3 style="margin:.9rem 0 .3rem;color:var(--ink2);font-size:.92rem">Beadhive product improvements <span style="color:var(--muted);font-weight:400">(for maintainers)</span></h3>'));
  recCards(s,r.productImprovements);
  // Maintainer copy-feedback: a paste-ready message grounded in this run's own
- // productImprovements + failures.examples (see buildFeedbackMessage), with a
+ // productImprovements + ranked failures.groups (see buildFeedbackMessage), with a
  // select-text fallback for contexts (e.g. file://) where the Clipboard API is denied.
  const fbWrap=$('<div style="margin-top:.7rem"></div>');
  const fbHelp=$('<p class="note">Copies a paste-ready summary (versions + concrete failing calls) to send to the Beadhive maintainers.</p>');
@@ -610,6 +625,25 @@ def selftest() -> None:
                     "errorText": "error: bh-cp-broken not found",
                 },
             ],
+            "groups": [
+                {
+                    "commandShape": "bd show <id>", "count": 2, "classes": ["raw-beads"],
+                    "sessions": ["sess-1"], "signatureCount": 1,
+                    "signatures": [
+                        {
+                            "signature": "error: <id> not found", "count": 2,
+                            "exemplar": {
+                                "sessionId": "sess-1", "ts": "2026-07-20T10:25:00Z",
+                                "tool": "Bash", "class": "raw-beads", "detail": "bd show broken",
+                                "command": "bd show broken 2>&1",
+                                "errorText": "error: bh-cp-broken not found",
+                                "errorChars": 28,
+                            },
+                        }
+                    ],
+                },
+            ],
+            "groupsMeta": {"failuresGrouped": 2, "shapes": 1, "shapesShown": 1},
         },
         "skillReads": {
             "invocations": {
@@ -824,6 +858,14 @@ def selftest() -> None:
     assert "fb-fallback" in out_html and "Select & copy below" in out_html
     assert "buildFeedbackMessage" in out_html
     assert "A.failures&&A.failures.examples" in out_html or "A.failures && A.failures.examples" in out_html
+    # bh-cp-t46.2: the message leads with ranked clusters ("this failed N times") and carries
+    # the exemplar's whole command + complete error text; examples stays as the fallback for a
+    # pre-grouping analysis.json.
+    assert "A.failures&&A.failures.groups" in out_html
+    assert "Failing calls from this run (most frequent first)" in out_html
+    assert "feedbackFailureLines" in out_html
+    assert '"commandShape": "bd show <\\/id>"' not in out_html  # sanity: no mangled JSON escape
+    assert '"commandShape": "bd show <id>"' in out_html  # the clusters reach the page's data
 
     # (13) full-width SVG charts: the shared SVG() helper sizes by container (width:'100%' +
     # preserveAspectRatio), not a fixed pixel width attribute that letterboxes in a wider card.

@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import _rundir
+import extract
 
 BEAD_ID_RE = re.compile(r"\bbh-[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)?\b")
 
@@ -41,6 +42,19 @@ TOOL_CLASSES = ("beadhive", "raw-beads", "raw-git", "other")
 # Bounded so a noisy run doesn't bloat analysis.json / the maintainer copy-feedback message
 # with every failure ever seen — just enough concrete examples to ground it.
 FAILURE_EXAMPLE_LIMIT = 5
+# Ranked failure clusters (see group_failures): bounded the same way, but by CLUSTER rather
+# than by arbitrary chronological position, so "this failed 6 times" survives into the report.
+FAILURE_GROUP_LIMIT = 20
+FAILURE_SIGNATURE_LIMIT = 5
+# An error signature is a grouping key, not the error itself — the exemplar carries the whole
+# text. Capping it keeps a 50KB stack trace from becoming a 50KB dict key.
+FAILURE_SIGNATURE_MAXLEN = 160
+# Ceiling on error text embedded in analysis.json (examples + group exemplars). Set well above
+# any real error — the widest in the window that motivated this was 936 chars — so a quoted
+# failure is complete in practice, while a pathological multi-MB tool_result can't bloat the
+# file across up to FAILURE_GROUP_LIMIT × FAILURE_SIGNATURE_LIMIT exemplars. extract.py's
+# failures.jsonl stays the uncapped source of truth (`errorChars` reports the true length).
+ANALYSIS_ERROR_MAXLEN = 4000
 
 PRICING_PATH = Path(__file__).resolve().parent.parent / "references" / "pricing.json"
 # Plugin root is 4 dirs up from this script (scripts -> retro -> skills -> plugin
@@ -176,6 +190,188 @@ def analyze_lifecycle(sessions: list) -> dict:
     return {"source": "id-heuristic", "byEpic": by_epic}
 
 
+# --- failure clustering (metrics.md: failures.groups) -----------------------------------
+# A failure's identity is (what was run, what went wrong). Both sides carry run-specific
+# noise — bead ids, shas, paths, seats, line numbers, exit codes — that would otherwise make
+# every near-identical failure look unique. These collapse that noise to placeholders.
+#
+# Two normalizers, deliberately different in aggression:
+#   - a COMMAND is shell text, so quotes/vars/redirections can be collapsed hard;
+#   - a SIGNATURE is mostly English prose, so only unambiguous noise (digits, paths, shas,
+#     seats, plus the ids that appeared in this failure's own command) is collapsed —
+#     an id-shaped rule would eat ordinary hyphenated words like "auto-mode".
+_REDIRECT_RE = re.compile(r"\s*\d*>{1,2}\s*(?:&\d+|\S+)")
+_QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"")
+_SHELL_VAR_RE = re.compile(r"\$\{?\w+\}?")
+_SEAT_RE = re.compile(r"\b(?:disp|dev|arch|rev|plan|merge)/[\w.-]+")
+_PATH_RE = re.compile(r"(?<![\w~.])(?:~|\.{1,2})?/[\w.\-/@]+")
+_SHA_RE = re.compile(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b")
+_INT_RE = re.compile(r"\b\d+\b")
+# Bead ids are hive-prefixed slugs (bh-cp-t46.1, bhui-ks5d, ah-4xl6) with no reliable digit,
+# so the shape can only match them structurally. The lookbehind keeps flags (--remove-label)
+# intact; _SHAPE_KEEP protects the few hyphenated bd/bh SUBcommands that fit the same shape.
+_ID_RE = re.compile(r"(?<![-\w])[a-z][a-z0-9]{1,6}(?:-[a-z0-9]{1,8}){1,3}(?:\.\d+)?\b")
+_SHAPE_KEEP = frozenset({"set-state", "add-dep", "del-dep", "dep-tree"})
+_STR_MARKER = "\x00str\x00"  # can't occur in a real command
+
+
+def command_id_literals(command: str) -> set:
+    """The id-shaped tokens a command shape collapses — reused verbatim on that same failure's
+    error text, which is how a signature loses `bh-bwcxx` without a prose-eating id regex."""
+    return {m.group(0) for m in _ID_RE.finditer(command) if m.group(0) not in _SHAPE_KEEP}
+
+
+def command_shape(command: str) -> str:
+    """`bh work issue bh-qczj.1 --json 2>/dev/null` -> `bh work issue <id> --json`."""
+    # Quoted args are masked before redirections are stripped (a quoted arg may contain '>'),
+    # with a marker that carries no '>' of its own — `<str>` would be eaten as a redirect.
+    text = _QUOTED_RE.sub(_STR_MARKER, command)
+    text = _REDIRECT_RE.sub("", text)
+    text = _SHELL_VAR_RE.sub("<id>", text)  # `$b` in a loop body is an id in every real case
+    text = _SEAT_RE.sub("<seat>", text)
+    text = _PATH_RE.sub("<path>", text)
+    text = _SHA_RE.sub("<sha>", text)
+    text = _ID_RE.sub(lambda m: m.group(0) if m.group(0) in _SHAPE_KEEP else "<id>", text)
+    text = _INT_RE.sub("<n>", text)
+    return " ".join(text.replace(_STR_MARKER, "<str>").split())
+
+
+def error_signature(error_text: str, id_literals=()) -> str:
+    text = " ".join(str(error_text or "").split())
+    for literal in sorted(id_literals, key=len, reverse=True):
+        text = text.replace(literal, "<id>")
+    text = _SEAT_RE.sub("<seat>", text)
+    text = _PATH_RE.sub("<path>", text)
+    text = _SHA_RE.sub("<sha>", text)
+    text = _INT_RE.sub("<n>", text)
+    return text[:FAILURE_SIGNATURE_MAXLEN]
+
+
+def failure_invocation(record: dict) -> str:
+    """The bd/bh/git invocation behind a failing call.
+
+    Reuses extract.py's BD_BH_TOKEN_RE rule — the invocation ANYWHERE in the command, not
+    anchored on argv[0]. Anchoring on argv[0] undercounts badly: a bd/bh call routinely sits
+    inside a loop body or behind a `cd … &&`, and a prototype that anchored found 14 of the
+    2026-08-13 window's 26 bd/bh failures. `detail` was already produced by that rule, so
+    prefer it; re-derive from the raw command only when extract left it empty.
+    """
+    detail = str(record.get("detail") or "")
+    if detail:
+        return detail
+    return extract.bd_bh_detail(str(record.get("command") or "")) or ""
+
+
+def is_beads_bh_invocation(invocation: str) -> bool:
+    """Whether an ALREADY-EXTRACTED invocation is a bd/bh call. The `^` here is safe (and is
+    what is_beads_bh applies to `detail`) precisely because failure_invocation() ran first —
+    never apply it to a raw command."""
+    return bool(re.match(r"^(bd|bh)\s", invocation))
+
+
+def session_failures(session: dict) -> list:
+    """Failing calls for one extract session, preferring extract.py's `failures` list.
+
+    That list carries the COMPLETE error text and the whole command (bh-cp-t46.1); an
+    extract.jsonl written before it existed has no such key, so fall back to the tool events,
+    whose inline errorText is clipped at extract.ERROR_TEXT_MAXLEN. Same selection and order
+    either way.
+    """
+    records = session.get("failures")
+    if records is None:
+        records = [
+            {
+                "ts": e.get("ts"),
+                "tool": e.get("tool"),
+                "detail": e.get("detail") or "",
+                "command": "",
+                "errorText": e.get("errorText") or "",
+                "errorChars": e.get("errorChars", len(e.get("errorText") or "")),
+            }
+            for e in session.get("toolEvents", [])
+            if e.get("error")
+        ]
+    session_id = session.get("sessionId")
+    return [{**r, "sessionId": r.get("sessionId", session_id)} for r in records]
+
+
+def group_failures(records: list) -> dict:
+    """Cluster bd/bh failures by (command shape, error signature) and rank by count.
+
+    Chronological examples answer "what failed first"; a maintainer needs "what failed most" —
+    in the 2026-08-13 window the first five failures were four unrelated classifier denials,
+    while the largest real cluster (`bh work issue <id> --json`, 6 calls) never surfaced.
+
+    Ranking is two-level: command shapes ranked by total count, signatures ranked within a
+    shape. One command failing six different ways is one problem area with six symptoms, and
+    a flat (shape, signature) ranking would scatter it below unrelated pairs.
+    """
+    shapes = {}
+    grouped = 0
+    for record in records:
+        invocation = failure_invocation(record)
+        if not is_beads_bh_invocation(invocation):
+            continue
+        grouped += 1
+        shape = command_shape(invocation)
+        signature = error_signature(record.get("errorText"), command_id_literals(invocation))
+        cls, _passthrough = classify_tool_event({"tool": record.get("tool"), "detail": invocation})
+        group = shapes.setdefault(
+            shape,
+            {"commandShape": shape, "count": 0, "classes": set(), "sessions": [], "signatures": {}},
+        )
+        group["count"] += 1
+        group["classes"].add(cls)
+        if record.get("sessionId") and record["sessionId"] not in group["sessions"]:
+            group["sessions"].append(record["sessionId"])
+        sig = group["signatures"].setdefault(
+            signature,
+            {
+                "signature": signature,
+                "count": 0,
+                "exemplar": {
+                    "sessionId": record.get("sessionId"),
+                    "ts": record.get("ts"),
+                    "tool": record.get("tool"),
+                    "class": cls,
+                    "detail": invocation,
+                    "command": record.get("command") or "",
+                    # Whole error text (bh-cp-t46.1) — this is the paste-ready surface.
+                    "errorText": (record.get("errorText") or "")[:ANALYSIS_ERROR_MAXLEN],
+                    "errorChars": record.get("errorChars", len(record.get("errorText") or "")),
+                },
+            },
+        )
+        sig["count"] += 1
+
+    # Rank by count only: Python's sort is stable and both dicts are insertion-ordered, so
+    # equal counts keep first-seen (chronological) order rather than an arbitrary alphabetical
+    # one — the first cluster to appear wins the tie, which is what a reader expects.
+    ranked = []
+    for group in sorted(shapes.values(), key=lambda g: -g["count"]):
+        signatures = sorted(group["signatures"].values(), key=lambda s: -s["count"])
+        ranked.append(
+            {
+                "commandShape": group["commandShape"],
+                "count": group["count"],
+                "classes": sorted(group["classes"]),
+                "sessions": group["sessions"],
+                "signatures": signatures[:FAILURE_SIGNATURE_LIMIT],
+                "signatureCount": len(signatures),
+            }
+        )
+    return {
+        "groups": ranked[:FAILURE_GROUP_LIMIT],
+        "meta": {
+            # NOT the same rule as the beadsBh counter below it — see analyze_failures().
+            "scope": "bd/bh invocation anywhere in the command (extract.BD_BH_TOKEN_RE)",
+            "failuresGrouped": grouped,
+            "shapes": len(ranked),
+            "shapesShown": min(len(ranked), FAILURE_GROUP_LIMIT),
+        },
+    }
+
+
 def analyze_failures(sessions: list) -> dict:
     # beadsBh/other back-compat: values UNCHANGED from before toolClasses existed (still
     # is_beads_bh's 2-way split) — do not derive these from classify_tool_event, which draws
@@ -186,25 +382,30 @@ def analyze_failures(sessions: list) -> dict:
     # — grounds the maintainer copy-feedback message (SKILL.md / render_artifact.py) in real
     # instances instead of just aggregate counts.
     examples = []
+    all_records = []
     for session in sessions:
-        for event in session["toolEvents"]:
-            if not event.get("error"):
-                continue
-            bucket = by_tool["beadsBh"] if is_beads_bh(event) else by_tool["other"]
-            bucket[event["tool"]] = bucket.get(event["tool"], 0) + 1
+        for record in session_failures(session):
+            bucket = by_tool["beadsBh"] if is_beads_bh(record) else by_tool["other"]
+            bucket[record["tool"]] = bucket.get(record["tool"], 0) + 1
+            all_records.append(record)
             if len(examples) < FAILURE_EXAMPLE_LIMIT:
-                cls, _passthrough = classify_tool_event(event)
+                cls, _passthrough = classify_tool_event(record)
                 examples.append(
                     {
-                        "sessionId": session.get("sessionId"),
-                        "ts": event.get("ts"),
-                        "tool": event.get("tool"),
+                        "sessionId": record.get("sessionId"),
+                        "ts": record.get("ts"),
+                        "tool": record.get("tool"),
                         "class": cls,
-                        "detail": event.get("detail") or "",
-                        "errorText": event.get("errorText") or "",
+                        "detail": record.get("detail") or "",
+                        "errorText": (record.get("errorText") or "")[:ANALYSIS_ERROR_MAXLEN],
                     }
                 )
-    return {**by_tool, "examples": examples}
+    # `groups` is presentation over the same failures, NOT a reclassification: beadsBh/other
+    # keep their values. Its scope is narrower by one case — a failing `bh:*`/`beads:*` Skill
+    # invocation counts as beadsBh but has no command to shape, so it never groups. That's
+    # why groupsMeta reports failuresGrouped instead of letting a reader infer it.
+    clustered = group_failures(all_records)
+    return {**by_tool, "examples": examples, "groups": clustered["groups"], "groupsMeta": clustered["meta"]}
 
 
 def analyze_skill_reads(sessions: list) -> dict:
@@ -764,6 +965,112 @@ def selftest() -> None:
             "errorText": "",
         }
     ]
+    # ...and the same failure clusters, proving the legacy fallback path: this fixture session
+    # predates extract.py's `failures` list, so session_failures() rebuilds records from
+    # toolEvents (bh-cp-t46.1's format is preferred, not required).
+    assert [g["commandShape"] for g in fail["groups"]] == ["bd show broken"]
+    assert fail["groupsMeta"]["failuresGrouped"] == 1
+
+    # --- failure clustering (bh-cp-t46.2): rank by count, not by chronology ---------------
+    # Normalizers first: run-specific noise (bead ids, seats, redirections, integers) collapses
+    # so near-identical calls/errors land in one cluster.
+    assert command_shape("bh work issue bh-qczj.1 --json 2>/dev/null") == "bh work issue <id> --json"
+    assert command_shape("bh work issue $b --json") == "bh work issue <id> --json"
+    assert command_shape("bh work issue bh-bwcxx --json 2>&1") == "bh work issue <id> --json"
+    assert command_shape("bh work approve bh-c6dk.2 --as disp/claude") == "bh work approve <id> --as <seat>"
+    # a hyphenated bd/bh SUBcommand is not a bead id, and a flag name is never collapsed
+    assert command_shape("bh bd set-state bhui-ks5d review=approved") == "bh bd set-state <id> review=approved"
+    # a quoted argument is collapsed before redirections, so a '>' inside it can't truncate
+    assert command_shape('bh bd update bh-cp-1 --title "a > b" 2>&1') == "bh bd update <id> --title <str>"
+    assert command_shape("bh bd update bhui-ks5d --remove-label review:changes-requested") == (
+        "bh bd update <id> --remove-label review:changes-requested"
+    )
+    # signatures stay prose-safe: digits/paths/seats collapse, ordinary hyphenated words do not
+    assert error_signature("Exit code 5\njq: error (at <stdin>:71): bad") == "Exit code <n> jq: error (at <stdin>:<n>): bad"
+    assert "auto mode classifier" in error_signature("denied by the Claude Code auto mode classifier")
+    assert error_signature("no such bead bh-bwcxx", command_id_literals("bh work issue bh-bwcxx --json")) == (
+        "no such bead <id>"
+    )
+    assert len(error_signature("x" * 5000)) == FAILURE_SIGNATURE_MAXLEN
+
+    # A bd/bh call inside a loop body: extract.py's BD_BH_TOKEN_RE finds the invocation
+    # ANYWHERE in the command, and the grouping code reuses that rule. Anchoring on argv[0]
+    # (as a prototype did) misses this call entirely — 14 of 26 found, a 44% undercount.
+    loop_command = 'for b in bh-cp-1 bh-cp-2; do echo "$b"; bh work issue $b --json; done'
+    assert not re.match(r"^(bd|bh)\s", loop_command)  # argv[0] anchor: miss
+    assert failure_invocation({"detail": "", "command": loop_command}) == "bh work issue $b --json"
+    assert failure_invocation({"detail": "bh work ready", "command": "cd /repo && bh work ready"}) == "bh work ready"
+
+    jq_error = 'Exit code 5\njq: error (at <stdin>:71): Cannot index array with string ("labels")'
+    denial = "Permission for this action was denied by the Claude Code auto mode classifier."
+    clustered = analyze_failures(
+        [
+            {
+                "sessionId": "sf",
+                "failures": [
+                    # chronologically first, but a one-off — the old `examples` list showed
+                    # five of these and buried the real cluster below.
+                    {"ts": "10:00", "tool": "Bash", "detail": "bh work approve bh-cp-9 --as disp/claude",
+                     "command": "bh work approve bh-cp-9 --as disp/claude 2>&1", "errorText": denial},
+                    {"ts": "10:01", "tool": "Bash", "detail": "bh work approve bh-cp-1 --as disp/argv",
+                     "command": "bh work approve bh-cp-1 --as disp/argv 2>&1", "errorText": denial},
+                    {"ts": "10:02", "tool": "Bash", "detail": "bh work issue $b --json",
+                     "command": loop_command, "errorText": jq_error},
+                    {"ts": "10:03", "tool": "Bash", "detail": "bh work issue bh-cp-9 --json 2>/dev/null",
+                     "command": "bh work issue bh-cp-9 --json 2>/dev/null | jq .",
+                     "errorText": 'Exit code 5\njq: error (at <stdin>:12): Cannot index array with string ("labels")'},
+                    {"ts": "10:04", "tool": "Bash", "detail": "bh work issue bhui-k6kf.2 --json 2>&1",
+                     "command": "bh work issue bhui-k6kf.2 --json 2>&1", "errorText": "Exit code 2\nstatus: open"},
+                    # counted as beadsBh, but a Skill invocation has no command to shape
+                    {"ts": "10:05", "tool": "Skill", "detail": "bh:planner", "command": "", "errorText": "boom"},
+                    {"ts": "10:06", "tool": "Bash", "detail": "", "command": "npm test", "errorText": "1 failing"},
+                ],
+            }
+        ]
+    )
+
+    # classification is unchanged — this is presentation only
+    assert clustered["beadsBh"] == {"Bash": 5, "Skill": 1}
+    assert clustered["other"] == {"Bash": 1}
+    assert clustered["groupsMeta"]["failuresGrouped"] == 5  # the Skill + npm failures don't group
+    assert clustered["groupsMeta"]["shapes"] == 2
+
+    groups = clustered["groups"]
+    # ranked by count: the 3-call cluster outranks the 2-call one it followed in time
+    assert [(g["commandShape"], g["count"]) for g in groups] == [
+        ("bh work issue <id> --json", 3),
+        ("bh work approve <id> --as <seat>", 2),
+    ]
+    assert groups[0]["classes"] == ["beadhive"]
+    assert groups[0]["sessions"] == ["sf"]
+    # within a shape, signatures rank by count too: two identical jq failures, then the one-off
+    top_sig, second_sig = groups[0]["signatures"]
+    assert top_sig["count"] == 2 and second_sig["count"] == 1
+    assert top_sig["signature"] == 'Exit code <n> jq: error (at <stdin>:<n>): Cannot index array with string ("labels")'
+    assert groups[0]["signatureCount"] == 2
+    # the exemplar is paste-ready (bh-cp-t46.1): complete error text + the command as it ran
+    exemplar = top_sig["exemplar"]
+    assert exemplar["errorText"] == jq_error
+    assert exemplar["errorChars"] == len(jq_error)
+    assert exemplar["command"] == loop_command
+    assert exemplar["detail"] == "bh work issue $b --json"
+    assert exemplar["class"] == "beadhive"
+    # `examples` stays first-5-chronological for back-compat, which is exactly why `groups` exists
+    assert [e["ts"] for e in clustered["examples"]] == ["10:00", "10:01", "10:02", "10:03", "10:04"]
+
+    # analysis.json is bounded even against a pathological tool_result: the embedded copy is
+    # clipped at ANALYSIS_ERROR_MAXLEN while errorChars still reports the true length (and
+    # extract.py's failures.jsonl keeps the whole thing).
+    huge = "boom " * 5000
+    huge_result = analyze_failures(
+        [{"sessionId": "sh", "failures": [
+            {"ts": "10:00", "tool": "Bash", "detail": "bd ready", "command": "bd ready",
+             "errorText": huge, "errorChars": len(huge)}]}]
+    )
+    huge_exemplar = huge_result["groups"][0]["signatures"][0]["exemplar"]
+    assert len(huge_exemplar["errorText"]) == ANALYSIS_ERROR_MAXLEN
+    assert huge_exemplar["errorChars"] == len(huge)
+    assert len(huge_result["examples"][0]["errorText"]) == ANALYSIS_ERROR_MAXLEN
 
     tok = result["tokens"]
     assert tok["exact"]["totals"]["input"] == 15
