@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""Opt-in artifact: render analysis.json into a single self-contained report.html.
+"""Opt-in artifact: render analysis.json (+ optional wallclock.json) into report.html.
 
 Stdlib only, inline CSS, no JS framework. Reads analysis.json from a run-dir (see
 ../SKILL.md's "artifact mode") and writes report.html next to it. Every number in the output
 is read straight from analysis.json — this script does no new aggregation of its own beyond
 simple grounded roll-ups (sums/filters) for the recommendations section.
 
-By default, resolves analysis.json/writes report.html in the same run-dir as identify.py:
-explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative defaults.
-`--in`/`--out` always override individually.
+wallclock.json (wallclock.py's output — session-timeline waste families: totals, humanIdle,
+inferenceRate, toolTime, testChurn, humanGate, plausiblyAutomatable, suspectedApprovalGate) is
+rendered too, opt-in the same way: if it's missing (an older run-dir predating wallclock.py, or
+an explicit `--wallclock-in` pointing nowhere), the wall-clock section says so plainly instead of
+silently omitting it or failing the whole render.
+
+By default, resolves analysis.json/wallclock.json/writes report.html in the same run-dir as
+identify.py: explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative
+defaults. `--in`/`--wallclock-in`/`--out` always override individually.
 
 Usage:
-    render.py [--in analysis.json] [--out report.html] [--run-dir DIR]
+    render.py [--in analysis.json] [--wallclock-in wallclock.json] [--out report.html] [--run-dir DIR]
     render.py --selftest
 """
 from __future__ import annotations
@@ -347,6 +353,182 @@ def render_activity(activity: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Wall-clock waste (wallclock.json, wallclock.py's output) — session-timeline families.
+# Same convention as the analysis.json section builders above: read fields verbatim, one
+# `section()` per top-level family, never re-derive a number. See ../references/metrics.md
+# (bh-cp-t46.6) for the formulas behind each field once that lands.
+# ---------------------------------------------------------------------------
+
+
+def render_wallclock_totals(totals: dict) -> str:
+    order = [
+        ("inference", totals.get("inferenceSec", 0)),
+        ("tool (batch span)", totals.get("toolSec", 0)),
+        ("human idle", totals.get("humanIdleSec", 0)),
+        ("unattributed", totals.get("unattributedSec", 0)),
+    ]
+    body = (
+        f"<p class='stat'>{fmt_int(totals.get('sessions', 0))} session(s), "
+        f"<strong>{_humanize_duration(totals.get('sessionSpanSec', 0))}</strong> summed session span</p>"
+    )
+    body += table(
+        ["Bucket", "Seconds", "Human"],
+        [[label, fmt_int(sec), _humanize_duration(sec)] for label, sec in order],
+    )
+    return section("Wall-clock · session-span split", "wallclock-totals", body, note=totals.get("note"))
+
+
+def render_wallclock_human_idle(human_idle: dict) -> str:
+    by_class = human_idle.get("byClass", {})
+    rows = [
+        [cls, fmt_int(v.get("count", 0)), fmt_int(v.get("sec", 0)), _humanize_duration(v.get("sec", 0))]
+        for cls, v in by_class.items()
+    ]
+    body = (
+        "<p class='stat'>recoverable (approval-shaped): "
+        f"<strong>{_humanize_duration(human_idle.get('recoverableSec', 0))}</strong> — "
+        f"{esc(human_idle.get('recoverableNote', ''))}</p>"
+    )
+    body += table(["Class", "Count", "Seconds", "Human"], rows)
+    return section("Human idle · by class", "wallclock-human-idle", body, note=human_idle.get("note"))
+
+
+def render_wallclock_inference_rate(rate: dict) -> str:
+    body = (
+        "<p class='stat'>"
+        f"p25 {rate.get('p25TokPerSec', 0):.1f} tok/s · "
+        f"median {rate.get('medianTokPerSec', 0):.1f} tok/s · "
+        f"p75 {rate.get('p75TokPerSec', 0):.1f} tok/s"
+        "</p>"
+        f"<p class='note'>{fmt_int(rate.get('ratedTurns', 0))} of {fmt_int(rate.get('turns', 0))} "
+        "turns rated (≥200 output tokens); excess time vs. p75 rate: "
+        f"{_humanize_duration(rate.get('excessSecondsVsP75', 0))}; "
+        f"{fmt_int(rate.get('slowTurnCount', 0))} slow turn(s) (≥180s, "
+        f"{_humanize_duration(rate.get('slowTurnSec', 0))} total)</p>"
+    )
+    return section("Inference rate · output tokens/sec", "wallclock-inference-rate", body, note=rate.get("note"))
+
+
+def render_wallclock_tool_time(tool_time: dict) -> str:
+    by_class = tool_time.get("byClass", {})
+    rows = [
+        [
+            cls, fmt_int(v.get("count", 0)), fmt_int(v.get("failed", 0)),
+            fmt_int(v.get("sec", 0)), _humanize_duration(v.get("sec", 0)),
+        ]
+        for cls, v in by_class.items()
+    ]
+    body = table(["Class", "Count", "Failed", "Seconds", "Human"], rows)
+    note = f"{tool_time.get('note', '')} {tool_time.get('byClassNote', '')}".strip()
+    return section("Tool time · by class", "wallclock-tool-time", body, note=note)
+
+
+def render_wallclock_human_gate(human_gate: dict) -> str:
+    by_tool = human_gate.get("byTool", {})
+    rows = [
+        [tool, fmt_int(v.get("count", 0)), fmt_int(v.get("sec", 0)), _humanize_duration(v.get("sec", 0))]
+        for tool, v in by_tool.items()
+    ]
+    body = (
+        f"<p class='stat'>{fmt_int(human_gate.get('count', 0))} gate call(s), "
+        f"<strong>{_humanize_duration(human_gate.get('sec', 0))}</strong> wait</p>"
+        "<p class='note'><strong>Subset, not additive:</strong> already counted inside "
+        "Tool time above (toolTime.byClass['other']) — do not add this figure on top of it.</p>"
+    )
+    body += table(["Tool", "Count", "Seconds", "Human"], rows)
+    return section(
+        "Human-gate wait · AskUserQuestion / ExitPlanMode / EnterPlanMode",
+        "wallclock-human-gate",
+        body,
+        note=human_gate.get("note"),
+    )
+
+
+def render_wallclock_test_churn(churn: dict) -> str:
+    repeated = churn.get("repeated", [])
+    rows = [
+        [
+            r.get("class"), r.get("command"), r.get("runs"), r.get("sessions"),
+            fmt_int(r.get("sec", 0)), f"{r.get('avgSec', 0):.1f}",
+        ]
+        for r in repeated
+    ]
+    body = (
+        f"<p class='stat'>{fmt_int(churn.get('repeatedCount', 0))} repeated command(s) "
+        f"(3+ runs), re-test tax <strong>{_humanize_duration(churn.get('retestTaxSec', 0))}</strong></p>"
+        f"<p class='note'>merge-adjacent re-test: {fmt_int(churn.get('mergeAdjacentUniqueRuns', 0))} "
+        f"unique run(s), {_humanize_duration(churn.get('mergeAdjacentUniqueSec', 0))}. "
+        f"{esc(churn.get('mergeAdjacentNote', ''))}</p>"
+    )
+    body += table(["Class", "Command", "Runs", "Sessions", "Seconds", "Avg sec"], rows)
+    return section(
+        "Test churn · repeated commands",
+        "wallclock-test-churn",
+        body,
+        note=f"{churn.get('retestTaxNote', '')} {churn.get('note', '')}".strip(),
+    )
+
+
+def render_wallclock_suspected_gate(gated: dict) -> str:
+    top = gated.get("top", [])[:10]
+    rows = [
+        [c.get("sessionId", "")[:8], c.get("tool"), c.get("cmd"), f"{c.get('durationSec', 0):.0f}s"]
+        for c in top
+    ]
+    body = (
+        f"<p class='stat'>{fmt_int(gated.get('count', 0))} suspected gate stall(s), "
+        f"<strong>{_humanize_duration(gated.get('sec', 0))}</strong> total</p>"
+    )
+    body += table(["Session", "Tool", "Command", "Seconds"], rows)
+    return section(
+        "Suspected approval gate · normally-instant calls that stalled",
+        "wallclock-approval-gate",
+        body,
+        note=gated.get("note"),
+    )
+
+
+def render_wallclock_automatable(pa: dict) -> str:
+    body = (
+        f"<p class='stat'>plausibly automatable: <strong>{_humanize_duration(pa.get('sec', 0))}</strong></p>"
+        f"<p class='note'>{fmt_int(pa.get('humanIdleRecoverableSec', 0))}s from approval-shaped idle "
+        f"+ {fmt_int(pa.get('humanGateSec', 0))}s from gate-tool wait (gate-tool wait is also already "
+        "counted inside Tool time above — not a fresh figure on top of it).</p>"
+    )
+    return section(
+        "Plausibly automatable · approval idle + gate wait",
+        "wallclock-automatable",
+        body,
+        note=pa.get("note"),
+    )
+
+
+def render_wallclock_sections(wallclock: dict | None) -> list[tuple[str, str, str]]:
+    """One `(anchor, nav-label, section-html)` tuple per wallclock.json family, in the same
+    style as the analysis.json section builders. `wallclock` may be None (an older run-dir
+    predating wallclock.py, or an explicit --wallclock-in that doesn't resolve) -- render one
+    section that says so plainly rather than silently dropping the whole family group."""
+    if not wallclock:
+        missing = section(
+            "Wall-clock waste",
+            "wallclock",
+            "<p class='empty'>wallclock.json not found for this run — re-run "
+            "<code>wallclock.py</code> to include wall-clock waste sections.</p>",
+        )
+        return [("wallclock", "Wall-clock", missing)]
+    return [
+        ("wallclock-totals", "Wall-clock", render_wallclock_totals(wallclock.get("totals", {}))),
+        ("wallclock-human-idle", "Human idle", render_wallclock_human_idle(wallclock.get("humanIdle", {}))),
+        ("wallclock-inference-rate", "Inference rate", render_wallclock_inference_rate(wallclock.get("inferenceRate", {}))),
+        ("wallclock-tool-time", "Tool time", render_wallclock_tool_time(wallclock.get("toolTime", {}))),
+        ("wallclock-human-gate", "Human gate", render_wallclock_human_gate(wallclock.get("humanGate", {}))),
+        ("wallclock-test-churn", "Test churn", render_wallclock_test_churn(wallclock.get("testChurn", {}))),
+        ("wallclock-approval-gate", "Approval gate", render_wallclock_suspected_gate(wallclock.get("suspectedApprovalGate", {}))),
+        ("wallclock-automatable", "Automatable", render_wallclock_automatable(wallclock.get("plausiblyAutomatable", {}))),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Recommendations — simple, mechanical, grounded roll-ups of the same fields
 # above. Never invents a number; every bullet cites one already in analysis.json.
 # ---------------------------------------------------------------------------
@@ -504,38 +686,30 @@ footer {{ margin-top: 3rem; color: {BRAND['ink_muted']}; font-size: 0.8rem;
          border-top: 1px solid {BRAND['border']}; padding-top: 1rem; }}
 """
 
-SECTION_ORDER = [
-    ("lifecycle", "Lifecycle"),
-    ("tokens", "Tokens"),
-    ("cache", "Cache"),
-    ("models", "Models"),
-    ("cost", "Cost"),
-    ("failures", "Failures"),
-    ("skills", "Skills"),
-    ("activity", "Activity"),
-    ("recommendations", "Recommendations"),
-]
-
-
-def render_html(analysis: dict, plain: bool = False) -> str:
+def render_html(analysis: dict, wallclock: dict | None = None, plain: bool = False) -> str:
     meta = analysis.get("meta", {})
     cost = analysis.get("cost", {})
     recs = generate_recommendations(analysis)
 
-    nav = " ".join(f"<a href='#{anchor}'>{label}</a>" for anchor, label in SECTION_ORDER)
-    body_sections = "\n".join(
-        [
-            render_lifecycle(analysis.get("lifecycle", {})),
-            render_tokens(analysis.get("tokens", {})),
-            render_cache(analysis.get("cache", {}), cost.get("cacheWasteUSD", 0)),
-            render_models(analysis.get("models", {})),
-            render_cost(cost),
-            render_failures(analysis.get("failures", {})),
-            render_skills(analysis.get("skillReads", {})),
-            render_activity(analysis.get("activity", {})),
-            render_recommendations(recs),
-        ]
-    )
+    # (anchor, nav-label, section-html) triples, built dynamically rather than off a fixed
+    # SECTION_ORDER constant so the nav never links to an anchor that isn't actually rendered
+    # (the wallclock groups are opt-in: absent wallclock.json still renders one section, but
+    # under a single "Wall-clock" anchor rather than the eight it has when data IS present).
+    sections: list[tuple[str, str, str]] = [
+        ("lifecycle", "Lifecycle", render_lifecycle(analysis.get("lifecycle", {}))),
+        ("tokens", "Tokens", render_tokens(analysis.get("tokens", {}))),
+        ("cache", "Cache", render_cache(analysis.get("cache", {}), cost.get("cacheWasteUSD", 0))),
+        ("models", "Models", render_models(analysis.get("models", {}))),
+        ("cost", "Cost", render_cost(cost)),
+        ("failures", "Failures", render_failures(analysis.get("failures", {}))),
+        ("skills", "Skills", render_skills(analysis.get("skillReads", {}))),
+        ("activity", "Activity", render_activity(analysis.get("activity", {}))),
+    ]
+    sections.extend(render_wallclock_sections(wallclock))
+    sections.append(("recommendations", "Recommendations", render_recommendations(recs)))
+
+    nav = " ".join(f"<a href='#{anchor}'>{label}</a>" for anchor, label, _ in sections)
+    body_sections = "\n".join(sec_html for _, _, sec_html in sections)
 
     css = PLAIN_CSS if plain else BRANDED_CSS
     return f"""<!DOCTYPE html>
@@ -559,13 +733,15 @@ derived from Claude Code session transcripts — never billed/verified numbers.<
 """
 
 
-def resolve_paths(infile, out, run_dir_arg) -> tuple[str, str]:
-    """(infile, out) with explicit flags winning, else the resolved run-dir, else legacy
-    cwd-relative filenames."""
+def resolve_paths(infile, wallclock_in, out, run_dir_arg) -> tuple[str, str, str]:
+    """(infile, wallclock_in, out) with explicit flags winning, else the resolved run-dir,
+    else legacy cwd-relative filenames. wallclock_in has no existence guarantee -- it's a
+    resolved path, not a promise the file is there (see render_wallclock_sections)."""
     run_dir = _rundir.resolve_run_dir(run_dir_arg)
     infile = infile or (os.path.join(run_dir, "analysis.json") if run_dir else "analysis.json")
+    wallclock_in = wallclock_in or (os.path.join(run_dir, "wallclock.json") if run_dir else "wallclock.json")
     out = out or (os.path.join(run_dir, "report.html") if run_dir else "report.html")
-    return infile, out
+    return infile, wallclock_in, out
 
 
 def selftest() -> None:
@@ -773,6 +949,123 @@ def selftest() -> None:
     assert "<synthetic>" not in synthetic_models_html
     assert "claude-sonnet-5" in synthetic_models_html
 
+    # wallclock.json missing (older run-dir, or no --wallclock-in match): one graceful
+    # fallback section, not a crash, not a silently-dropped family group.
+    assert "wallclock.json not found for this run" in out_html
+
+    # wallclock.json present: every top-level family from wallclock.py's aggregate() is
+    # rendered, grounded in this fixture's own numbers -- the acceptance-critical case for
+    # this bead. TIMING_CAVEAT is wallclock.py's exact verbatim string; kept as a literal here
+    # (render.py is stdlib-only / no cross-import of wallclock.py) rather than re-derived.
+    TIMING_CAVEAT = "derived from record gaps, not measured"
+    wallclock = {
+        "totals": {
+            "sessions": 2, "sessionSpanSec": 7200.0, "inferenceSec": 1800.0, "toolSec": 3000.0,
+            "humanIdleSec": 2000.0, "unattributedSec": 400.0,
+            "note": f"session-span split into inference/tool/humanIdle/unattributed; {TIMING_CAVEAT}.",
+        },
+        "humanIdle": {
+            "byClass": {
+                "approval-shaped": {"count": 3, "sec": 90.0},
+                "direction": {"count": 2, "sec": 1800.0},
+                "parked": {"count": 1, "sec": 110.0},
+            },
+            "recoverableSec": 90.0,
+            "recoverableNote": "approval-shaped: a supervisor-agent loop could plausibly have "
+                               "answered these without a human.",
+            "top": [],
+            "note": f"gapSec is {TIMING_CAVEAT} (human-prompt ts minus the preceding record's ts).",
+        },
+        "inferenceRate": {
+            "turns": 40, "ratedTurns": 30, "p25TokPerSec": 12.5, "medianTokPerSec": 22.0,
+            "p75TokPerSec": 35.0, "excessSecondsVsP75": 210.0, "slowTurnCount": 2,
+            "slowTurnSec": 500.0, "top": [],
+            "note": f"turn durationSec is {TIMING_CAVEAT}.",
+        },
+        "toolTime": {
+            "byTool": {}, "byClass": {
+                "test": {"count": 12, "sec": 900.0, "failed": 1},
+                "beadhive": {"count": 8, "sec": 300.0, "failed": 0},
+            },
+            "note": f"durationSec per call is {TIMING_CAVEAT}.",
+            "byClassNote": "byClass/byTool sum every call's durationSec individually; parallel "
+            "calls overlap in real time, so these totals are inflated vs totals.toolSec.",
+            "slowest": [], "slowestByClass": {},
+        },
+        "testChurn": {
+            "commands": [],
+            "repeated": [
+                {"class": "test", "command": "pytest tests/test_x.py <a", "runs": 5, "sec": 250.0,
+                 "sessions": 2, "example": "pytest tests/test_x.py", "avgSec": 50.0},
+            ],
+            "repeatedCount": 1, "retestTaxSec": 200.0,
+            "retestTaxNote": "seconds in runs 2..N of every command run >=3 times.",
+            "mergeAdjacent": [], "mergeAdjacentSec": 0.0, "mergeAdjacentRuns": 0,
+            "mergeAdjacentUniqueRuns": 1, "mergeAdjacentUniqueSec": 40.0,
+            "mergeAdjacentNote": "windows overlap, so a run following two merges counts twice; "
+                                 "the unique* figures count each run once.",
+            "note": f"every sec figure here is {TIMING_CAVEAT} (summed).",
+        },
+        "humanGate": {
+            "count": 4, "sec": 220.0,
+            "byTool": {"AskUserQuestion": {"count": 3, "sec": 180.0}, "ExitPlanMode": {"count": 1, "sec": 40.0}},
+            "top": [],
+            "note": "AskUserQuestion/ExitPlanMode/EnterPlanMode block on a human answer but are "
+            "recorded as ordinary tool calls, so this figure is a labelled SUBSET already "
+            "INSIDE totals.toolSec / toolTime.byClass['other'] / toolTime.byTool above — do "
+            "NOT add humanGate.sec on top of those or you will double count.",
+        },
+        "plausiblyAutomatable": {
+            "sec": 310.0, "humanIdleRecoverableSec": 90.0, "humanGateSec": 220.0,
+            "note": "approval-shaped human idle plus gate-tool wait — deliberately EXCLUDES "
+            "humanIdle's direction and parked time. humanGateSec is also counted inside "
+            "totals.toolSec, so this total is not a partition of session span alongside totals.",
+        },
+        "suspectedApprovalGate": {
+            "count": 1, "sec": 60.0,
+            "top": [{"sessionId": "sess-1", "tool": "Bash", "cmd": "git status && echo <ok>", "durationSec": 60.0}],
+            "note": f"heuristic, not observed: a normally-instant command that took a long "
+            f"time was probably parked in a permission prompt. Durations are otherwise "
+            f"{TIMING_CAVEAT}, same as toolTime.",
+        },
+        "bySession": {},
+    }
+    wc_html = render_html(analysis, wallclock=wallclock)
+
+    # every wallclock.json top-level family renders somewhere in the output.
+    for anchor in (
+        "wallclock-totals", "wallclock-human-idle", "wallclock-inference-rate",
+        "wallclock-tool-time", "wallclock-human-gate", "wallclock-test-churn",
+        "wallclock-approval-gate", "wallclock-automatable",
+    ):
+        assert f"id='{anchor}'" in wc_html, f"missing wallclock section {anchor}"
+    assert "wallclock.json not found" not in wc_html
+
+    # the record-gap caveat is legible in the rendered output, not only in wallclock.py's
+    # docstring -- carried straight through from each family's own `note`.
+    assert TIMING_CAVEAT in wc_html
+
+    # humanGate is rendered as an explicit SUBSET of tool time, not summed with it: the
+    # "not additive" callout is on the page, and there is no computed total anywhere that
+    # adds toolTime's 1200.0s (900+300) to humanGate's 220.0s (the double-count this bead's
+    # acceptance criteria calls out by name).
+    assert "Subset, not additive" in wc_html
+    assert "1,420" not in wc_html  # 1,200 (toolTime) + 220 (humanGate) never appears as a sum
+    assert "already counted inside" in wc_html
+
+    # plausiblyAutomatable renders its own total (90 + 220 = 310, i.e. ~5m) without conflating
+    # it with the toolTime/humanGate subset relationship above -- a different, deliberately
+    # scoped sum that the family itself (not this renderer) is responsible for computing.
+    assert "~5m" in wc_html
+    assert "90s from approval-shaped idle" in wc_html and "220s from gate-tool wait" in wc_html
+
+    # raw command text (shell metacharacters included) survives Python's html.escape() via
+    # table()/esc() -- render.py escapes every cell already, so no additional care needed
+    # here beyond asserting the escaped form landed, not the raw '<'/'&'.
+    assert "&lt;a" in wc_html
+    assert "pytest tests/test_x.py <a" not in wc_html
+    assert "&lt;ok&gt;" in wc_html
+
     # branded-by-default: no flag needed, honeycomb palette hex values present.
     assert BRAND["surface"] in out_html
     assert BRAND["accent"] in out_html
@@ -792,20 +1085,28 @@ def selftest() -> None:
     _rundir.RETROS_ROOT = _os.path.join(tmpdir, "retros")
     _rundir.LATEST_POINTER = _os.path.join(_rundir.RETROS_ROOT, "latest")
     try:
-        assert resolve_paths(None, None, None) == ("analysis.json", "report.html")
+        assert resolve_paths(None, None, None, None) == ("analysis.json", "wallclock.json", "report.html")
 
         run_dir, _ = _rundir.new_run_dir("20260101-000000-deadbeef")
         _rundir.write_latest_pointer(run_dir)
-        assert resolve_paths(None, None, None) == (
+        assert resolve_paths(None, None, None, None) == (
             _os.path.join(run_dir, "analysis.json"),
+            _os.path.join(run_dir, "wallclock.json"),
             _os.path.join(run_dir, "report.html"),
         )
-        assert resolve_paths(None, "custom.html", None) == (
+        assert resolve_paths(None, None, "custom.html", None) == (
             _os.path.join(run_dir, "analysis.json"),
+            _os.path.join(run_dir, "wallclock.json"),
             "custom.html",
         )
-        assert resolve_paths(None, None, "/explicit/dir") == (
+        assert resolve_paths(None, "custom-wallclock.json", None, None) == (
+            _os.path.join(run_dir, "analysis.json"),
+            "custom-wallclock.json",
+            _os.path.join(run_dir, "report.html"),
+        )
+        assert resolve_paths(None, None, None, "/explicit/dir") == (
             "/explicit/dir/analysis.json",
+            "/explicit/dir/wallclock.json",
             "/explicit/dir/report.html",
         )
     finally:
@@ -817,8 +1118,9 @@ def selftest() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--in", dest="infile", default=None, help="analysis.json path (default: <run-dir>/analysis.json)")
+    parser.add_argument("--wallclock-in", dest="wallclock_in", default=None, help="wallclock.json path (default: <run-dir>/wallclock.json; missing file renders a fallback note, not an error)")
     parser.add_argument("--out", default=None, help="default: <run-dir>/report.html")
-    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve analysis.json/report.html in (default: latest pointer, else cwd)")
+    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve analysis.json/wallclock.json/report.html in (default: latest pointer, else cwd)")
     parser.add_argument(
         "--plain", action="store_true",
         help="render the old unstyled gray theme instead of the branded honeycomb default",
@@ -830,14 +1132,19 @@ def main() -> None:
         selftest()
         return
 
-    infile, out = resolve_paths(args.infile, args.out, args.run_dir)
+    infile, wallclock_in, out = resolve_paths(args.infile, args.wallclock_in, args.out, args.run_dir)
     with open(infile) as f:
         analysis = json.load(f)
 
-    with open(out, "w") as f:
-        f.write(render_html(analysis, plain=args.plain))
+    wallclock = None
+    if os.path.exists(wallclock_in):
+        with open(wallclock_in) as f:
+            wallclock = json.load(f)
 
-    print(f"render.py: rendered {infile} -> {out}")
+    with open(out, "w") as f:
+        f.write(render_html(analysis, wallclock=wallclock, plain=args.plain))
+
+    print(f"render.py: rendered {infile} (+ wallclock: {'yes' if wallclock else 'no'}) -> {out}")
 
 
 if __name__ == "__main__":
