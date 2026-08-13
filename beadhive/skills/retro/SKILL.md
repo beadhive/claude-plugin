@@ -23,7 +23,7 @@ From this skill's directory (`scripts/` is relative to `SKILL.md`):
 
 ```bash
 python3 scripts/identify.py --since auto   # -> ~/.beadhive/retros/<run-id>/identify.json
-python3 scripts/extract.py                 # -> extract.jsonl, events.jsonl in the same run-dir
+python3 scripts/extract.py                 # -> extract.jsonl, events.jsonl, failures.jsonl (same run-dir)
 python3 scripts/analyze.py                 # -> analysis.json in the same run-dir
 ```
 
@@ -31,12 +31,19 @@ No path args needed for the common case: `identify.py` creates a fresh, datetime
 folder under `~/.beadhive/retros/<YYYYMMDD-HHMMSS>-<hash8>/` (the id is derived from the run's
 own `since`/`generatedAt`/session-count — see `scripts/_rundir.py`), writes `identify.json`
 there, and points `~/.beadhive/retros/latest` at it. `extract.py` and `analyze.py` pick up that
-same run-dir automatically via the `latest` pointer, so each run's four artifacts
-(`identify.json`, `extract.jsonl`, `events.jsonl`, `analysis.json`) land together and accumulate
-run-over-run for comparison.
+same run-dir automatically via the `latest` pointer, so each run's five artifacts
+(`identify.json`, `extract.jsonl`, `events.jsonl`, `failures.jsonl`, `analysis.json`) land
+together and accumulate run-over-run for comparison.
+
+`failures.jsonl` is one record per failing tool call, carrying the **complete** `tool_result`
+text and the command exactly as it ran — the inline `errorText` on every event stays clipped at
+`extract.ERROR_TEXT_MAXLEN` so `events.jsonl` doesn't grow with full stack traces. Quote a
+failure from here (or from `analysis.json`'s `failures.groups[].signatures[].exemplar`) instead
+of re-walking `~/.claude/projects`.
 
 Pass `--since <iso>` to `identify.py` to override auto-window-detection with an explicit
-boundary. Pass `--run-dir <dir>` (all three scripts) or `--out`/`--in`/`--events` (individually)
+boundary. Pass `--run-dir <dir>` (all three scripts) or `--out`/`--in`/`--events`/`--failures`
+(individually)
 to target an arbitrary directory instead — e.g. for an ad-hoc or CI invocation that shouldn't
 touch `~/.beadhive/retros/` or the `latest` pointer. Each script also has `--selftest` — run it
 if you change one of them; it must stay green.

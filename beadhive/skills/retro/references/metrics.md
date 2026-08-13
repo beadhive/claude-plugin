@@ -241,9 +241,36 @@ original 2-way `bd`/`bh`-prefix check (`is_beads_bh`), which counts a `bh git �
 `beadsBh` even though `toolClasses` now buckets it under `raw-git`. `toolClasses` and
 `skillReads.byClass` are additive, not a replacement.
 
-**Concrete failure examples**: `failures.examples` is a new, bounded (`FAILURE_EXAMPLE_LIMIT = 5`)
+**Concrete failure examples**: `failures.examples` is a bounded (`FAILURE_EXAMPLE_LIMIT = 5`)
 list of actual failing tool calls — `sessionId`, `ts`, `tool`, `class`, `detail` (the offending
-command), and `errorText` (the failing `tool_result`'s text, truncated to 300 chars by
-`extract.py`, empty when not an error) — so a maintainer-facing recommendation (or the
-maintainer copy-feedback message in `render_artifact.py`) can cite a real instance instead of just
-an aggregate count.
+command), and `errorText` — so a maintainer-facing recommendation can cite a real instance
+instead of just an aggregate count. It is the first five **chronologically**, kept for
+back-compat; prefer `failures.groups` below.
+
+**Ranked failure clusters** (`failures.groups`): the same failures grouped by *command shape* and
+*error signature*, ranked by count — "this failed 6 times" rather than five arbitrary early
+examples (in the 2026-08-13 window, four of the first five were unrelated Claude Code classifier
+denials while the largest real cluster never surfaced). Ranking is two-level: command shapes by
+total count, then signatures within a shape; equal counts keep first-seen order.
+
+- **Command shape** — the invocation with run-specific noise collapsed to placeholders: bead ids
+  and shell vars → `<id>`, seats (`disp/claude`) → `<seat>`, paths → `<path>`, shas → `<sha>`,
+  quoted strings → `<str>`, integers → `<n>`, redirections dropped. Hyphenated bd/bh subcommands
+  (`set-state`) and flag names are preserved.
+- **Error signature** — the same idea applied to the error text, but prose-safe: only digits,
+  paths, shas, seats and the ids that appeared in *that failure's own command* collapse, so
+  ordinary hyphenated words survive. Capped at `FAILURE_SIGNATURE_MAXLEN` — it is a grouping key,
+  not the error itself.
+- **Which failures group**: those with a `bd`/`bh` invocation **anywhere** in the command, reusing
+  `extract.py`'s `BD_BH_TOKEN_RE` (`analyze.failure_invocation`). Never re-anchor on `argv[0]`: a
+  `bd`/`bh` call routinely sits in a loop body or behind a `cd … &&`, and an argv[0]-anchored
+  prototype found only 14 of the same window's 26 failures. `failures.groupsMeta.failuresGrouped`
+  reports the covered count; a failing `bh:*` Skill invocation counts in `beadsBh` but has no
+  command to shape, so it never groups. Grouping is presentation — it does **not** change
+  `beadsBh`/`other`.
+- **Exemplar**: each signature carries the first failing call it saw, with the **complete**
+  `tool_result` text (`errorText`/`errorChars`) and the whole command — paste-ready into a bug
+  report. `extract.py` writes the same records for *every* failure to `failures.jsonl`; only the
+  inline copy on each tool event stays clipped at `ERROR_TEXT_MAXLEN` (300), which is what keeps
+  `events.jsonl` bounded. `analysis.json` carries at most `FAILURE_GROUP_LIMIT` shapes ×
+  `FAILURE_SIGNATURE_LIMIT` signatures.

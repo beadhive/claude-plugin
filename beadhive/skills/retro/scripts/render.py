@@ -254,12 +254,63 @@ def render_cost(cost: dict) -> str:
     )
 
 
+# How many clusters get the full paste-ready treatment (command + complete error text).
+FAILURE_GROUP_DETAIL_LIMIT = 5
+
+
+def render_failure_groups(groups: list, meta: dict) -> str:
+    """Ranked failure clusters — "this failed 6 times", not five arbitrary early examples.
+
+    The top clusters also expand to the exemplar's whole command and COMPLETE error text, so
+    the report itself is the paste-ready surface for a bug report (bh-cp-t46.1).
+    """
+    if not groups:
+        return ""
+    rows = [
+        [
+            g.get("count"),
+            g.get("commandShape"),
+            (g.get("signatures") or [{}])[0].get("signature", ""),
+            g.get("signatureCount", len(g.get("signatures") or [])),
+            len(g.get("sessions") or []),
+        ]
+        for g in groups
+    ]
+    body = "<h3>Ranked clusters</h3>"
+    body += table(["Failures", "Command shape", "Top error signature", "Distinct errors", "Sessions"], rows)
+    for group in groups[:FAILURE_GROUP_DETAIL_LIMIT]:
+        for sig in (group.get("signatures") or [])[:1]:
+            exemplar = sig.get("exemplar", {})
+            command = exemplar.get("command") or exemplar.get("detail") or ""
+            body += (
+                f"<details><summary>{esc(group.get('count'))}× {esc(group.get('commandShape'))} "
+                f"— session {esc(str(exemplar.get('sessionId') or 'unknown')[:8])} at "
+                f"{esc(_humanize_ts(exemplar.get('ts')))}</summary>"
+                f"<pre>$ {esc(command)}\n\n{esc(exemplar.get('errorText') or '')}</pre></details>"
+            )
+    grouped = meta.get("failuresGrouped")
+    shapes = meta.get("shapes")
+    if grouped is not None:
+        shown = meta.get("shapesShown", len(groups))
+        body += (
+            f"<p class='note'>{fmt_int(grouped)} bd/bh failure(s) clustered into "
+            f"{fmt_int(shapes)} command shape(s), {fmt_int(shown)} shown, ranked by count; "
+            "a failing bh:/beads: skill invocation has no command to shape and is counted "
+            "above but not clustered</p>"
+        )
+    return body
+
+
 def render_failures(failures: dict) -> str:
+    # Only the two count buckets are tables — `examples`/`groups`/`groupsMeta` live alongside
+    # them under the same key and are NOT tool->count maps (iterating every key here used to
+    # crash the whole render on any real analysis.json).
     rows = []
-    for bucket_name, bucket in failures.items():
-        for tool, count in bucket.items():
+    for bucket_name in ("beadsBh", "other"):
+        for tool, count in (failures.get(bucket_name) or {}).items():
             rows.append([bucket_name, tool, count])
     body = table(["Bucket", "Tool", "Failure count"], sorted(rows, key=lambda r: (-r[2], r[0], r[1])))
+    body += render_failure_groups(failures.get("groups") or [], failures.get("groupsMeta") or {})
     return section("Failures", "failures", body)
 
 
@@ -305,6 +356,12 @@ CACHE_CALLOUT_LIMIT = 5
 SKILL_MD_REREAD_THRESHOLD = 3
 
 
+def _flatten_dashes(text) -> str:
+    """recCard() splits a recommendation on its single ' — ' (what/why), so quoted run data —
+    an error signature, a command shape — must never carry one of its own."""
+    return str(text or "").replace(" — ", " - ")
+
+
 def generate_recommendations(analysis: dict) -> dict:
     usage = []
     product = []
@@ -335,11 +392,20 @@ def generate_recommendations(analysis: dict) -> dict:
 
     failures = analysis.get("failures", {})
     beads_bh_failures = sum(failures.get("beadsBh", {}).values())
+    failure_groups = failures.get("groups") or []
     if beads_bh_failures:
         breakdown = ", ".join(f"{tool}: {n}" for tool, n in failures.get("beadsBh", {}).items())
         usage.append(
             f"{beads_bh_failures} failed bd/bh tool call(s) ({breakdown}) — worth a look in "
             "the raw session log."
+        )
+    # The largest cluster, not the earliest failure: a repeated failure is a fixable pattern,
+    # while the first five chronologically are usually unrelated one-offs.
+    top_group = failure_groups[0] if failure_groups else None
+    if top_group and top_group.get("count", 0) > 1:
+        usage.append(
+            f"`{top_group.get('commandShape')}` failed {top_group.get('count')} times — the "
+            "largest repeated failure in this run; see the Failures section for the full text."
         )
 
     skill_md_reads = analysis.get("skillReads", {}).get("skillMdReads", 0)
@@ -364,6 +430,12 @@ def generate_recommendations(analysis: dict) -> dict:
     if beads_bh_failures:
         breakdown = ", ".join(f"{tool}: {n}" for tool, n in failures.get("beadsBh", {}).items())
         product.append(f"{beads_bh_failures} bd/bh tool call(s) failed ({breakdown}) — {version_stamp}.")
+    if top_group and top_group.get("count", 0) > 1:
+        top_signature = (top_group.get("signatures") or [{}])[0].get("signature", "")
+        product.append(
+            f"`{_flatten_dashes(top_group.get('commandShape'))}` failed "
+            f"{top_group.get('count')}× ({_flatten_dashes(top_signature)[:120]}) — {version_stamp}."
+        )
 
     return {"usagePattern": usage, "productImprovements": product[:3]}
 
@@ -390,6 +462,10 @@ table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9re
 th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
 th { background: #f4f4f4; }
 tr:nth-child(even) { background: #fafafa; }
+details { margin: 0.5rem 0; }
+summary { cursor: pointer; font-size: 0.9rem; }
+pre { background: #f4f4f4; padding: 0.75rem; overflow-x: auto; white-space: pre-wrap;
+      word-break: break-word; font-size: 0.8rem; }
 .note { color: #666; font-size: 0.85rem; font-style: italic; }
 .stat { font-size: 1.05rem; }
 .empty { color: #888; font-style: italic; }
@@ -413,6 +489,11 @@ table {{ border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9r
 th, td {{ border: 1px solid {BRAND['border']}; padding: 0.4rem 0.6rem; text-align: left; }}
 th {{ background: {BRAND['surface_panel']}; color: {BRAND['ink_primary']}; }}
 tr:nth-child(even) {{ background: {BRAND['surface_panel']}; }}
+details {{ margin: 0.5rem 0; }}
+summary {{ cursor: pointer; font-size: 0.9rem; color: {BRAND['ink_secondary']}; }}
+pre {{ background: {BRAND['surface_page']}; border: 1px solid {BRAND['border']};
+      padding: 0.75rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+      font-size: 0.8rem; color: {BRAND['ink_primary']}; }}
 .note {{ color: {BRAND['ink_muted']}; font-size: 0.85rem; font-style: italic; }}
 .stat {{ font-size: 1.05rem; color: {BRAND['ink_primary']}; }}
 .stat strong {{ color: {BRAND['accent']}; }}
@@ -493,7 +574,53 @@ def selftest() -> None:
 
     analysis = {
         "lifecycle": {"source": "id-heuristic", "byEpic": {"bh-cp-1": {"planned": 1, "implemented": 1, "merged": 0}}},
-        "failures": {"beadsBh": {"Bash": 2}, "other": {}},
+        "failures": {
+            "beadsBh": {"Bash": 3},
+            "other": {},
+            # not a tool->count map: render_failures must not treat these as buckets
+            "examples": [
+                {"sessionId": "sess-1", "ts": "2026-07-20T10:25:00Z", "tool": "Bash",
+                 "class": "beadhive", "detail": "bh work issue bh-cp-1 --json", "errorText": "jq: error"},
+            ],
+            "groups": [
+                {
+                    "commandShape": "bh work issue <id> --json",
+                    "count": 2,
+                    "classes": ["beadhive"],
+                    "sessions": ["sess-1"],
+                    "signatureCount": 1,
+                    "signatures": [
+                        {
+                            "signature": "Exit code <n> jq: error (at <stdin>:<n>) — cannot index array",
+                            "count": 2,
+                            "exemplar": {
+                                "sessionId": "sess-1", "ts": "2026-07-20T10:25:00Z", "tool": "Bash",
+                                "class": "beadhive", "detail": "bh work issue $b --json",
+                                "command": 'for b in bh-cp-1 bh-cp-2; do bh work issue $b --json; done',
+                                "errorText": "Exit code 5\njq: error (at <stdin>:71) — cannot index array",
+                                "errorChars": 52,
+                            },
+                        }
+                    ],
+                },
+                {
+                    "commandShape": "bh work show <id>",
+                    "count": 1,
+                    "classes": ["beadhive"],
+                    "sessions": ["sess-1"],
+                    "signatureCount": 1,
+                    "signatures": [
+                        {"signature": "Exit code <n>", "count": 1,
+                         "exemplar": {"sessionId": "sess-1", "ts": "2026-07-20T10:26:00Z", "tool": "Bash",
+                                      "class": "beadhive", "detail": "bh work show bh-cp-1",
+                                      "command": "bh work show bh-cp-1 2>&1", "errorText": "Exit code 144",
+                                      "errorChars": 13}},
+                    ],
+                },
+            ],
+            "groupsMeta": {"scope": "bd/bh invocation anywhere in the command",
+                           "failuresGrouped": 3, "shapes": 2, "shapesShown": 2},
+        },
         "skillReads": {"invocations": {"bhBeads": {"bh:planner": 3}, "other": {}}, "skillMdReads": 5},
         "tokens": {
             "exact": {"totals": {"input": 100, "output": 200, "cache_read": 50, "cache_creation": 10}, "percentOfTotal": {"input": 27.8, "output": 55.6, "cache_read": 13.9, "cache_creation": 2.8}},
@@ -552,6 +679,17 @@ def selftest() -> None:
     # H2: cacheRatio is a ratio ('0.4×'), never a percentage (fmt_pct is no longer used for
     # this value in either renderer).
     assert "0.4×" in out_html
+
+    # bh-cp-t46.2: ranked failure clusters, and the whole error text inline so the report
+    # itself is paste-ready. Regression: failures now carries non-bucket keys
+    # (examples/groups/groupsMeta) — render_failures used to iterate every key and crash.
+    assert "Ranked clusters" in out_html
+    assert "bh work issue &lt;id&gt; --json" in out_html  # escaped placeholder, ranked first
+    assert out_html.index("bh work issue &lt;id&gt; --json") < out_html.index("bh work show &lt;id&gt;")
+    assert "jq: error (at &lt;stdin&gt;:71)" in out_html  # exemplar's COMPLETE text, not the signature
+    assert "for b in bh-cp-1 bh-cp-2" in out_html  # the command exactly as it ran
+    assert "3 bd/bh failure(s) clustered into 2 command shape(s)" in out_html
+    assert "failed 2 times" in out_html  # ranked-cluster recommendation
 
     recs = generate_recommendations(analysis)
     assert len(recs["usagePattern"]) >= 1
