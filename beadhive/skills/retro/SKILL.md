@@ -4,18 +4,20 @@ description: >-
   Retrospective efficiency analysis over recent Claude Code sessions that used Beadhive. Use
   when asked "how did we do since the last reset", "what did the last week of Beadhive sessions
   cost", "how many beads got planned/implemented/merged", "which tool calls failed", "what's our
-  cache-hit ratio", "where did we waste tokens re-feeding an expired cache", or "how did time
-  split across planning/implementing/diagnosing/fixing". Runs a three-phase pipeline
-  (identify → extract → analyze) over `~/.claude/projects/*/*.jsonl`, then synthesizes a report
-  with real numbers — never hand-waves a retrospective from memory.
+  cache-hit ratio", "where did we waste tokens re-feeding an expired cache", "how did time
+  split across planning/implementing/diagnosing/fixing", or "where did our wall-clock time
+  actually go (idle on a human, slow inference, repeated test runs)". Runs a four-phase pipeline
+  (identify → extract → analyze → wallclock) over `~/.claude/projects/*/*.jsonl`, then
+  synthesizes a report with real numbers — never hand-waves a retrospective from memory.
 ---
 
 # retro — retrospective efficiency analysis
 
 Answers "how efficient were our recent Beadhive sessions" with real numbers pulled from Claude
 Code's own session transcripts, not vibes. Stdlib-only Python scripts do the scripted work
-(identification, extraction, aggregation, and — opt-in — HTML rendering); you do the judgment
-work (labelling ambiguous sessions, writing the narrative, picking recommendations).
+(identification, extraction, aggregation, wall-clock reconstruction, and — opt-in — HTML
+rendering); you do the judgment work (labelling ambiguous sessions, writing the narrative,
+picking recommendations).
 
 ## Run the pipeline, in order
 
@@ -25,15 +27,16 @@ From this skill's directory (`scripts/` is relative to `SKILL.md`):
 python3 scripts/identify.py --since auto   # -> ~/.beadhive/retros/<run-id>/identify.json
 python3 scripts/extract.py                 # -> extract.jsonl, events.jsonl, failures.jsonl (same run-dir)
 python3 scripts/analyze.py                 # -> analysis.json in the same run-dir
+python3 scripts/wallclock.py               # -> wallclock.json in the same run-dir
 ```
 
 No path args needed for the common case: `identify.py` creates a fresh, datetime-named run
 folder under `~/.beadhive/retros/<YYYYMMDD-HHMMSS>-<hash8>/` (the id is derived from the run's
 own `since`/`generatedAt`/session-count — see `scripts/_rundir.py`), writes `identify.json`
-there, and points `~/.beadhive/retros/latest` at it. `extract.py` and `analyze.py` pick up that
-same run-dir automatically via the `latest` pointer, so each run's five artifacts
-(`identify.json`, `extract.jsonl`, `events.jsonl`, `failures.jsonl`, `analysis.json`) land
-together and accumulate run-over-run for comparison.
+there, and points `~/.beadhive/retros/latest` at it. `extract.py`, `analyze.py`, and
+`wallclock.py` all pick up that same run-dir automatically via the `latest` pointer, so each
+run's six artifacts (`identify.json`, `extract.jsonl`, `events.jsonl`, `failures.jsonl`,
+`analysis.json`, `wallclock.json`) land together and accumulate run-over-run for comparison.
 
 `failures.jsonl` is one record per failing tool call, carrying the **complete** `tool_result`
 text and the command exactly as it ran — the inline `errorText` on every event stays clipped at
@@ -41,22 +44,29 @@ text and the command exactly as it ran — the inline `errorText` on every event
 failure from here (or from `analysis.json`'s `failures.groups[].signatures[].exemplar`) instead
 of re-walking `~/.claude/projects`.
 
+`wallclock.py` is the fourth core phase: it walks the same raw transcripts named by
+`identify.json` and reconstructs a per-session wall-clock timeline, splitting it into named
+waste families (idle-on-a-human, slow inference, long test/build/lint passes, test churn) in
+`wallclock.json` — see "Wall-clock waste (`wallclock.json`)" below for the family list and the
+caveats a maintainer must not drop when quoting a number from it.
+
 Pass `--since <iso>` to `identify.py` to override auto-window-detection with an explicit
-boundary. Pass `--run-dir <dir>` (all three scripts) or `--out`/`--in`/`--events`/`--failures`
+boundary. Pass `--run-dir <dir>` (all four scripts) or `--out`/`--in`/`--events`/`--failures`
 (individually)
 to target an arbitrary directory instead — e.g. for an ad-hoc or CI invocation that shouldn't
 touch `~/.beadhive/retros/` or the `latest` pointer. Each script also has `--selftest` — run it
 if you change one of them; it must stay green.
 
-**This is the acceptance bar for this skill**: invoking it must actually run all three phases
-end to end and produce a report grounded in `analysis.json`'s numbers, not a summary written from
-guesswork.
+**This is the acceptance bar for this skill**: invoking it must actually run all four phases
+(identify, extract, analyze, wallclock) end to end and produce a report grounded in
+`analysis.json`'s (and, for wall-clock questions, `wallclock.json`'s) numbers, not a summary
+written from guesswork.
 
 ## Artifact mode: render report-artifact.html (or report.html) instead of the in-chat report
 
 **Default behavior (no flag) is unchanged**: write the report inline in chat per the section
 below. If the user asks for an artifact / file / HTML report (or says "artifact mode"), you have
-**two possible branches** after `analyze.py` — a script can't introspect which skills are loaded
+**two possible branches** after `wallclock.py` — a script can't introspect which skills are loaded
 or whether Artifacts are enabled, so picking the branch is agent-time judgment, made explicitly
 here. In **both** branches the actual chart-building is scripted and self-tested — you never
 hand-author chart marks (a hand-built pass once shipped a bug where SVG marks were built via
@@ -70,15 +80,19 @@ If **both** are true — `dataviz` and/or `artifact-design` appear in your avail
 listing for this conversation, **and** Claude Artifacts are enabled — run the charted renderer:
 
 ```bash
-python3 scripts/render_artifact.py   # reads <run-dir>/analysis.json -> <run-dir>/report-artifact.html
+python3 scripts/render_artifact.py   # reads <run-dir>/analysis.json (+ wallclock.json if present) -> <run-dir>/report-artifact.html
 ```
 
-`render_artifact.py` resolves the run-dir the same way the other three scripts do (via the
+`render_artifact.py` resolves the run-dir the same way the other four scripts do (via the
 `latest` pointer or `--run-dir`) and writes a single self-contained, interactive
 `report-artifact.html` next to `analysis.json` — inline CSS + inline JS, **zero external refs**
 (no CDN, no external fonts/scripts/stylesheets). Every SVG chart mark is built via
 `document.createElementNS` against the SVG namespace, never via `element.innerHTML` of bare
 `<rect>`/`<circle>` tags. Run `--selftest` if you ever touch the script — it must stay green.
+It also picks up `wallclock.json` from the same run-dir (or an explicit `--wallclock-in`) and
+charts every wall-clock family alongside the `analysis.json` ones; a missing `wallclock.json`
+(an older run-dir predating `wallclock.py`) renders a plain "not found" section instead of
+failing the whole artifact.
 
 **CLI-vs-canvas realization**: in a context with a real Artifacts canvas, *the Artifact* is that
 canvas — open `report-artifact.html` and paste its contents into an HTML artifact so the canvas
@@ -138,21 +152,24 @@ the Artifact path is taken.
 
 ### Fallback — no dataviz/Artifacts
 
-Without `dataviz`/`artifact-design` loaded, or without Artifacts enabled, run the fourth, opt-in
-step after `analyze.py`:
+Without `dataviz`/`artifact-design` loaded, or without Artifacts enabled, run the opt-in
+rendering step after `wallclock.py`:
 
 ```bash
-python3 scripts/render.py   # reads <run-dir>/analysis.json -> <run-dir>/report.html
+python3 scripts/render.py   # reads <run-dir>/analysis.json (+ wallclock.json if present) -> <run-dir>/report.html
 ```
 
-`render.py` resolves the same run-dir as the other three scripts (via the `latest` pointer or
+`render.py` resolves the same run-dir as the other four scripts (via the `latest` pointer or
 `--run-dir`) and writes a single self-contained `report.html` (inline CSS, no JS framework, no
 new dependencies) next to `analysis.json` — tables for every metric family plus the significant
 cache-expiry call-outs and a two-tier recommendations section, all computed straight from
 `analysis.json`. **This is on-brand by default, no flag needed**: `render.py` renders the
 honeycomb palette from `references/palette.md` unless `--plain` is passed (an escape hatch to the
 old unstyled gray theme — rarely needed). So the fallback is always on-brand, just less charted
-than the Artifact path, with zero new runtime deps either way.
+than the Artifact path, with zero new runtime deps either way. Like `render_artifact.py`, it also
+picks up `wallclock.json` from the same run-dir (or an explicit `--wallclock-in`) and tables
+every wall-clock family; a missing `wallclock.json` renders a plain "not found" note instead of
+failing the render.
 
 When artifact mode is requested (either branch), **present the artifact to the user instead of
 writing the full report in chat**: give the rendered file's path (`report-artifact.html` or
@@ -170,6 +187,46 @@ binds to these fields directly rather than re-deriving numbers — the same grou
 `render.py` already follows: every value traces back to `analysis.json` verbatim. Treat this
 family list as stable; if `analyze.py` ever adds or renames a top-level family, update this list,
 `metrics.md`, and both renderers' family coverage together.
+
+### Wall-clock waste (`wallclock.json`)
+
+`wallclock.json` is a second, opt-in data contract — both renderers accept it via
+`--wallclock-in` (default: the same run-dir) and render a plain "not found" section instead of
+crashing when it's missing (an older run-dir predating `wallclock.py`). It has one top-level key
+per waste family, plus `meta` (the timing model + thresholds, echoed for a renderer/report to
+cite instead of re-deriving) and `bySession` (per-session span/inference/tool/idle totals).
+Formulas, thresholds, and the full timing model are in `references/metrics.md` (k) — this list is
+just the family names and what each answers:
+
+| Family | Answers |
+|---|---|
+| `totals` | session-span split into `inferenceSec`/`toolSec`/`humanIdleSec`/`unattributedSec` |
+| `humanIdle` | idle-on-a-human time, by class (`approval-shaped`, `direction`, `answering-a-question`, `parked`) |
+| `inferenceRate` | output tokens/sec by turn, and the seconds that would've been saved running every turn at the p75 rate |
+| `toolTime` | tool-call time by class/tool, plus the slowest individual calls |
+| `humanGate` | `AskUserQuestion`/`ExitPlanMode`/`EnterPlanMode` wait time — see the double-count warning below |
+| `testChurn` | the same test/build/lint command re-run N+ times, and test runs following a merge/submit within a short window |
+| `suspectedApprovalGate` | a heuristic: a normally-instant command that ran long was probably parked in a permission prompt |
+| `plausiblyAutomatable` | the portion of the window a supervisor-agent loop could plausibly have handled without a human |
+
+Every family's `note` field states the same standing caveat verbatim: **"derived from record
+gaps, not measured"** — transcripts carry only a `timestamp` per record, never a duration, so
+every figure here is a gap between consecutive records (inference = last-assistant-record ts
+minus the record before the first; tool = tool_result ts minus the assistant record carrying the
+`tool_use`; human idle = human-prompt ts minus the previous record's ts). Never present a
+`wallclock.json` number as an observed span.
+
+**`humanGate` is a labelled SUBSET of `toolTime`, not a fifth partition of session span** — this
+is the easiest thing here to get wrong, so it is worth stating twice (`humanGate.note` states it
+a third time, in the data itself). `AskUserQuestion`/`ExitPlanMode`/`EnterPlanMode` calls block on
+a human answer but are recorded as ordinary tool calls, so their wait time already lands inside
+`totals.toolSec` / `toolTime.byClass['other']` / `toolTime.byTool` — `humanGate` pulls the same
+seconds back out as its own, separately reported figure. **Never add `humanGate.sec` on top of
+`totals.toolSec` or a `toolTime.byClass`/`byTool` sum — that double-counts.** The same caution
+extends to `plausiblyAutomatable.sec` (= `humanIdle.recoverableSec` + `humanGate.sec`): it answers
+a different question — "how much of this window could a supervisor-agent loop plausibly have
+handled" — and is not a fifth slice additive with `totals`, since its `humanGateSec` component is
+already counted inside `totals.toolSec`.
 
 ## Read `analysis.json`, then write the report
 
@@ -198,6 +255,10 @@ especially:
   model family shows up in `cost.unpriced`, not silently dropped.
 - `meta.bhVersion` is the best-effort observed `bh`/`bd` version at analysis time — this is what
   maintainer recommendation items get stamped with (see step 4 below).
+- If `wallclock.json` exists for this run, every one of its families carries "derived from
+  record gaps, not measured" in its own `note` field — never present a wall-clock figure as an
+  observed span, and never add `humanGate.sec` on top of `totals.toolSec`/`toolTime.byClass`/
+  `byTool` sums (see "Wall-clock waste" above — this is the one double-count to watch for).
 
 Write the report (optionally to `report.md`) with:
 
@@ -233,6 +294,13 @@ Write the report (optionally to `report.md`) with:
      <meta.bhVersion> (CC <meta.ccVersions>)` — framed version-relative, since a later `bh`
      release may already have addressed it — with a short paste-ready block (offending command,
      error text, session id) a maintainer can act on without re-deriving it from `analysis.json`.
+7. **Wall-clock waste (if `wallclock.json` is present)** — the session-span split
+   (`totals`), idle-on-a-human by class (`humanIdle`), any slow-turn call-outs
+   (`inferenceRate.top`), long or repeated test/build/lint runs (`toolTime.slowestByClass`,
+   `testChurn`), and gate-tool wait (`humanGate`, folded correctly per the subset warning above —
+   report it as "inside tool time", never additively). If `wallclock.json` is missing for this
+   run (an older run-dir predating `wallclock.py`), say so plainly and skip the section rather
+   than guessing.
 
 Progressive disclosure: keep the report's prose short and let `references/metrics.md` carry the
 formula detail — link to it rather than re-deriving formulas in the report.
