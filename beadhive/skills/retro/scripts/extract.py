@@ -2,13 +2,13 @@
 """Phase 2: normalize identified session transcripts into events + usage series. No judgment —
 pure extraction. See ../references/metrics.md for the fields this feeds.
 
-By default, resolves identify.json/writes extract.jsonl+events.jsonl in the same run-dir as
-identify.py: explicit `--run-dir` wins, else the `latest` pointer, else legacy cwd-relative
-defaults. `--in`/`--out`/`--events` always override individually.
+By default, resolves identify.json/writes extract.jsonl+events.jsonl+failures.jsonl in the same
+run-dir as identify.py: explicit `--run-dir` wins, else the `latest` pointer, else legacy
+cwd-relative defaults. `--in`/`--out`/`--events`/`--failures` always override individually.
 
 Usage:
     extract.py [--in identify.json] [--session <path>] [--out extract.jsonl]
-                [--events events.jsonl] [--run-dir DIR]
+                [--events events.jsonl] [--failures failures.jsonl] [--run-dir DIR]
     extract.py --selftest
 """
 from __future__ import annotations
@@ -32,9 +32,11 @@ BD_BH_TOKEN_RE = re.compile(
 # ^ stops at &&, ;, |, or newline (shell chaining) but NOT a lone '&' — a redirect like
 # '2>&1' must not truncate the command before a trailing bead id.
 BD_BH_DETAIL_MAXLEN = 200
-# How much of a failing tool_result's text to retain as errorText — enough to be a useful
-# concrete example (e.g. in the maintainer copy-feedback message) without bloating extract
-# output with full stack traces/logs.
+# How much of a failing tool_result's text to retain as the INLINE errorText carried on every
+# tool event (events.jsonl / extract.jsonl toolEvents) — enough to recognize a failure at a
+# glance without growing the per-event stream with full stack traces/logs. The complete,
+# paste-ready text is never lost: it lands in the failures record instead (see failure_record()
+# and the `failures` artifact), which only exists for calls that actually failed.
 ERROR_TEXT_MAXLEN = 300
 # `bd create` / `bh plan` never carry the new bead's id in the command (it's assigned and
 # printed in the tool_result, e.g. "Created issue: bh-cp-1 ..."), so extract.py also scans
@@ -93,12 +95,35 @@ def content_text(content) -> str:
     return str(content)
 
 
+def failure_record(session_id, event: dict, error_text: str, command: str) -> dict:
+    """One failing tool call, paste-ready: the COMPLETE tool_result text plus the command
+    exactly as it ran.
+
+    This is the artifact that keeps a failure reportable without a second walk over
+    ~/.claude/projects. It is deliberately *not* folded into every tool event — only failing
+    calls get one, so the per-event stream (events.jsonl) stays bounded by ERROR_TEXT_MAXLEN
+    while the full text survives here.
+    """
+    return {
+        "sessionId": session_id,
+        "toolUseId": event.get("tool_use_id"),
+        "ts": event.get("ts"),
+        "tool": event.get("tool"),
+        "isSidechain": event.get("isSidechain", False),
+        "detail": event.get("detail") or "",
+        "command": command,
+        "errorText": error_text,
+        "errorChars": len(error_text),
+    }
+
+
 def extract_session(path: str) -> dict:
     usage_series = []
     tool_events = []  # each: {ts, tool, isSidechain, detail, tool_use_id}
     error_by_id = {}  # tool_use_id -> is_error
     result_ids_by_id = {}  # tool_use_id -> [bead ids found in that tool_result's text]
-    error_text_by_id = {}  # tool_use_id -> truncated tool_result text, only when is_error
+    error_text_by_id = {}  # tool_use_id -> FULL tool_result text, only when is_error
+    command_by_id = {}  # tool_use_id -> raw Bash command (unabbreviated), Bash events only
     read_chars = 0
     write_chars = 0
     session_id = None
@@ -163,6 +188,10 @@ def extract_session(path: str) -> dict:
                     if name in ("Write", "Edit"):
                         blob = inp.get("content") or inp.get("new_string") or ""
                         write_chars += len(str(blob))
+                    if name == "Bash" and block.get("id"):
+                        # Kept whole (not the BD_BH_DETAIL_MAXLEN-capped `detail`) so a failing
+                        # call's failures record can carry the command exactly as it ran.
+                        command_by_id[block["id"]] = str(inp.get("command", ""))
 
                 elif block.get("type") == "tool_result":
                     tool_use_id = block.get("tool_use_id")
@@ -174,20 +203,28 @@ def extract_session(path: str) -> dict:
                         if ids:
                             result_ids_by_id[tool_use_id] = sorted(set(ids))
                         if is_error:
-                            error_text_by_id[tool_use_id] = content_text(result_content)[:ERROR_TEXT_MAXLEN]
+                            error_text_by_id[tool_use_id] = content_text(result_content)
                     read_chars += content_chars(result_content)
 
+    failures = []
     for event in tool_events:
         tool_use_id = event["tool_use_id"]
         event["error"] = error_by_id.get(tool_use_id, False)
         event["resultIds"] = result_ids_by_id.get(tool_use_id, [])
-        event["errorText"] = error_text_by_id.get(tool_use_id, "")
+        full_error = error_text_by_id.get(tool_use_id, "")
+        event["errorText"] = full_error[:ERROR_TEXT_MAXLEN]
+        # errorChars is the length of the COMPLETE text, so a consumer of events.jsonl alone can
+        # tell a whole error from one clipped at ERROR_TEXT_MAXLEN.
+        event["errorChars"] = len(full_error)
+        if event["error"]:
+            failures.append(failure_record(session_id, event, full_error, command_by_id.get(tool_use_id, "")))
 
     return {
         "sessionId": session_id,
         "path": path,
         "usageSeries": usage_series,
         "toolEvents": tool_events,
+        "failures": failures,
         "contentSizes": {"readChars": read_chars, "writeChars": write_chars},
         "ccVersions": sorted(cc_versions),
     }
@@ -203,6 +240,12 @@ def selftest() -> None:
 
     tmpdir = tempfile.mkdtemp()
     path = os.path.join(tmpdir, "sess.jsonl")
+
+    # A real failing tool_result runs well past ERROR_TEXT_MAXLEN (the 2026-08-13 window's
+    # bd/bh failures all did) — the full text must survive in the failures record even though
+    # the inline event copy is clipped.
+    long_error = "Exit code 5\n" + ("jq: error (at <stdin>:71): Cannot index array with string. " * 12)
+    assert len(long_error) > ERROR_TEXT_MAXLEN
 
     lines = [
         {
@@ -226,6 +269,12 @@ def selftest() -> None:
                     {"type": "tool_use", "id": "tu3", "name": "Bash", "input": {"command": "bh work merge bh-cp-9 2>&1 | tail -5"}},
                     {"type": "tool_use", "id": "tu4", "name": "Bash", "input": {"command": "bd create --title x"}},
                     {"type": "tool_use", "id": "tu5", "name": "Bash", "input": {"command": "git commit -m 'wip'"}},
+                    {
+                        "type": "tool_use",
+                        "id": "tu6",
+                        "name": "Bash",
+                        "input": {"command": 'for b in bh-cp-1 bh-cp-2; do echo "$b"; bh work issue $b --json; done'},
+                    },
                 ],
             },
         },
@@ -239,6 +288,7 @@ def selftest() -> None:
                 "content": [
                     {"type": "tool_result", "tool_use_id": "tu1", "is_error": True, "content": "error: not found"},
                     {"type": "tool_result", "tool_use_id": "tu4", "is_error": False, "content": "Created issue: bh-cp-42 — x"},
+                    {"type": "tool_result", "tool_use_id": "tu6", "is_error": True, "content": long_error},
                 ],
             },
         },
@@ -256,12 +306,13 @@ def selftest() -> None:
     assert u["eph5m"] == 5 and u["eph1h"] == 0
     assert u["model"] == "claude-sonnet-5"
 
-    assert len(result["toolEvents"]) == 5
+    assert len(result["toolEvents"]) == 6
     bash_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu1")
     assert bash_event["detail"] == "bd show bh-cp-1", bash_event["detail"]
     assert bash_event["error"] is True
     # errorText: truncated tool_result text, only captured for is_error events.
     assert bash_event["errorText"] == "error: not found", bash_event["errorText"]
+    assert bash_event["errorChars"] == len("error: not found")
 
     write_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu2")
     assert write_event["detail"] == "/tmp/f.py"
@@ -285,8 +336,37 @@ def selftest() -> None:
     git_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu5")
     assert git_event["detail"] == "git commit -m 'wip'", git_event["detail"]
 
+    # A bd/bh call inside a loop body still yields a detail — BD_BH_TOKEN_RE matches the
+    # invocation anywhere in the command, not just at argv[0] (see analyze.py's grouping,
+    # which reuses this rule instead of re-deriving one).
+    loop_event = next(e for e in result["toolEvents"] if e["tool_use_id"] == "tu6")
+    assert loop_event["detail"] == "bh work issue $b --json", loop_event["detail"]
+
+    # Paste-ready failures (bh-cp-t46.1): the inline event copy stays capped at
+    # ERROR_TEXT_MAXLEN, while the per-session failures record keeps the COMPLETE text plus the
+    # command exactly as it ran — so a maintainer never has to re-walk ~/.claude/projects.
+    assert loop_event["errorText"] == long_error[:ERROR_TEXT_MAXLEN]
+    assert len(loop_event["errorText"]) == ERROR_TEXT_MAXLEN
+    assert loop_event["errorChars"] == len(long_error)  # full length, so a clip is detectable
+
+    failures = result["failures"]
+    assert [f["toolUseId"] for f in failures] == ["tu1", "tu6"], failures
+    loop_failure = failures[1]
+    assert loop_failure["errorText"] == long_error, "full error text must survive untruncated"
+    assert loop_failure["errorChars"] == len(long_error)
+    assert loop_failure["sessionId"] == "sess-x"
+    assert loop_failure["ts"] == "2026-07-20T10:00:00Z"
+    assert loop_failure["detail"] == "bh work issue $b --json"
+    # `command` is the whole command, not the BD_BH_DETAIL_MAXLEN-capped invocation.
+    assert loop_failure["command"].startswith("for b in bh-cp-1 bh-cp-2; do")
+    assert loop_failure["command"].endswith("done")
+    # non-Bash / non-failing calls contribute nothing to the failures artifact
+    assert all(f["tool"] == "Bash" for f in failures)
+
     assert result["contentSizes"]["writeChars"] == len("hello world")
-    assert result["contentSizes"]["readChars"] == len("error: not found") + len("Created issue: bh-cp-42 — x")
+    assert result["contentSizes"]["readChars"] == (
+        len("error: not found") + len("Created issue: bh-cp-42 — x") + len(long_error)
+    )
 
     assert result["ccVersions"] == ["2.1.207", "2.1.208"], result["ccVersions"]
 
@@ -296,7 +376,12 @@ def selftest() -> None:
     _rundir.RETROS_ROOT = os.path.join(tmpdir, "retros")
     _rundir.LATEST_POINTER = os.path.join(_rundir.RETROS_ROOT, "latest")
     try:
-        assert resolve_paths(None, None, None, None) == ("identify.json", "extract.jsonl", "events.jsonl")
+        assert resolve_paths(None, None, None, None) == (
+            "identify.json",
+            "extract.jsonl",
+            "events.jsonl",
+            "failures.jsonl",
+        )
 
         run_dir, _ = _rundir.new_run_dir("20260101-000000-deadbeef")
         _rundir.write_latest_pointer(run_dir)
@@ -304,16 +389,25 @@ def selftest() -> None:
             os.path.join(run_dir, "identify.json"),
             os.path.join(run_dir, "extract.jsonl"),
             os.path.join(run_dir, "events.jsonl"),
+            os.path.join(run_dir, "failures.jsonl"),
         )
         assert resolve_paths("custom.json", None, None, None) == (
             "custom.json",
             os.path.join(run_dir, "extract.jsonl"),
             os.path.join(run_dir, "events.jsonl"),
+            os.path.join(run_dir, "failures.jsonl"),
+        )
+        assert resolve_paths(None, None, None, None, "custom-failures.jsonl") == (
+            os.path.join(run_dir, "identify.json"),
+            os.path.join(run_dir, "extract.jsonl"),
+            os.path.join(run_dir, "events.jsonl"),
+            "custom-failures.jsonl",
         )
         assert resolve_paths(None, None, None, "/explicit/dir") == (
             "/explicit/dir/identify.json",
             "/explicit/dir/extract.jsonl",
             "/explicit/dir/events.jsonl",
+            "/explicit/dir/failures.jsonl",
         )
     finally:
         _rundir.RETROS_ROOT, _rundir.LATEST_POINTER = orig_root, orig_latest
@@ -321,14 +415,15 @@ def selftest() -> None:
     print("extract.py --selftest: OK")
 
 
-def resolve_paths(infile, out, events, run_dir_arg) -> tuple[str, str, str]:
-    """(infile, out, events) with explicit flags winning, else the resolved run-dir, else
-    legacy cwd-relative filenames."""
+def resolve_paths(infile, out, events, run_dir_arg, failures=None) -> tuple[str, str, str, str]:
+    """(infile, out, events, failures) with explicit flags winning, else the resolved run-dir,
+    else legacy cwd-relative filenames."""
     run_dir = _rundir.resolve_run_dir(run_dir_arg)
     infile = infile or (os.path.join(run_dir, "identify.json") if run_dir else "identify.json")
     out = out or (os.path.join(run_dir, "extract.jsonl") if run_dir else "extract.jsonl")
     events = events or (os.path.join(run_dir, "events.jsonl") if run_dir else "events.jsonl")
-    return infile, out, events
+    failures = failures or (os.path.join(run_dir, "failures.jsonl") if run_dir else "failures.jsonl")
+    return infile, out, events, failures
 
 
 def main() -> None:
@@ -337,7 +432,8 @@ def main() -> None:
     parser.add_argument("--session", help="extract a single session file instead of an identify.json")
     parser.add_argument("--out", default=None, help="default: <run-dir>/extract.jsonl")
     parser.add_argument("--events", default=None, help="default: <run-dir>/events.jsonl")
-    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve identify.json/extract.jsonl/events.jsonl in (default: latest pointer, else cwd)")
+    parser.add_argument("--failures", default=None, help="failing calls with full error text (default: <run-dir>/failures.jsonl)")
+    parser.add_argument("--run-dir", dest="run_dir", default=None, help="run-dir to resolve identify.json/extract.jsonl/events.jsonl/failures.jsonl in (default: latest pointer, else cwd)")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
 
@@ -345,7 +441,9 @@ def main() -> None:
         selftest()
         return
 
-    infile, out, events_out = resolve_paths(args.infile, args.out, args.events, args.run_dir)
+    infile, out, events_out, failures_out = resolve_paths(
+        args.infile, args.out, args.events, args.run_dir, args.failures
+    )
 
     if args.session:
         paths = [args.session]
@@ -367,7 +465,17 @@ def main() -> None:
                 rolled["sessionId"] = session["sessionId"]
                 f.write(json.dumps(rolled) + "\n")
 
-    print(f"extract.py: {len(sessions)} sessions -> {out}, events -> {events_out}")
+    failure_count = 0
+    with open(failures_out, "w") as f:
+        for session in sessions:
+            for failure in session["failures"]:
+                failure_count += 1
+                f.write(json.dumps(failure) + "\n")
+
+    print(
+        f"extract.py: {len(sessions)} sessions -> {out}, events -> {events_out}, "
+        f"{failure_count} failures (full error text) -> {failures_out}"
+    )
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 # retro — metric definitions
 
 Single source of truth for how each metric is computed and how ambiguous cases are labelled.
-`scripts/analyze.py` implements this file exactly; if the two disagree, this file is the spec —
-fix the script. Ten metric families:
+`scripts/analyze.py` (families (a)–(j), `analysis.json`) and `scripts/wallclock.py` (family (k),
+`wallclock.json`) implement this file exactly; if the two disagree, this file is the spec — fix
+the script. Eleven metric families:
 
 ## (a) Bead lifecycle verb mapping
 
@@ -241,9 +242,130 @@ original 2-way `bd`/`bh`-prefix check (`is_beads_bh`), which counts a `bh git �
 `beadsBh` even though `toolClasses` now buckets it under `raw-git`. `toolClasses` and
 `skillReads.byClass` are additive, not a replacement.
 
-**Concrete failure examples**: `failures.examples` is a new, bounded (`FAILURE_EXAMPLE_LIMIT = 5`)
+**Concrete failure examples**: `failures.examples` is a bounded (`FAILURE_EXAMPLE_LIMIT = 5`)
 list of actual failing tool calls — `sessionId`, `ts`, `tool`, `class`, `detail` (the offending
-command), and `errorText` (the failing `tool_result`'s text, truncated to 300 chars by
-`extract.py`, empty when not an error) — so a maintainer-facing recommendation (or the
-maintainer copy-feedback message in `render_artifact.py`) can cite a real instance instead of just
-an aggregate count.
+command), and `errorText` — so a maintainer-facing recommendation can cite a real instance
+instead of just an aggregate count. It is the first five **chronologically**, kept for
+back-compat; prefer `failures.groups` below.
+
+**Ranked failure clusters** (`failures.groups`): the same failures grouped by *command shape* and
+*error signature*, ranked by count — "this failed 6 times" rather than five arbitrary early
+examples (in the 2026-08-13 window, four of the first five were unrelated Claude Code classifier
+denials while the largest real cluster never surfaced). Ranking is two-level: command shapes by
+total count, then signatures within a shape; equal counts keep first-seen order.
+
+- **Command shape** — the invocation with run-specific noise collapsed to placeholders: bead ids
+  and shell vars → `<id>`, seats (`disp/claude`) → `<seat>`, paths → `<path>`, shas → `<sha>`,
+  quoted strings → `<str>`, integers → `<n>`, redirections dropped. Hyphenated bd/bh subcommands
+  (`set-state`) and flag names are preserved.
+- **Error signature** — the same idea applied to the error text, but prose-safe: only digits,
+  paths, shas, seats and the ids that appeared in *that failure's own command* collapse, so
+  ordinary hyphenated words survive. Capped at `FAILURE_SIGNATURE_MAXLEN` — it is a grouping key,
+  not the error itself.
+- **Which failures group**: those with a `bd`/`bh` invocation **anywhere** in the command, reusing
+  `extract.py`'s `BD_BH_TOKEN_RE` (`analyze.failure_invocation`). Never re-anchor on `argv[0]`: a
+  `bd`/`bh` call routinely sits in a loop body or behind a `cd … &&`, and an argv[0]-anchored
+  prototype found only 14 of the same window's 26 failures. `failures.groupsMeta.failuresGrouped`
+  reports the covered count; a failing `bh:*` Skill invocation counts in `beadsBh` but has no
+  command to shape, so it never groups. Grouping is presentation — it does **not** change
+  `beadsBh`/`other`.
+- **Exemplar**: each signature carries the first failing call it saw, with the **complete**
+  `tool_result` text (`errorText`/`errorChars`) and the whole command — paste-ready into a bug
+  report. `extract.py` writes the same records for *every* failure to `failures.jsonl`; only the
+  inline copy on each tool event stays clipped at `ERROR_TEXT_MAXLEN` (300), which is what keeps
+  `events.jsonl` bounded. `analysis.json` carries at most `FAILURE_GROUP_LIMIT` shapes ×
+  `FAILURE_SIGNATURE_LIMIT` signatures.
+
+## (k) Wall-clock timing model (`wallclock.py` → `wallclock.json`)
+
+Transcripts carry no durations — only a `timestamp` per record, written when that record was
+appended. `scripts/wallclock.py` (Phase 4) walks the sessions named by `identify.json` and
+derives every duration in `wallclock.json` from a **gap between consecutive records**, never a
+measured span:
+
+- **inference** = `ts(last assistant record of a requestId) − ts(record before the first)` —
+  includes model latency, thinking, streaming, and any retry/queue time.
+- **tool** = `ts(tool_result record) − ts(assistant record carrying the tool_use)` — includes
+  anything the harness did before/after the command, notably time the call sat in a permission
+  prompt waiting on a human.
+- **human idle** = `ts(human prompt) − ts(previous record)`, counted **only** when the previous
+  assistant turn ended WITHOUT a `tool_use` (the agent had genuinely stopped, not merely between
+  parallel tool calls).
+
+Every family below states this **"derived from record gaps, not measured"** caveat
+(`TIMING_CAVEAT`) verbatim in its own `note` field, not only here — a renderer or report must
+never present a `wallclock.json` number as an observed span.
+
+**Parallel tool-call overlap**: one assistant message can issue several `tool_use` blocks at
+once; their `durationSec` values (each measured from the same assistant ts) sum to more than the
+wall-clock time the batch actually occupied. `totals.toolSec` / `bySession[*].toolSec` use the
+**batch span** (`max(result ts) − assistant ts`) to stay honest; `toolTime.byClass`/`byTool` sum
+every call's `durationSec` individually and are labelled `inflated` relative to `totals.toolSec`
+in `toolTime.byClassNote` — never present a `byClass`/`byTool` sum as the wall-clock time tools
+occupied.
+
+**`<task-notification>` exclusion**: a background sub-agent's completion notification is a
+`user`-type record carrying `promptSource` — indistinguishable from a real human turn on that
+field alone — but no human typed it. `is_human_prompt()` excludes any record whose text starts
+with `<task-notification>`; getting this wrong misattributed 41h of background-agent runtime to
+"parked" human idle in the prototype this script replaced.
+
+### Human-idle classes and thresholds
+
+Each idle gap is classified by `classify_idle()`, checked in this order (first match wins):
+
+| Class | Condition | Threshold/set |
+|---|---|---|
+| `parked` | gap ≥ `PARKED_SEC` | 6h — the session was left overnight, not a decision stall |
+| `answering-a-question` | the preceding assistant turn's tool set intersects `GATE_TOOLS` | `GATE_TOOLS = {AskUserQuestion, ExitPlanMode, EnterPlanMode}` |
+| `approval-shaped` | reply matches `APPROVAL_RE` (yes/lgtm/go ahead/…) or is ≤ 24 chars and not a question | n/a |
+| `direction` | none of the above | substantive typed guidance |
+
+`humanIdle.recoverableSec` is the `approval-shaped` bucket's total seconds — the portion "a
+supervisor-agent loop could plausibly have answered without a human."
+
+### Other thresholds (`wallclock.py` constants, echoed in `wallclock.json`'s `meta.thresholds`)
+
+| Constant | Value | Used by |
+|---|---|---|
+| `SLOW_TURN_SEC` | 180s | `inferenceRate.slowTurnCount`/`.top` — an inference turn worth naming |
+| `MIN_TOKENS_FOR_RATE` | 200 tokens | excludes short, latency-dominated turns from the tokens/sec rate stats (`inferenceRate.ratedTurns`) |
+| `APPROVAL_GATE_SEC` | 45s | `suspectedApprovalGate` — a normally-instant (`FAST_RE`-matching) command that took this long was probably parked in a permission prompt (heuristic, not observed — no permission event exists in the transcript) |
+| `MERGE_WINDOW_SEC` | 20 * 60 = 1200s | `testChurn.mergeAdjacent` — a test/build/lint run this soon after a merge/submit command counts as merge-adjacent |
+| `CHURN_MIN_RUNS` | 3 | `testChurn.repeated` — same normalized command run at least this many times in the window counts as churn |
+
+### Family reference
+
+`aggregate()`'s return dict has one top-level key per family below, plus `meta` (the timing model
+and thresholds above, echoed for a renderer/report to cite instead of re-deriving) and
+`bySession` (per-session
+`spanSec`/`inferenceSec`/`toolSec`/`humanIdleSec`/`unattributedSec`/`testSec`):
+
+| Family | Computes |
+|---|---|
+| `totals` | session-span split into `inferenceSec` / `toolSec` / `humanIdleSec` / `unattributedSec`, summed across sessions (concurrently-open sessions add, so this is **not** wall-clock elapsed time). `unattributedSec` = `span − inference − tool − humanIdle` — mainly background sub-agent (sidechain) activity and a session left open with no following turn to close the gap, neither of which produces a human-idle or tool-call record to attribute to. |
+| `humanIdle` | `byClass` counts/seconds (see table above), `recoverableSec` (the `approval-shaped` total), and the top idle gaps by duration |
+| `inferenceRate` | p25/median/p75 output-tokens/sec (over turns with ≥ `MIN_TOKENS_FOR_RATE` output tokens), `excessSecondsVsP75` (time that would have been saved had every rated turn generated at the p75 rate), and the slowest turns |
+| `toolTime` | seconds by class/tool (`byClass`/`byTool` — per-call sum, labelled inflated vs `totals.toolSec`) and the slowest individual calls, overall and per test/build/lint class |
+| `humanGate` | count/seconds of `GATE_TOOLS` calls — see the subset warning below |
+| `testChurn` | `commands`/`repeated` (same normalized command run ≥ `CHURN_MIN_RUNS` times; `retestTaxSec` = seconds spent on runs 2..N) and `mergeAdjacent` (test/build/lint runs within `MERGE_WINDOW_SEC` of a merge/submit call, deduped by `mergeAdjacentUnique*` since overlapping windows can double-count a run) |
+| `suspectedApprovalGate` | `FAST_RE`-matching commands that took ≥ `APPROVAL_GATE_SEC` — probably sat in a permission prompt (heuristic, labelled as inferred, not observed) |
+| `plausiblyAutomatable` | `humanIdle.recoverableSec + humanGate.sec` — see below |
+
+### `humanGate` is a SUBSET of `toolTime`, not a fifth partition of session span
+
+This is the one relationship in `wallclock.json` most likely to be double-counted, so state it
+plainly: `AskUserQuestion`/`ExitPlanMode`/`EnterPlanMode` block on a human answer but are recorded
+as ordinary tool calls (`class: "other"`, since `classify_command()` only runs for `Bash`), so
+their wait time is **already inside** `totals.toolSec` / `toolTime.byClass['other']` /
+`toolTime.byTool` — invisible there as anything but ordinary tool execution. `humanGate` pulls the
+same seconds back out as its own, separately reported figure — a labelled subset, not a new
+bucket. **Do not add `humanGate.sec` on top of `totals.toolSec` or a `toolTime.byClass`/`byTool`
+sum; that double-counts.**
+
+`plausiblyAutomatable.sec` (= `humanIdle.recoverableSec` + `humanGate.sec`) answers a different
+question than `totals` — "how much of this window could a supervisor-agent loop plausibly have
+handled without a human" — deliberately excluding `humanIdle`'s `direction`/`parked` time (no
+auto-approver should touch either). Because its `humanGateSec` component is already counted
+inside `totals.toolSec`, `plausiblyAutomatable` is not a fifth slice additive with `totals`; it
+answers its own question rather than partitioning session span.
