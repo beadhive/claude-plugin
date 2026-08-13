@@ -13,3 +13,7 @@
 # beads: zero-footprint hive (furnish: none) — .beads/ is local-only state.
 # bd takes its gate lock at the REPO ROOT, so a .beads/ rule alone misses it.
 .beads.gate.lock
+
+# retro pipeline scripts import each other (_rundir, extract) — bytecode caches are local.
+__pycache__/
+*.pyc
