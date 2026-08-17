@@ -1,5 +1,5 @@
-# beads issue-tracker local state, if this repo ever gets onboarded as a rig.
-.beads/
+# Beads working copy / exports — no issue data on GitHub
+.beads/*.jsonl
 
 # Beads / Dolt files (added by bd init)
 .dolt/
@@ -10,7 +10,6 @@
 # bv (beads viewer) local config and caches
 .bv/
 
-# beads: zero-footprint hive (furnish: none) — .beads/ is local-only state.
 # bd takes its gate lock at the REPO ROOT, so a .beads/ rule alone misses it.
 .beads.gate.lock
 
