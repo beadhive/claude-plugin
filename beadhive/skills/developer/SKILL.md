@@ -25,12 +25,36 @@ Load the **`work`** skill for verb details, then:
    `bh work refine <id> --autosquash` (or `--plan`/`--since`) to squash checkpoints into a
    few clean conventional digests. It's a safe rewrite (backup branch + byte-identical gate),
    so `submit`'s history guard passes.
-5. `bh work check <id>` — run validation; fix until green.
+5. `bh work check <id>` — run validation; fix until green. See
+   [Self-testing before submit](#self-testing-before-submit--trust-the-gate-dont-duplicate-it)
+   for when to also test by hand versus when that's redundant with this step.
 6. `bh work submit <id>` — hand off to async review. **Submit is not "done"**; your branch
    is the durable handoff, so don't rely on the worktree directory surviving.
 7. `bh work resume <id>` — if review returns changes-requested; address it and re-submit.
 
 Rules: stay inside the worktree; never push `main`, open a PR, or run the merge.
+
+## Self-testing before submit — trust the gate, don't duplicate it
+
+`bh work check` runs the hive's real validation in your worktree, and `submit` re-runs it
+from a clean checkout and records a tree-keyed verdict that later boundaries reuse instead of
+re-running (Attested Green, bh-ku9n9) — so hand-testing the same thing a third time is, by
+default, wasted wall-clock rather than added safety. That trust rests on two fixes:
+`review --run` no longer prints a false green against a stale branch in batch mode
+(bh-87ktb), and a transient network blip in the license gate is no longer recorded as a real
+policy failure (bh-u9ip). If either regresses, the old caution below is rational again.
+
+- **Redundant — skip it:** re-running the full `just check` (or equivalent) locally right
+  before `submit` on an ordinary change with existing coverage. `check` and `submit` already
+  run it; a third identical run just delays the same verdict.
+- **Still warranted:**
+  - a genuinely novel or risky change (new subsystem, concurrency, a migration) where a
+    failure would be expensive to trace after the fact from the gate's output alone;
+  - a change touching a path with no existing test coverage — write and run a targeted test
+    as part of implementing it, not as insurance against the gate;
+  - localizing a failure the gate already reported, with a narrower targeted rerun (e.g.
+    `uv run pytest tests/test_x.py::test_y -x`) — diagnosis, not a full-suite repeat
+    "just in case."
 
 ## Hitting a tool bug — bottom rung
 
