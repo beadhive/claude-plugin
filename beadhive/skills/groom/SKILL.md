@@ -1,5 +1,8 @@
 ---
-description: Groom the backlog — reconcile existing beads with new decisions, ADRs, and discussion (backlog-wide hygiene, no single triggering epic)
+name: groom
+description: >-
+  Groom the backlog — reconcile existing beads with new decisions, ADRs, and discussion
+  (backlog-wide hygiene, no single triggering epic).
 ---
 
 # /bh:groom — backlog-wide reconciliation
