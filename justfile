@@ -4,7 +4,12 @@ default:
 
 # fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-hooks lint-md check-types
+check: check-json check-links check-residue check-onboarding check-hooks lint-md check-types
+
+# ensure onboarding docs keep local skill namespaced and external coordinates explicit
+[group('check')]
+check-onboarding:
+    ./scripts/check-onboarding.sh
 
 # self-test the PreToolUse hook scripts (bd steering + read-only auto-approve)
 [group('check')]

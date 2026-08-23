@@ -12,7 +12,7 @@ claude plugin marketplace add beadhive/claude-plugin
 claude plugin install bh@beadhive
 ```
 
-Restart Claude Code after installing. Then `/setup` walks a fresh machine from zero to a
+Restart Claude Code after installing. Then `/bh:setup` walks a fresh machine from zero to a
 configured Beadhive workspace.
 
 ### Prerequisite: the `bh` CLI
@@ -22,7 +22,7 @@ The plugin requires the supported [`bh` CLI range](beadhive/scripts/bh-compatibi
 [beadhive CLI](https://github.com/beadhive/beadhive); without a compatible `bh`, the MCP server
 won't start and the hooks block `bh`/`bd` calls instead of failing silently. On mismatch,
 SessionStart prints an upgrade advisory and points to the
-[Beadhive install guide](https://github.com/beadhive/beadhive/blob/main/INSTALL.md) or `/setup`.
+[Beadhive install guide](https://github.com/beadhive/beadhive/blob/main/INSTALL.md) or `/bh:setup`.
 The bundled `setup` skill installs it (Phase 2).
 
 ## What's inside

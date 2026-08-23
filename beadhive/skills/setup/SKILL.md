@@ -45,7 +45,7 @@ claude plugin marketplace add beadhive/claude-plugin
 claude plugin install bh@beadhive
 ```
 
-Restart Claude Code, then invoke `/setup` or load the `setup` skill.
+Restart Claude Code, then invoke `/bh:setup` or load the `bh:setup` skill.
 
 ---
 
@@ -264,7 +264,7 @@ Otherwise, load the **`setup-git-workspace`** sub-skill to guide the user throug
 Invoke the sub-skill by name:
 
 ```text
-/setup-git-workspace
+/bh:setup-git-workspace
 ```
 
 or ask the user to load it:
