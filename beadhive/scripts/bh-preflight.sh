@@ -6,8 +6,9 @@ set -u
 
 input=$(cat)
 plugin_root=$(cd "$(dirname "$0")/.." && pwd)
-manifest="$plugin_root/.claude-plugin/plugin.json"
-required=">=0.3.0"
+# shellcheck source=bh-compatibility.sh
+source "$plugin_root/scripts/bh-compatibility.sh"
+required="$BH_REQUIRED_VERSION"
 
 json_string() { # json_string <key>
   local key=$1
@@ -19,13 +20,8 @@ json_string() { # json_string <key>
   fi
 }
 
-if command -v jq >/dev/null 2>&1; then
-  from_manifest=$(jq -r '.requires.bh // empty' "$manifest" 2>/dev/null || true)
-  [[ -n "$from_manifest" ]] && required=$from_manifest
-fi
-
 min=${required#>=}
-[[ "$min" == "$required" || -z "$min" ]] && min="0.3.0"
+[[ "$min" == "$required" || -z "$min" ]] && exit 0
 
 session_id=$(json_string session_id)
 [[ -z "$session_id" ]] && session_id="unknown"
