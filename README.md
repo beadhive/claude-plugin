@@ -39,7 +39,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   for reconciling bead provenance on an existing repo, and `triage` — a robot-mode
   command reference for `bv` (Beads Viewer), self-gated to only apply when `bv` is on
   `PATH`.
-- **Commands** — planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
+- **Planning skills** — namespaced planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
   `/bh:replan <epic>` (re-enter planning on a spike verdict or mid-execution discovery), and
   `/bh:groom` (backlog-wide reconciliation). Each states the seat contract — deliverables are
   beads + decision records, never code — and loads the `planner` skill inline.

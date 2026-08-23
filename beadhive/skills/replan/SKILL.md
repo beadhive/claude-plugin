@@ -1,6 +1,10 @@
 ---
-description: Re-enter the planning seat for ONE molecule — carry a spike verdict or a mid-execution blocker/discovery into amended beads or the implementation molecule
-argument-hint: <epic>
+name: replan
+description: >-
+  Re-enter the planning seat for ONE molecule — carry a spike verdict or a mid-execution
+  blocker/discovery into amended beads or the implementation molecule.
+metadata:
+  argument-hint: <epic>
 ---
 
 # /bh:replan — re-enter planning on evidence

@@ -1,6 +1,10 @@
 ---
-description: Enter the planning seat — drive an idea through the staged planner flow into a gated beads molecule (beads + decision records only, never code)
-argument-hint: <idea>
+name: plan
+description: >-
+  Enter the planning seat — drive an idea through the staged planner flow into a gated beads
+  molecule (beads + decision records only, never code).
+metadata:
+  argument-hint: <idea>
 ---
 
 # /bh:plan — enter the planning seat
