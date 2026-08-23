@@ -17,7 +17,8 @@ configured Beadhive workspace.
 
 ### Prerequisite: the `bh` CLI
 
-The plugin requires `bh >=0.3.0` on your `PATH`. The MCP server runs the `bh-mcp` binary from the
+The plugin requires the supported [`bh` CLI range](beadhive/scripts/bh-compatibility.sh) on your
+`PATH`. The MCP server runs the `bh-mcp` binary from the
 [beadhive CLI](https://github.com/beadhive/beadhive); without a compatible `bh`, the MCP server
 won't start and the hooks block `bh`/`bd` calls instead of failing silently. On mismatch,
 SessionStart prints an upgrade advisory and points to the
@@ -59,7 +60,8 @@ The agent definitions use a `skills:` frontmatter key to preload their role skil
 Code versions without `skills:` preload support the key is ignored; the agents still work —
 they load their skills via the `Skill` tool on demand.
 
-The runtime preflight is intentionally blocking: if `bh` is missing or older than `0.3.0`, the
+The runtime preflight is intentionally blocking: if `bh` is missing or outside the supported
+range, the
 SessionStart advisory explains the mismatch and PreToolUse denies `bh`/`bd` Bash calls plus `bh`
 MCP tool calls until the CLI is upgraded. If the SessionStart sentinel is absent, the guard fails
 open and leaves the normal permission flow unchanged.
