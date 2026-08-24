@@ -45,7 +45,7 @@ claude plugin marketplace add beadhive/claude-plugin
 claude plugin install bh@beadhive
 ```
 
-Restart Claude Code, then invoke `/setup` or load the `setup` skill.
+Restart Claude Code, then invoke `/bh:setup` or load the `bh:setup` skill.
 
 ---
 
@@ -102,7 +102,8 @@ uv --version
 
 ## Phase 2 — install bh (pre-bh)
 
-This plugin requires `bh >=0.3.0`; install or upgrade to a version in that range before wiring MCP.
+This plugin requires the [supported `bh` CLI range](../../scripts/bh-compatibility.sh); install or
+upgrade to a version in that range before wiring MCP.
 
 **Probe first:**
 
@@ -263,7 +264,7 @@ Otherwise, load the **`setup-git-workspace`** sub-skill to guide the user throug
 Invoke the sub-skill by name:
 
 ```text
-/setup-git-workspace
+/bh:setup-git-workspace
 ```
 
 or ask the user to load it:

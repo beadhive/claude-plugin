@@ -12,16 +12,17 @@ claude plugin marketplace add beadhive/claude-plugin
 claude plugin install bh@beadhive
 ```
 
-Restart Claude Code after installing. Then `/setup` walks a fresh machine from zero to a
+Restart Claude Code after installing. Then `/bh:setup` walks a fresh machine from zero to a
 configured Beadhive workspace.
 
 ### Prerequisite: the `bh` CLI
 
-The plugin requires `bh >=0.3.0` on your `PATH`. The MCP server runs the `bh-mcp` binary from the
+The plugin requires the supported [`bh` CLI range](beadhive/scripts/bh-compatibility.sh) on your
+`PATH`. The MCP server runs the `bh-mcp` binary from the
 [beadhive CLI](https://github.com/beadhive/beadhive); without a compatible `bh`, the MCP server
 won't start and the hooks block `bh`/`bd` calls instead of failing silently. On mismatch,
 SessionStart prints an upgrade advisory and points to the
-[Beadhive install guide](https://github.com/beadhive/beadhive/blob/main/INSTALL.md) or `/setup`.
+[Beadhive install guide](https://github.com/beadhive/beadhive/blob/main/INSTALL.md) or `/bh:setup`.
 The bundled `setup` skill installs it (Phase 2).
 
 ## What's inside
@@ -38,7 +39,7 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   for reconciling bead provenance on an existing repo, and `triage` — a robot-mode
   command reference for `bv` (Beads Viewer), self-gated to only apply when `bv` is on
   `PATH`.
-- **Commands** — planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
+- **Planning skills** — namespaced planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
   `/bh:replan <epic>` (re-enter planning on a spike verdict or mid-execution discovery), and
   `/bh:groom` (backlog-wide reconciliation). Each states the seat contract — deliverables are
   beads + decision records, never code — and loads the `planner` skill inline.
@@ -59,7 +60,8 @@ The agent definitions use a `skills:` frontmatter key to preload their role skil
 Code versions without `skills:` preload support the key is ignored; the agents still work —
 they load their skills via the `Skill` tool on demand.
 
-The runtime preflight is intentionally blocking: if `bh` is missing or older than `0.3.0`, the
+The runtime preflight is intentionally blocking: if `bh` is missing or outside the supported
+range, the
 SessionStart advisory explains the mismatch and PreToolUse denies `bh`/`bd` Bash calls plus `bh`
 MCP tool calls until the CLI is upgraded. If the SessionStart sentinel is absent, the guard fails
 open and leaves the normal permission flow unchanged.

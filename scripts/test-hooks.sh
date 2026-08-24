@@ -5,12 +5,12 @@ cd "$(dirname "$0")/.."
 STEER=beadhive/scripts/bd-steer.sh
 APPROVE=beadhive/scripts/approve-readonly.sh
 PREFLIGHT=beadhive/scripts/bh-preflight.sh
-PLUGIN_JSON=beadhive/.claude-plugin/plugin.json
+COMPATIBILITY=beadhive/scripts/bh-compatibility.sh
 fail=0
 test_tmp=$(mktemp -d)
-orig_plugin=$(mktemp)
-cp "$PLUGIN_JSON" "$orig_plugin"
-trap 'cp "$orig_plugin" "$PLUGIN_JSON"; rm -rf "$test_tmp" "$orig_plugin"' EXIT
+orig_compatibility=$(mktemp)
+cp "$COMPATIBILITY" "$orig_compatibility"
+trap 'cp "$orig_compatibility" "$COMPATIBILITY"; rm -rf "$test_tmp" "$orig_compatibility"' EXIT
 export TMPDIR="$test_tmp"
 
 run() { # run <script> <tool_name> <command> [session] [path] -> HINT | ALLOW | DENY | PASS
@@ -42,15 +42,24 @@ tc() { # tc <script> <tool_name> <command> <substring> <yes|no> [path] -> assert
   fi
 }
 
-stub_bv_path() { # stub_bv_path <present|absent> -> PATH string, jq+bh always available
-  local bin="$test_tmp/bin-bv-$1"
+stub_bv_path() { # stub_bv_path <present|absent> <enabled|disabled> -> isolated PATH
+  local bin="$test_tmp/bin-bv-$1-$2"
   mkdir -p "$bin"
   if [[ "$1" == present ]]; then
     printf '#!/usr/bin/env bash\necho "bv stub"\n' >"$bin/bv"
     chmod +x "$bin/bv"
   fi
+  cat >"$bin/bh" <<EOF
+#!/usr/bin/env bash
+if [[ "\$1 \$2 \$3" == "config get integrations.bv.enabled" ]]; then
+  [[ "$2" == enabled ]] && echo true || echo false
+  exit 0
+fi
+echo "unexpected bh invocation: \$*" >&2
+exit 1
+EOF
+  chmod +x "$bin/bh"
   ln -sf "$(command -v jq)" "$bin/jq" 2>/dev/null
-  ln -sf "$(command -v bh)" "$bin/bh" 2>/dev/null
   printf '%s:/usr/bin:/bin' "$bin"
 }
 
@@ -88,10 +97,11 @@ t "$STEER" Bash 'cd /tmp && bd list'   HINT
 t "$STEER" Bash 'bh bd show x'         PASS
 t "$STEER" Bash 'git log'              PASS
 
-# steer: triage-shaped bd calls conditionally mention bv when it's on PATH
-tc "$STEER" Bash 'bd ready'  'bv' yes "$(stub_bv_path present)"
-tc "$STEER" Bash 'bd ready'  'bv' no  "$(stub_bv_path absent)"
-tc "$STEER" Bash 'bd show x' 'bv' no  "$(stub_bv_path present)"
+# steer: triage-shaped bd calls conditionally mention bv when enabled and on PATH
+tc "$STEER" Bash 'bd ready'  'bv' yes "$(stub_bv_path present enabled)"
+tc "$STEER" Bash 'bd ready'  'bv' no  "$(stub_bv_path present disabled)"
+tc "$STEER" Bash 'bd ready'  'bv' no  "$(stub_bv_path absent enabled)"
+tc "$STEER" Bash 'bd show x' 'bv' no  "$(stub_bv_path present enabled)"
 t  "$STEER" Bash 'bh bd ready' PASS
 
 # approve: read-only bd/bh allowed
@@ -137,18 +147,12 @@ t "$APPROVE" Bash 'bh work ready' ALLOW ok
 expect_preflight future 0.4.0 jq PASS
 t "$APPROVE" Bash 'bh work ready' ALLOW future
 
-# preflight reads plugin.json when jq is available.
-python3 - <<'PY'
-import json
-path = 'beadhive/.claude-plugin/plugin.json'
-data = json.load(open(path))
-data['requires']['bh'] = '>=0.4.0'
-json.dump(data, open(path, 'w'), indent=2)
-PY
+# preflight reads the repository-owned compatibility constant.
+sed 's/BH_REQUIRED_VERSION=">=0.3.0"/BH_REQUIRED_VERSION=">=0.4.0"/' "$orig_compatibility" >"$COMPATIBILITY"
 expect_preflight manifest 0.3.0 jq HINT
-cp "$orig_plugin" "$PLUGIN_JSON"
+cp "$orig_compatibility" "$COMPATIBILITY"
 
-# preflight falls back to the hardcoded range when jq is unavailable.
+# Compatibility enforcement does not depend on jq.
 expect_preflight nojq 0.3.0 nojq PASS
 
 [[ $fail -eq 0 ]] && echo "hooks: all cases pass"

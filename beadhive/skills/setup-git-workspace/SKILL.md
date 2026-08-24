@@ -24,18 +24,23 @@ situation. Re-runs are safe — probe before acting.
 
 ## Step 0 — ensure the git-workspace skills are available
 
-The `git-workspace:*` skills that this walkthrough delegates to ship in a separate plugin. Check
-whether they are installed before proceeding:
+The `git-workspace:*` skills that this walkthrough delegates to are an external dependency; they
+are not shipped by the `bh` plugin in this repository. Check whether your chosen
+`git-workspace` plugin distribution is installed before proceeding:
 
 ```bash
 claude plugin list | grep -q 'git-workspace'
 ```
 
-If the plugin is **not** found (exit 1), install it now:
+If the plugin is **not** found (exit 1), install the current `git-workspace` plugin from your
+organisation's approved Claude Code marketplace or distribution, if one exists. This repository
+does not publish or verify a source for that external plugin, and deliberately does not claim that
+the `bh` marketplace publishes its skills. Follow the source's own installation instructions for
+the external plugin and continue only after it is present.
 
 ```text
-/plugin marketplace add briancripe/claude-plugins
-/plugin install git-workspace@briancripe-plugins
+# Follow the current organisation-approved Claude Code plugin instructions for the external
+# dependency.
 ```
 
 Restart Claude Code if prompted. Once the plugin is present, continue.
