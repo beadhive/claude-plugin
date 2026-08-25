@@ -36,7 +36,8 @@ operator will not need to inspect while it runs. This is the default fanout path
 Use **`bh plugin herdr spawn`** followed by **`dispatch`** only when the operator explicitly
 wants a separately billed, persistent terminal agent they can inspect, attach to, or steer live.
 Herdr complements Task/Agent: it does not replace normal fanout, manage bh worktrees, or advance
-bead state. See `docs/HERDR.md` and its integration ADR for the operational boundary.
+bead state. Load the [Herdr integration reference](../plugins/references/herdr.md) for its
+operational boundary and live-agent workflow.
 
 You are the main Claude Code loop, supervised by a human. Beads are already filed and ready.
 Your duty: keep developers fed with the right work, route review outcomes, and (for now) own

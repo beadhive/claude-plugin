@@ -36,9 +36,10 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
 - **Skills** — role guides (`planner`, `dispatcher`, `developer`, `reviewer`, `merger`,
   `control`), the `work` verb reference for the bead lifecycle, an `overview`
   glossary/router, `setup` + `setup-git-workspace` onboarding walkthroughs, `backfill`
-  for reconciling bead provenance on an existing repo, and `triage` — a robot-mode
-  command reference for `bv` (Beads Viewer), self-gated to only apply when `bv` is on
-  `PATH`.
+  for reconciling bead provenance on an existing repo, `plugins` — the `bh plugin`
+  integration router for Herdr, Orca, Observaloop, agent-hitch, and git-workspace — and
+  `triage` — a robot-mode command reference for `bv` (Beads Viewer), self-gated to only
+  apply when `bv` is on `PATH`.
 - **Planning skills** — namespaced planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
   `/bh:replan <epic>` (re-enter planning on a spike verdict or mid-execution discovery), and
   `/bh:groom` (backlog-wide reconciliation). Each states the seat contract — deliverables are
