@@ -129,6 +129,9 @@ bh config show                              # pretty-print the resolved config
 ```
 
 `set` coerces `true|false` → bool and integers → int; reach for `--json` for lists/maps.
+For an integration's enablement, configuration, ownership boundary, or safe commands, load
+[`bh:plugins`](../plugins/SKILL.md). It routes to the focused integration reference; probe the
+installed `bh plugin` help before using version-specific syntax.
 
 ### 4. Verify
 
@@ -140,6 +143,9 @@ bh config show                # full resolved config
 bh doctor                     # hive registered, healthy, and configured correctly
 bh hive ready [-v]            # passing checks
 ```
+
+For integration diagnostics, load [`bh:plugins`](../plugins/SKILL.md) and follow the selected
+reference's read-only probes before changing configuration or native integration state.
 
 ### 5. Hand off
 
