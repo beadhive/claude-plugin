@@ -18,6 +18,9 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   → [bead-lifecycle.md](bead-lifecycle.md)
 - **Beadflow** — the abstract, tracker-independent bead-based process this plugin drives;
   Beadhive is the factory that instantiates it on beads. → [beadflow-and-planes.md](beadflow-and-planes.md)
+- **`bh plugin`** — the CLI namespace for installed Beadhive integrations; use the
+  [`bh:plugins` router](../../plugins/SKILL.md) to choose focused configuration and operational
+  guidance, then probe the installed help for current syntax.
 - **collapse (collapsed)** — dispatch mode: one collapsed dispatcher works every ready bead
   sequentially in one shared worktree, merged once. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **container branch** — the `wt/bead/<type>/<id>` branch of an epic (`wt/bead/epic/<id>`) that
