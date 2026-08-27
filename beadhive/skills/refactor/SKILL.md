@@ -45,6 +45,15 @@ Treat conventions as constraints on the requested refactor, not permission to wi
 polyglot boundary, resolve and apply each language independently, then record any cross-language
 contract decision in the north-star.
 
+## Use optional evidence sources
+
+When a static-analysis-category plugin is enabled, read
+[the static-analysis guide](references/static-analysis.md) before selecting candidates or
+estimating affected tests. Treat its output as evidence to corroborate, not architectural truth or
+permission to edit. If no such plugin is installed, enabled, or ready, continue with repository
+documentation, code inspection, history, runtime observations, and the normal test tools; static
+analysis is an optional accelerator, never a gate on this skill.
+
 ## Execution invariants
 
 Follow these phases in order:
