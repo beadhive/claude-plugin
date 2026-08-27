@@ -19,18 +19,22 @@ Load the **`work`** skill for verb details, then:
 2. `bh work claim <id>` — your ack; it gives you a worktree with identity + signing already
    stamped. **Don't `git clone` / `checkout -b`** — the branch is already `wt/bead/<id>`.
    `cd "$(bh worktree path --bead <id>)"`.
-3. Implement with normal git **inside the worktree** (commit freely — it's scratch space).
+3. **Route structural work before editing.** For a behavior-preserving restructure, extraction,
+   responsibility move, or coupling reduction, load `bh:refactor` and follow its execution mode.
+   For an explicit internal module boundary, port/interface, independently testable subsystem, or
+   test-closure isolation, load `bh:modularize`; it loads and strictly extends `bh:refactor`.
+4. Implement with normal git **inside the worktree** (commit freely — it's scratch space).
    Tip: `git commit --fixup=<target>` as you go.
-4. **Self-refine** before handoff: `bh work show <id>` to see the noise, then
+5. **Self-refine** before handoff: `bh work show <id>` to see the noise, then
    `bh work refine <id> --autosquash` (or `--plan`/`--since`) to squash checkpoints into a
    few clean conventional digests. It's a safe rewrite (backup branch + byte-identical gate),
    so `submit`'s history guard passes.
-5. `bh work check <id>` — run validation; fix until green. See
+6. `bh work check <id>` — run validation; fix until green. See
    [Self-testing before submit](#self-testing-before-submit--trust-the-gate-dont-duplicate-it)
    for when to also test by hand versus when that's redundant with this step.
-6. `bh work submit <id>` — hand off to async review. **Submit is not "done"**; your branch
+7. `bh work submit <id>` — hand off to async review. **Submit is not "done"**; your branch
    is the durable handoff, so don't rely on the worktree directory surviving.
-7. `bh work resume <id>` — if review returns changes-requested; address it and re-submit.
+8. `bh work resume <id>` — if review returns changes-requested; address it and re-submit.
 
 Rules: stay inside the worktree; never push `main`, open a PR, or run the merge.
 
