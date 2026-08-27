@@ -54,6 +54,11 @@ permission to edit. If no such plugin is installed, enabled, or ready, continue 
 documentation, code inspection, history, runtime observations, and the normal test tools; static
 analysis is an optional accelerator, never a gate on this skill.
 
+For a worked proposal and claimed-execution example modeled on a mature flat repository, read
+[the flat-repository scenario](references/flat-repository-scenario.md). It also shows when the
+strict `bh:modularize` continuation applies and separates current workflow guarantees from future
+test-closure and packaging capabilities.
+
 ## Execution invariants
 
 Follow these phases in order:

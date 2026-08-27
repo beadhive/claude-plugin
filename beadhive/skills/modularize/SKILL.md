@@ -15,6 +15,10 @@ boundary, five shared phases, validation cadence, checkpoint discipline, and fin
 not replace or restate them. Add only the boundary-selection pre-phase and post-migration
 isolation phase below.
 
+Read the base skill's
+[flat-repository scenario](../refactor/references/flat-repository-scenario.md) when a concrete
+example would help apply the pre-phase, shared execution protocol, and isolation phase together.
+
 Modularization is stricter than moving files. It creates an enforceable contract: higher layers
 depend on a named port, concrete behavior lives behind that port, and module internals never
 depend back on their consumers.

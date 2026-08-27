@@ -40,6 +40,10 @@ One plugin, `bh` (in [`beadhive/`](beadhive/)):
   integration router for Herdr, Orca, Observaloop, agent-hitch, and git-workspace — and
   `triage` — a robot-mode command reference for `bv` (Beads Viewer), self-gated to only
   apply when `bv` is on `PATH`.
+- **Refactoring skills** — `refactor` turns a behavior-preserving restructuring statement into
+  either a planning proposal or an evidence-led claimed-bead execution; `modularize` is its
+  stricter extension for extracting an independently testable port/adapter module from a flat or
+  tightly coupled repository.
 - **Planning skills** — namespaced planning-seat entry points: `/bh:plan <idea>` (idea → gated molecule),
   `/bh:replan <epic>` (re-enter planning on a spike verdict or mid-execution discovery), and
   `/bh:groom` (backlog-wide reconciliation). Each states the seat contract — deliverables are

@@ -37,6 +37,19 @@ confirm or override** before proceeding:
 All three converge on one compiler and one gate (`bh plan file` / `bh plan approve`); the tier
 only scales how much research and structuring happens up front.
 
+### Route structural-change requests
+
+Use progressive disclosure when the raw idea is primarily structural:
+
+- For a behavior-preserving refactor, load `bh:refactor` and use its **proposal mode** and shared
+  request schema before continuing this staged flow.
+- For extraction of an internal module, port/interface, independently testable boundary, or
+  smaller test closure, load `bh:modularize`. It extends `bh:refactor` and adds boundary scoring;
+  do not reduce it to a generic file-move request.
+
+These skills shape planning input; they do not relax the planning seat's zero-source-edits rule
+or bypass either human gate.
+
 **The spike branch.** Fidelity triage has one more exit: when research or architecture surfaces
 an unresolved **GO/NO-GO question** — feasibility the current evidence can't settle — do not
 guess, and do not file speculative implementation beads. Propose a **spike molecule** instead
