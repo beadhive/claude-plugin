@@ -21,6 +21,13 @@ depend back on their consumers.
 
 ## Phase 0: select a real module boundary
 
+When a static-analysis-category plugin is enabled, read the base refactor skill's
+[static-analysis guide](../refactor/references/static-analysis.md) before scoring candidates.
+Use dependency, risk, coverage, context, health, and test-impact findings as candidate evidence,
+not automatic boundary choices or authorization to edit. If no category plugin is ready, continue
+with repository documentation, code and history inspection, runtime observations, and native
+dependency and test tools; its absence must not block modularization.
+
 Before entering the base refactor protocol, inventory candidate areas that own cohesive behavior
 and could be invoked through a narrow contract. For each candidate, record evidence and score
 every dimension from 0 (poor), through 1 (mixed), to 2 (strong):
