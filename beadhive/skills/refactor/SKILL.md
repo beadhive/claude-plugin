@@ -31,6 +31,20 @@ If the statement is empty or its intended behavior boundary is ambiguous, ask fo
 intent before proposing or editing. If execution reveals a product decision or scope expansion,
 stop that part and route the discovery back through planning rather than silently absorbing it.
 
+## Resolve factoring conventions
+
+Before completing the proposal or writing the execution north-star, identify every language in
+scope and read [the convention resolution rules](references/language-conventions.md) completely.
+Apply repository and host-wide rules before the relevant bundled guidance for
+[Python](references/conventions/python.md),
+[TypeScript/JavaScript](references/conventions/typescript-javascript.md),
+[Go](references/conventions/go.md), or [Rust](references/conventions/rust.md). For another
+language, use its open-set host key and repository rules even when no bundled guide exists.
+
+Treat conventions as constraints on the requested refactor, not permission to widen it. In a
+polyglot boundary, resolve and apply each language independently, then record any cross-language
+contract decision in the north-star.
+
 ## Execution invariants
 
 Follow these phases in order:
