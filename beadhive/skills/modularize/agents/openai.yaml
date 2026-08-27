@@ -1,0 +1,4 @@
+interface:
+  display_name: "Modularize"
+  short_description: "Extract independently testable internal modules"
+  default_prompt: "Use $bh:modularize to extract this functionality behind an independently testable module boundary."

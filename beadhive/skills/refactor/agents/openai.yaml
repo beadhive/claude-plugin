@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor"
+  short_description: "Plan and execute evidence-led refactors"
+  default_prompt: "Use $bh:refactor to safely plan or execute this refactoring statement."

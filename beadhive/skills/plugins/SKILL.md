@@ -2,9 +2,9 @@
 name: plugins
 description: >-
   Progressive-disclosure router for the `bh plugin` CLI namespace and its Herdr, Orca,
-  Observaloop, agent-hitch, and git-workspace integration surfaces. Use for questions about
-  plugin enablement, installation, status, diagnostics, ownership, or safe integration
-  operation; probe installed `bh plugin` help for version-specific syntax.
+  Observaloop, Repowise, agent-hitch, and git-workspace integration surfaces. Use for questions
+  about plugin enablement, installation, status, diagnostics, ownership, static-analysis evidence,
+  or safe integration operation; probe installed `bh plugin` help for version-specific syntax.
 ---
 
 # bh plugins — integration router
@@ -35,6 +35,7 @@ change with the installed `bh` version.
 | Herdr | Persistent interactive-agent execution, agent integration, targets, and safe pane cleanup: [references/herdr.md](references/herdr.md). |
 | Orca | Registration, optional worktree delegation, settings fences, and readiness: [references/orca.md](references/orca.md). |
 | Observaloop | Telemetry profile lifecycle, status, shutdown, and observability diagnostics: [references/observaloop.md](references/observaloop.md). |
+| Repowise / static analysis | Local-index lifecycle, native analysis boundaries, refactor evidence, and safe diagnostics: [references/repowise.md](references/repowise.md). |
 | agent-hitch | Explicit harness launch targets, profiles, readiness, and teardown: [references/hitch.md](references/hitch.md). |
 | git-workspace | Required workspace dependency, repo groups, provider/auth diagnostics, and native-tool handoff: [references/git-workspace.md](references/git-workspace.md). |
 
