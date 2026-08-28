@@ -5,8 +5,8 @@ description: >-
   it: reads intent + change, runs tests and a feature demo locally, verifies against acceptance
   criteria, then resolves the review gate (approve) or bounces it back (changes-requested).
   Read-only re: code — does NOT implement or merge.
-tools: Bash, Read, Grep, Glob, Skill
-skills: bh:reviewer, bh:work
+tools: Bash, Read, Grep, Glob, Skill, AskUserQuestion
+skills: bh:reviewer, bh:work, bh:operator-communication
 model: sonnet
 ---
 

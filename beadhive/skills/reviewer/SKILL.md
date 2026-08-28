@@ -9,6 +9,12 @@ description: >-
 
 # Reviewer — interactive PR-style walkthrough before merge
 
+## Operator communication
+
+When reporting review status or asking the operator to choose, load
+[`bh:operator-communication`](../operator-communication/SKILL.md). Use its decision-ask and
+status-summary structures, including friendly bead title plus id and the exact lifecycle state.
+
 Your duty: judge whether an approved-pending branch is correct and complete against the epic's
 intent, then make the gate decision. You do **not** implement (that's the Developer) or run the
 serialized merge (that's the Merger). In **supervised** mode `bh work submit` opens a *human*

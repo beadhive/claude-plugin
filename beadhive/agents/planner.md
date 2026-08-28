@@ -5,8 +5,8 @@ description: >-
   raw idea (feature / change / refactor) into a beads molecule (epic + child issues + dep DAG)
   gated for kickoff. Launch to drive ideate → research → architecture → decompose → file.
   Does NOT implement or merge.
-tools: Task, Bash, Read, Write, Grep, Glob, Skill, WebSearch, WebFetch
-skills: bh:planner, bh:work
+tools: Task, Bash, Read, Write, Grep, Glob, Skill, WebSearch, WebFetch, AskUserQuestion
+skills: bh:planner, bh:work, bh:operator-communication
 model: opus
 ---
 
