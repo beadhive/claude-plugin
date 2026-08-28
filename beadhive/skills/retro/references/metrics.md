@@ -15,11 +15,13 @@ present alongside one of these verbs classifies the event:
 |---|---|
 | `bd create`, `bh plan` (any subcommand) | **planned** |
 | `bh work submit`, `bd close` | **implemented** |
-| `bh work merge` (incl. `--group` / `--molecule` / `bh work finish`) | **merged** |
+| `bh work merge` (incl. `--group` / `--molecule` / `bh work finish`) | **implemented** and **merged** |
 
 A session can contribute multiple stage events for the same or different beads; `analyze.py`
 counts per-stage occurrences, deduplicated by `(stage, bead_id)` pair so a resubmitted bead only
-counts once per stage.
+counts once per stage. A merge is evidence that implementation completed, even when collapsed
+dispatch has no per-bead submit event. The same deduplication means a singleton bead with both
+submit and merge commands is still counted only once as implemented.
 
 ## (b) beads/bh tool grouping rule
 

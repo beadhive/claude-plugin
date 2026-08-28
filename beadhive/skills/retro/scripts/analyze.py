@@ -157,14 +157,21 @@ def _tool_class_key(event: dict) -> str:
     return str(event.get("tool") or "unknown")
 
 
-def lifecycle_stage(detail: str):
+def lifecycle_stages(detail: str) -> tuple[str, ...]:
+    """Return every lifecycle stage evidenced by a command.
+
+    A merge is also proof that the bead was implemented. This matters for batch/collapsed
+    dispatch, where ``bh work merge --group`` is the handoff and there is no per-bead submit
+    command. Callers deduplicate by ``(stage, bead_id)``, so a normal submit followed by merge
+    still contributes exactly one implemented event.
+    """
     if PLANNED_RE.match(detail):
-        return "planned"
+        return ("planned",)
     if IMPLEMENTED_RE.match(detail):
-        return "implemented"
+        return ("implemented",)
     if MERGED_RE.match(detail):
-        return "merged"
-    return None
+        return ("implemented", "merged")
+    return ()
 
 
 def analyze_lifecycle(sessions: list) -> dict:
@@ -175,18 +182,19 @@ def analyze_lifecycle(sessions: list) -> dict:
             if event["tool"] != "Bash":
                 continue
             detail = event.get("detail") or ""
-            stage = lifecycle_stage(detail)
-            if not stage:
+            stages = lifecycle_stages(detail)
+            if not stages:
                 continue
             ids = set(BEAD_ID_RE.findall(detail)) | set(event.get("resultIds") or [])
             for bead_id in ids:
-                key = (stage, bead_id)
-                if key in seen:
-                    continue
-                seen.add(key)
-                epic = epic_of(bead_id)
-                bucket = by_epic.setdefault(epic, {"planned": 0, "implemented": 0, "merged": 0})
-                bucket[stage] += 1
+                for stage in stages:
+                    key = (stage, bead_id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    epic = epic_of(bead_id)
+                    bucket = by_epic.setdefault(epic, {"planned": 0, "implemented": 0, "merged": 0})
+                    bucket[stage] += 1
     return {"source": "id-heuristic", "byEpic": by_epic}
 
 
@@ -574,7 +582,7 @@ def analyze_activity(sessions: list) -> dict:
                 for e in turn_events
             )
             has_plan_cmd = any(
-                e["tool"] == "Bash" and lifecycle_stage(e.get("detail") or "") == "planned"
+                e["tool"] == "Bash" and "planned" in lifecycle_stages(e.get("detail") or "")
                 for e in turn_events
             )
 
@@ -645,18 +653,19 @@ def analyze_models(sessions: list) -> dict:
             if event["tool"] != "Bash":
                 continue
             detail = event.get("detail") or ""
-            stage = lifecycle_stage(detail)
-            if not stage:
+            stages = lifecycle_stages(detail)
+            if not stages:
                 continue
             ids = set(BEAD_ID_RE.findall(detail)) | set(event.get("resultIds") or [])
             for bead_id in ids:
-                key = (stage, bead_id)
-                if key in seen:
-                    continue
-                seen.add(key)
-                model_id = ts_model.get(event.get("ts")) or "unknown"
-                model_bucket = beads_by_model.setdefault(model_id, {"planned": 0, "implemented": 0, "merged": 0})
-                model_bucket[stage] += 1
+                for stage in stages:
+                    key = (stage, bead_id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    model_id = ts_model.get(event.get("ts")) or "unknown"
+                    model_bucket = beads_by_model.setdefault(model_id, {"planned": 0, "implemented": 0, "merged": 0})
+                    model_bucket[stage] += 1
 
     return {
         "byModel": by_model,
@@ -893,6 +902,13 @@ def selftest() -> None:
                 {"ts": "2026-07-20T10:42:00Z", "tool": "Bash", "detail": "bh git push", "error": False},
                 {"ts": "2026-07-20T10:43:00Z", "tool": "Bash", "detail": "bh work submit bh-cp-5", "error": False},
                 {"ts": "2026-07-20T10:44:00Z", "tool": "Skill", "detail": "beads:search", "error": False},
+                {
+                    "ts": "2026-07-20T10:45:00Z",
+                    "tool": "Bash",
+                    "detail": "bh work merge --group bh-cp-8.1,bh-cp-8.2",
+                    "resultIds": ["bh-cp-8.2", "bh-cp-8.3"],
+                    "error": False,
+                },
             ],
             "contentSizes": {"readChars": 400, "writeChars": 40},
         }
@@ -901,8 +917,13 @@ def selftest() -> None:
     result = analyze(sessions)
 
     lc = result["lifecycle"]["byEpic"]
+    # A normal singleton submit + merge remains one implementation after merge implication.
     assert lc["bh-cp-1"]["implemented"] == 1
     assert lc["bh-cp-1"]["merged"] == 1
+    # A collapsed group has no submit events, and resultIds can supply members absent from
+    # the command text. Every merged member is nevertheless also implemented, exactly once.
+    assert lc["bh-cp-8"] == {"planned": 0, "implemented": 3, "merged": 3}
+    assert lifecycle_stages("bh work finish bh-cp-9") == ("implemented", "merged")
     assert "issue" not in lc  # 'bd create issue' has no bh-xxx id, contributes nothing
 
     fail = result["failures"]
@@ -942,12 +963,11 @@ def selftest() -> None:
     assert tc["raw-git"]["failed"] == 0
     assert tc["raw-git"]["direct"] == {"total": 1, "failed": 0}
     assert tc["raw-git"]["passthrough"] == {"total": 1, "failed": 0}
-    # beadhive: 'bh:planner' skill + 'bh work submit bh-cp-1'/'bh work merge bh-cp-1'/
-    # 'bh work submit bh-cp-5' Bash calls.
-    assert tc["beadhive"]["total"] == 4
+    # beadhive: 'bh:planner' skill + singleton submit/merge, a second submit, and group merge.
+    assert tc["beadhive"]["total"] == 5
     assert tc["beadhive"]["failed"] == 0
     assert tc["beadhive"]["byTool"]["bh:planner"] == {"total": 1, "failed": 0}
-    assert tc["beadhive"]["byTool"]["Bash"] == {"total": 3, "failed": 0}
+    assert tc["beadhive"]["byTool"]["Bash"] == {"total": 4, "failed": 0}
     # other: two Edits, one 'other:thing' skill, one SKILL.md Read.
     assert tc["other"]["total"] == 4
     assert tc["other"]["failed"] == 0
