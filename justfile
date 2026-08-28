@@ -4,7 +4,7 @@ default:
 
 # fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-onboarding check-hooks check-backfill lint-md check-types
+check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication lint-md check-types
 
 # ensure onboarding docs keep local skill namespaced and external coordinates explicit
 [group('check')]
@@ -20,6 +20,11 @@ check-hooks:
 [group('check')]
 check-backfill:
     ./scripts/test-backfill.sh
+
+# guard canonical operator communication content, style frontmatter, and role wiring
+[group('check')]
+check-operator-communication:
+    ./scripts/test-operator-communication.sh
 
 # type-check the retro skill's python scripts, failing on unused imports/vars (scoped pyrightconfig.json)
 [group('check')]

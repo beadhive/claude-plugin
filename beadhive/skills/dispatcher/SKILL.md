@@ -12,6 +12,12 @@ description: >-
 
 # Dispatcher — fanout and batch-collapsed dispatch
 
+## Operator communication
+
+When reporting dispatch status or asking the operator to choose, load
+[`bh:operator-communication`](../operator-communication/SKILL.md). Use its decision-ask and
+status-summary structures, including friendly bead title plus id and the exact lifecycle state.
+
 You are the dispatcher — the Integration-plane seat that delivers an epic by coordinating a
 *set* of beads on a **long-lived branch**. A **developer** is the leaf worker below you: it
 implements **one** bead on an **ephemeral `wt/bead/issue/<id>`** branch. You are one seat;

@@ -12,6 +12,13 @@ description: >-
 
 # Control plane — stand up, configure, govern, and observe the factory
 
+## Operator communication
+
+When presenting a status or a policy choice to the operator, load
+[`bh:operator-communication`](../operator-communication/SKILL.md). It supplies the canonical
+decision-ask and status-summary structures; use friendly bead titles with ids and exact lifecycle
+states rather than bare identifiers or vague progress claims.
+
 You are on the **Control plane** — the rung above the Integration plane (where dispatchers,
 developers, reviewers, and mergers drive individual molecules and beads). Control's scope is
 the *factory itself*: governing it, routing work into it, commissioning its hives, and observing
