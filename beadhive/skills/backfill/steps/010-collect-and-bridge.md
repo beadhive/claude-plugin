@@ -68,7 +68,7 @@ hands the agent only the genuine residual.
 
 | Failure | Likely cause | Action |
 |---|---|---|
-| `no beads corpus` | not a bd-tracked hive | Abort; wrong target |
+| `bd update` fails during apply | target is not a bd-tracked hive | Abort; wrong target |
 | Empty table | no `docs/decisions` or `docs/design` | Abort; nothing to reconcile from docs (consider `.planning`/commit-only path) |
 | Wrong prefix in ids | multi-prefix corpus | Re-run with `--prefix <p>` |
 

@@ -63,23 +63,32 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$HIVE" ] && [ -d "$HIVE/.git" ] || { echo "usage: reconcile.sh <hive-path> [--planning] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
+[ -n "$HIVE" ] && [ -d "$HIVE/.git" ] || { echo "usage: reconcile.sh <hive-path> [--planning] [--prefix <p>] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
 CANON="$HIVE/.beads/issues.jsonl"
-[ -f "$CANON" ] || { echo "no beads corpus at $CANON" >&2; exit 2; }
 
 # bd writes to its embedded DB and does NOT auto-export, so the tracked issues.jsonl goes stale
 # after any write — a read-after-write against it sees the pre-write state. So we read from a fresh
 # `bd export` SNAPSHOT (temp, auto-deleted), never the tracked file: propose/verify stay strictly
 # read-only on any hive regardless of auto-export config. Refreshing the TRACKED file is a mutation
 # and is therefore opt-in (--refresh-jsonl) — the guide gates that on a human confirm when it finds
-# the hive stale (auto-export off). See internal-task for making export automatic at hive-init.
+# the hive stale (auto-export off). A missing tracked JSONL and an empty export are both valid empty
+# corpora: every source remains unmatched/NEW. See internal-task for making export automatic at
+# hive-init.
 JSONL="$CANON"
+SNAP=""
+cleanup() { [ -z "$SNAP" ] || rm -f "$SNAP"; }
+trap cleanup EXIT
 if command -v bd >/dev/null 2>&1; then
-  SNAP="$(mktemp)"; trap 'rm -f "$SNAP"' EXIT
-  if ( cd "$HIVE" && bd export ) > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
+  SNAP="$(mktemp)"
+  if ( cd "$HIVE" && bd export ) > "$SNAP" 2>/dev/null; then
     JSONL="$SNAP"                                  # authoritative read source
     [ "$REFRESH" = 1 ] && cp "$SNAP" "$CANON"      # opt-in: de-stale the tracked file for br
   fi
+fi
+if [ ! -f "$JSONL" ]; then
+  [ -n "$SNAP" ] || SNAP="$(mktemp)"
+  : > "$SNAP"
+  JSONL="$SNAP"
 fi
 
 # Bead id shape: <prefix>-<slug>(.N)*  — derive the modal prefix from the corpus if not given.
@@ -87,7 +96,8 @@ if [ -z "$PREFIX" ]; then
   PREFIX=$(jq -r '.id' "$JSONL" | sed -E 's/^([a-z][a-z0-9]*(-[a-z0-9]+)*)-[a-z0-9]+(\.[0-9]+)*$/\1/' \
            | sort | uniq -c | sort -rn | head -1 | awk '{print $2}')
 fi
-ID_RE="${PREFIX}-[a-z0-9]+(\.[0-9]+)*"
+ID_RE=""
+[ -z "$PREFIX" ] || ID_RE="${PREFIX}-[a-z0-9]+(\.[0-9]+)*"
 
 # doc → existing external_ref (empty if unset), keyed by bead id, from the canonical jsonl.
 ref_of() { jq -r --arg id "$1" 'select(.id==$id) | .external_ref // ""' "$JSONL" | head -1; }
@@ -151,13 +161,16 @@ planning_propose() {
 # Bridge recovery for one doc: echo "<bead-id>\t<bridge>" or nothing.
 bridge_for() {
   local doc="$1" id bridge
+  # An empty corpus cannot supply an inferred prefix or an existing bead to bridge to. Leave the
+  # doc unmatched for the NEW-classification pass unless the caller supplied --prefix explicitly.
+  [ -n "$ID_RE" ] || return 0
   # 1. frontmatter back-ref: a line like "- Beads: obs-1rb (epic), obs-1rb.5"
   id=$(grep -iE '^[[:space:]]*-?[[:space:]]*beads?:' "$HIVE/$doc" 2>/dev/null | head -1 \
-       | grep -oE "$ID_RE" | tail -1 || true)
+       | grep -oE -e "$ID_RE" | tail -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tfrontmatter"; return; fi
   # 2. bead id in the subject of the commit that ADDED the doc
   id=$(git -C "$HIVE" log --follow --diff-filter=A --format='%s' -- "$doc" 2>/dev/null | head -1 \
-       | grep -oE "$ID_RE" | head -1 || true)
+       | grep -oE -e "$ID_RE" | head -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tadd-trailer"; return; fi
   # unmatched — leave for the agent's fuzzy/judgment pass
 }
