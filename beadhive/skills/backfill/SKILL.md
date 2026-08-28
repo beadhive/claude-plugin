@@ -9,10 +9,10 @@ description: >-
   and stops for human confirmation; never blind-imports.
 license: MIT
 compatibility: >-
-  Assumes a bd-tracked hive (a `.beads/issues.jsonl` corpus) and local sources under
-  `docs/decisions/`, `docs/design/`, and/or `.planning/`. Deterministic bridge recovery is
-  handled by the bundled `scripts/reconcile.sh` (git + jq + bd, no other deps); fuzzy matching
-  and NEW-vs-noise calls stay with the agent.
+  Assumes a bd-tracked hive (`.beads/` is initialized; its JSONL corpus may be absent or empty)
+  and local sources under `docs/decisions/`, `docs/design/`, and/or `.planning/`. Deterministic
+  bridge recovery is handled by the bundled `scripts/reconcile.sh` (git + jq + bd, no other deps);
+  fuzzy matching and NEW-vs-noise calls stay with the agent.
 allowed-tools: Bash, Read, Edit, Grep, AskUserQuestion
 metadata:
   type: guide

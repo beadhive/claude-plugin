@@ -15,7 +15,7 @@ guide:
   prerequisites:
     - id: bead-hive
       performer: agent
-      description: Target is a bd-tracked hive — a `.beads/issues.jsonl` corpus exists.
+      description: Target is a bd-tracked hive — `.beads/` is initialized; the JSONL corpus may be absent or empty.
     - id: local-sources
       performer: agent
       description: The hive has local sources to mine — `docs/decisions/`, `docs/design/`, and/or `.planning/`.
