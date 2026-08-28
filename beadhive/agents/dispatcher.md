@@ -40,7 +40,8 @@ dispatcher defs exist under the hood; the org model, docs, and identity see **on
 
 - **mode = fanout vs collapsed.** Fanout delegates each bead to a `developer` (this def holds **no**
   Edit/Write); collapsed inlines the developer work on the shared batch branch (Edit/Write on) and
-  merges its set via `merge --group` → `finish`. This def is the **fanout** dispatcher.
+  completes its set via `submit --group` → approve any member → `merge --group` → `finish`. This
+  def is the **fanout** dispatcher.
 - **The `epic-coordinator`, `epic-coordinator-deep`, `foreman` names are retired** — all fold into
   *dispatcher @ batch (collapsed)*; the "deep" escape valve is the `sub-dispatch:1` capability. Their
   collapsed loop lives in the `dispatcher` skill's collapsed-mode section.

@@ -52,9 +52,10 @@ branch `wt/bead/issue/<id>`. It prints:
      `BH_BD_PASS_ENABLED` override. It refuses a non-review gate (e.g. a kickoff gate) or an
      out-of-process `gh:*` gate (those resolve via CI / PR merge, not here). The Merger then runs
      `bh work merge --molecule <epic>` (or `bh work merge <id>` for a single bead).
-   - **Bounce** → `bh bd set-state <id> review=changes-requested --reason "…"`. The Dispatcher
-     re-dispatches the Developer's `bh work resume <id>`. **Never silently drop work.** (Bouncing
-     still rides the gated `bh bd` passthrough until a first-class bounce verb lands.)
+   - **Bounce** → `bh work bounce <id> -m "…" --as <you>`. It resolves every open review gate,
+     records `review=changes-requested` with your feedback, and points the Dispatcher at the
+     Developer's `bh work resume <id>`. For a batch's shared gate, bouncing any member bounces the
+     whole group. **Never silently drop work.**
 
 Approving is a deliberate act: resolve the gate only once you've read the change, seen tests green,
 and confirmed the intent is met. Reviewing never mutates the branch — your output is the decision.

@@ -51,39 +51,54 @@ Walk the members in **dependency order**. For each bead:
 2. **Self-check** — run the hive's validation directly in the batch worktree (`just check`).
    `bh work check <id>` looks for `wt/bead/issue/<id>` and won't find the shared tree; run the
    hive command directly until it's green.
-3. **Resolve the review gate** per `work.dispatch.review_mode` (default `self`) — see
-   **Review gate — self vs fresh** below. Under `self` you are your own reviewer and self-resolve
-   the gate; under `fresh` you spawn one independent reviewer Task per bead (depth-2 only) and let
-   it resolve. Either way, don't move on until the bead's gate is settled and not
-   changes-requested.
-4. **Move to the next bead.** A dependency chain is just the next commit on the same tree; there is
+3. **Move to the next bead.** A dependency chain is just the next commit on the same tree; there is
    no per-bead branch to open and no parallelism to buy.
 
-## Review gate — self vs fresh
+## Submit and review once — batch-end
+
+After every member is implemented and the whole shared tree is green, hand off the batch as one
+unit:
+
+```bash
+bh work submit --group <id1>,<id2>[,…] --as dev/<name>
+```
+
+`submit --group` validates the shared branch once from a clean checkout and opens exactly **one**
+review gate whose reason names every member. Do not submit members individually. Approval or
+bounce may target any member because all members share that gate; a bounce blocks the whole group,
+which must be fixed in the shared worktree and resubmitted with `submit --group`.
+
+### Review gate — self vs fresh
 
 `work.dispatch.review_mode` (config accessor `config.dispatch_review_mode`, default `self`)
-decides who signs off each bead's review gate before it can merge. Two modes ship; a third
+decides who signs off the group's shared review gate before it can merge. Two modes ship; a third
 (`paired`) is deferred and safely degrades.
 
 ### `review_mode: self` (default)
 
-You **are** the review authority. After a bead is green (step 2), self-resolve its OWN review gate
-in the same collapsed session — **no second Task is spawned**. This is legitimate because the
+You **are** the review authority. After the group is submitted, self-resolve its one shared review
+gate by approving any member — **no second Task is spawned**:
+
+```bash
+bh work approve <any-member> --as dev/<name>
+```
+
+This is legitimate because the
 collapsed seat runs under a **live human watching the collapsed session**: that human is the review
 authority, and the dispatcher/merge layer only checks the mergeable invariant — **no open gate,
 not changes-requested**. A self-resolve satisfies that invariant exactly as an external approval
 would; it is not a rubber stamp being smuggled past review, it is the human-in-the-loop review the
-collapsed seat was designed around. Satisfy the bead's acceptance criteria yourself, resolve, and
-move to the next bead.
+collapsed seat was designed around. Satisfy every member's acceptance criteria before approving.
 
 ### `review_mode: fresh`
 
-The implementing session must **not** review its own work. Before the batch merges, spawn **one
-distinct reviewer Task per bead** (or one per epic, if the dispatcher scopes it that way) — each
-with **fresh context**, independent of this implementing session, receiving only the bead's id +
-branch/diff and acceptance criteria. That reviewer resolves (approve) or bounces
-(changes-requested) the gate; you fix and re-review on a bounce. Only after every bead's gate is
-approved do you merge.
+The implementing session must **not** review its own work. After group submit, spawn **one distinct
+reviewer Task for the whole batch**, with **fresh context**, independent of this implementing
+session, receiving the member ids, shared branch/diff, and every member's acceptance criteria.
+That reviewer approves any member with `bh work approve <any-member> --as <reviewer>` or bounces
+any member with `bh work bounce <any-member> -m "…" --as <reviewer>`; either decision resolves the
+one shared gate. Fix the shared branch and resubmit the group after a bounce. Merge only after the
+shared gate is approved.
 
 - **Spawning a Task requires depth 2.** `fresh` is only available with `sub-dispatch:1`;
   depth-1 collapsed holds no Task, so it cannot spawn an independent reviewer. If depth-1
@@ -99,11 +114,13 @@ emits a `review_mode_paired_fallback` warning through the log pipeline, so the b
 independent reviewer instead of an unreviewed gate. Treat a `paired` request exactly as `fresh`
 (and heed the warning: paired isn't available yet).
 
-## Merge — batch-end only, then finish
+## Merge — approved batch-end only, then finish
 
 Land the whole collapsed set as **one** bubble at the **end** of the epic, never incrementally:
 
 ```bash
+bh work submit --group <id1>,<id2>[,…]  # one validation + one shared review gate
+bh work approve <any-member>            # self or fresh reviewer; bounce instead if needed
 bh work merge --group <id1>,<id2>[,…]   # one --no-ff bubble into the epic's container branch,
                                          # closes every member
 bh work finish <epic>                    # land wt/bead/epic/<epic> onto integration as one
@@ -155,5 +172,6 @@ inside the session:
   and re-run `just check`. The tree is scratch space until you merge — just keep going.
 - **Fallback: reset-and-land-prefix.** If a bead can't be salvaged this session, `git reset` its
   commits off the shared branch so the tree holds only the working prefix, then land that prefix
-  with `bh work merge --group <working-ids>`. Report the dropped bead back to the root dispatcher
-  so it can be re-dispatched; never land a red bead to "make progress".
+  then `bh work submit --group <working-ids>`, resolve its shared review gate, and land it with
+  `bh work merge --group <working-ids>`. Report the dropped bead back to the root dispatcher so it
+  can be re-dispatched; never land a red bead to "make progress".

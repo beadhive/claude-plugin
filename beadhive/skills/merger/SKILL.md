@@ -34,7 +34,7 @@ When `bh work merge` bounces a bead, act on why:
 - noisy history → it refused before touching the slot; have the Developer self-refine and
   resubmit (`bh work show <id>` shows the noise);
 - merge conflict → it aborted cleanly; bounce back as rework
-  `bh bd set-state <id> review=changes-requested --reason "…"` (the Dispatcher re-dispatches
+  `bh work bounce <id> -m "…"` (the Dispatcher re-dispatches
   the Developer's `bh work resume`), or escalate to a human if unresolvable. **Never drop work.**
 - combined-state red (under `work.validation: conservative`) → the bead merged clean but the
   integration tip went red *in combination* with already-merged siblings. While still holding the
