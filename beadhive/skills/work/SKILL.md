@@ -2,7 +2,8 @@
 name: work
 description: >-
   Reference for the `bh work` verbs that drive a bead through its lifecycle (brief,
-  assign, claim, schedule, show, refine, check, submit, review, merge, resume, abandon) —
+  assign, claim, schedule, show, refine, check, submit, review, approve, bounce, merge, resume,
+  abandon) —
   verb mechanics, flags, and behavior.
   Load this when following a role skill (developer / dispatcher / merger) or taking any
   `bh work` step, instead of improvising the lifecycle with raw `bd` / `git`.
@@ -30,9 +31,11 @@ worktree only — never the lifecycle around it.
 | `bh work refine <id> (--plan F \| --autosquash \| --since REF) [--dry-run]` | Squash local checkpoint noise into conventional digests behind a backup branch + a byte-identical gate, retaining per-digest author dates. Worker-side, pre-submit. |
 | `bh work check <id>` | Run the hive's validation against the worktree; propagate its exit code. |
 | `bh work submit <id>` | Verify clean conventional-digest history, validate from a clean checkout, (push if review is out-of-process,) set `review:pending` + open a `bd gate`. Handoff, not "done". |
+| `bh work submit --group <id1>,<id2>[,...]` | Batch handoff from the shared `wt/batch/<group>` worktree: verify the relaxed group history budget, validate once, set every member `review:pending`, and open exactly one review gate naming the whole group. Approving or bouncing any member resolves that shared gate. |
 | `bh work review <id>` | Assemble a PR-style review packet for a submitted branch: intent (brief + acceptance + review state), the change (commits/diff/stat vs the integration target), optionally validation + feature-demo output from a pristine checkout. Molecule-aware (an epic reviews the whole `wt/bead/epic/<id>` container). Read-only. |
 | `bh work approve <id> [--as <name>]` | Reviewer/dispatcher: resolve a submitted bead's HUMAN review gate through the convention layer (attributes the actor, wraps `bd gate resolve` — **no `BH_BD_PASS_ENABLED`**). Refuses a non-review or out-of-process `gh:*` gate. |
-| `bh work merge <id> [--molecule]` | Merger-only: serialize integration of an *approved* bead onto the integration branch. Holds the hive merge slot, re-verifies clean conventional history, merges `--no-ff`, closes the bead, releases the slot. Refuses an unresolved review gate; on conflict aborts and releases — never drops work. `--molecule` lands a whole assembled `wt/bead/epic/<epic>` (same as `finish`). |
+| `bh work bounce <id> -m "<reason>" [--as <name>]` | Reviewer/dispatcher: resolve every open review gate for the bead, record `review=changes-requested` with actionable feedback, and point the developer to `resume`. With a shared batch gate, target any member to bounce the whole group. |
+| `bh work merge <id> [--molecule]` / `bh work merge --group <ids>` | Merger-only: serialize integration of an *approved* bead or group onto the integration branch. Holds the hive merge slot, re-verifies clean conventional history, merges `--no-ff`, closes the bead(s), releases the slot. Refuses an unresolved review gate; on conflict aborts and releases — never drops work. `--molecule` lands a whole assembled `wt/bead/epic/<epic>` (same as `finish`); `--group` validates and lands one shared batch branch. |
 | `bh work resume <id>` | After changes-requested: re-attach a fresh worktree on the bead branch, print feedback, re-assert the claim. |
 | `bh work abandon <id> [--rm]` | Release the claim and record the abandon; `--rm` also removes the worktree. |
 
@@ -60,6 +63,8 @@ routing). The developer uses `bh escalate` (a top-level `bh` verb, not a `bh wor
   mode stamps a distinct author + SSH signing (worktree-scoped, so concurrent agents don't
   clobber each other); `supervised` mode inherits your existing git config.
 - `submit` pushes the branch only when the review gate is `gh:run` / `gh:pr`.
+- `submit --group` opens one gate for the whole batch; `approve` or `bounce` on any member resolves
+  that shared gate before `merge --group` can proceed.
 - `submit` rejects noisy history (more than `max_commits` over base, or non-conventional
   subjects) — `show` + `refine` are how you get under the bar. `refine` is a pure rewrite
   (byte-identical net tree, enforced); on conflict or gate failure it restores from the

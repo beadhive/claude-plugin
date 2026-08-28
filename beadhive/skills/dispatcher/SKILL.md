@@ -135,7 +135,8 @@ standalone beads only — NEVER for an epic's children.**
    - `subagent_type: "developer"`, `model: <bead model>` (overrides the agent default per bead),
    - prompt: the bead id (or group ids) **and the `dev/<name>` you assigned in step 4** — the
      developer must `bh work claim <id> --as <that dev>` or claim refuses as a different actor
-     (and the bead never flips to `in_progress`). Tell it to claim, run its loop, and submit.
+     (and the bead never flips to `in_progress`). Tell it to claim, run its loop, and submit the
+     singleton with `bh work submit <id>` or the batch with `bh work submit --group <ids>`.
    Distinct worktrees + per-agent identity mean parallel developers never clobber each other.
    The sub-agent ends at `submit` and reports back its branch + sha.
 6. **Watch gates** — `bh work ready --gated --json` surfaces beads whose review gate just closed:
@@ -191,11 +192,11 @@ the director picks it up from `bh hq intake`.
 
 With `review_gate: human`, approval is yours (the supervised dispatcher): inspect with
 `bh work show <id>` (read-only), then either **approve** with `bh work approve <id> --as <you>`,
-or bounce it back with `bh bd set-state <id> review=changes-requested --reason '…'` for resume.
+or bounce it back with `bh work bounce <id> -m '…' --as <you>` for resume.
 `bh work approve` resolves the review gate through the convention layer (attributes you, wraps
 `bd gate resolve` internally) — **no `BH_BD_PASS_ENABLED` override needed**; it refuses a
-non-review gate or an out-of-process `gh:*` gate. Bouncing still rides the gated `bh bd`
-passthrough (run it with `BH_BD_PASS_ENABLED=1` / `BH_DEBUG=1`) until a first-class bounce verb lands.
+non-review gate or an out-of-process `gh:*` gate. `bh work bounce` resolves open review gates before
+recording changes-requested, so a later resubmission cannot be stranded behind an orphan gate.
 
 ### Notes that bite
 

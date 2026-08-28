@@ -111,13 +111,21 @@ just check
 `bh work check <id>` looks for `wt/bead/<id>` and won't find the batch worktree; run the
 hive command directly until it's green.
 
-**4. Hand off the group** — once validation is green, report the batch ready. The merge
-itself is **merger-owned** (same rule as single beads — you never run the merge): the merge
-owner lands it with `bh work merge --group <id1>,<id2>[,...]`, which validates once from a
-clean checkout, merges `--no-ff` into the molecule base (per-bead commits preserved inside,
-lossless + bisectable), and closes every member. The history budget is relaxed to
-`max_commits × members`.
+**4. Hand off the group** — once validation is green, submit the whole batch from the shared
+worktree:
 
-**Batch rules:** stay in the shared worktree (`wt/batch/<group>`). Do not run
-`bh work submit <id>` on batch members — it expects `wt/bead/<id>` which doesn't exist in
-batch mode. Never open per-bead branches or touch another group's worktree.
+```sh
+bh work submit --group <id1>,<id2>[,...] --as dev/<name>
+```
+
+Group submit validates the shared branch once from a clean checkout, checks the relaxed history
+budget (`max_commits × members`), and opens exactly **one** review gate naming every member.
+Approval or bounce can target any member because they all share that gate. This is your handoff;
+the reviewer runs `bh work approve <any-member>` or `bh work bounce <any-member> -m "…"`, and the
+merge owner eventually runs `bh work merge --group <id1>,<id2>[,...]`. You never approve or merge
+your own submission.
+
+**Batch rules:** stay in the shared worktree (`wt/batch/<group>`). Per-bead
+`bh work submit <id>` is still wrong for batch members — use `submit --group` once for the whole
+set. Never open per-bead branches, approve or merge your own submission, or touch another group's
+worktree.
