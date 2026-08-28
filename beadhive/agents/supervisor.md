@@ -6,7 +6,7 @@ description: >-
   and writes Head Office policy. Ultimate decision authority. Does NOT hold product keys, implement
   code, merge, or publish. In a small/single-hive factory the supervisor absorbs the director /
   custodian / controller scopes; they split out into their own seats as the factory grows.
-tools: Task, Bash, Read, Grep, Glob, Skill
+tools: Task, Bash, Read, Grep, Glob, Skill, AskUserQuestion
 skills: bh:control, bh:operator-communication
 model: opus
 ---

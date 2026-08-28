@@ -6,7 +6,7 @@ description: >-
   fanout (orchestration-only, routes each bead to a developer SUB-AGENT via Task) vs collapsed
   (inlines the implementation on a shared batch branch with Edit/Write). Launch to drive a
   molecule end-to-end from a single terminal. Fanout does NOT implement — that's the Developer.
-tools: Task, Bash, Read, Grep, Glob, Skill
+tools: Task, Bash, Read, Grep, Glob, Skill, AskUserQuestion
 skills: bh:dispatcher, bh:work, bh:operator-communication
 model: sonnet
 ---

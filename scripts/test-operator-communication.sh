@@ -57,6 +57,7 @@ for role in control dispatcher planner reviewer; do
 done
 for agent in supervisor dispatcher planner reviewer; do
   require "beadhive/agents/$agent.md" "bh:operator-communication"
+  require "beadhive/agents/$agent.md" "AskUserQuestion"
 done
 
 echo "operator communication: contract and wiring valid"
