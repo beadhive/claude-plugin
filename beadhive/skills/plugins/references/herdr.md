@@ -23,6 +23,8 @@ installation path; establish what is available first:
 herdr --version
 herdr --help
 bh plugin herdr --help
+bh plugin herdr launch --help
+bh plugin herdr spawn --help
 bh plugin herdr status
 ```
 
@@ -46,10 +48,30 @@ Then run `bh plugin herdr status` again and confirm that integration is present.
 auto-install every supported harness, and do not assume an integration exists because its
 executable is installed.
 
-### The `bh-supervisor` session
+### Session selection and the `bh-supervisor` default
 
-Every Beadhive Herdr operation is scoped to the dedicated `bh-supervisor` session. It never
-uses, enumerates, focuses, renames, or closes the operator's `default` session.
+Omitting `--session` keeps the backward-compatible `bh-supervisor` default. `launch` and
+`spawn` also accept either an exact `--session NAME` or `--session current` / `--session
+active`. Treat the installed `bh plugin herdr <command> --help` output as the syntax authority;
+older installed versions may not support session selection.
+
+`current` and `active` mean the session containing the calling Herdr pane. They resolve only
+when Herdr injected `HERDR_ENV=1` and `HERDR_PANE_ID`. A named session also supplies
+`HERDR_SESSION`; its absence is compatible only with Herdr's original `default` session. The
+wrapper never guesses from another client's focus. An exact `NAME` targets only that session,
+without enumerating, focusing, or falling back to another session.
+
+Session selection is not ownership transfer. Beadhive never seizes a foreign active session,
+bead claim, or host lease. A stopped session is also not general permission to delete it:
+
+- Only a stopped tombstone named `bh-supervisor`, the reserved default, may be deleted and
+  recreated automatically. If another launcher wins that race and recreates it first, the
+  winner's running `bh-supervisor` session is safely reused.
+- Any other stopped named session is refused with an explicit
+  `herdr session delete NAME` recovery command. A human must confirm that teardown before
+  retrying with the same `--session NAME`.
+- Invalid or incompatible session inventory is a refusal, not permission to guess or take
+  over another session.
 
 Start or attach the supervisor session interactively when a human needs to see it:
 
@@ -66,11 +88,11 @@ teardown operation. Confirm the state with `herdr status` or `bh plugin herdr st
 returning to the automated workflow.
 
 `HERDR_ENV=1` has an important but narrow meaning. Herdr's native agent skill treats it as a
-convention that an agent is running inside a Herdr-managed pane and should control that current
+convention that an agent is running inside a Herdr-managed pane and may select that current
 session. It is **not** socket-level authorization: a supervisor process outside a Herdr pane
-can technically reach the server. Beadhive deliberately contains that power by using the named
-`bh-supervisor` session and non-focusing pane creation, never by treating `HERDR_ENV` as an
-access-control boundary.
+can technically reach the server. Beadhive contains that power through exact session selection,
+non-focusing pane creation, and strict live-target ownership proof, never by treating
+`HERDR_ENV` as an access-control boundary.
 
 For native, in-pane pane/agent control, load the installed native instructions with
 `herdr --skill` and follow them. This reference describes the `bh plugin herdr` wrapper; it is
@@ -81,6 +103,8 @@ not a substitute for Herdr's own current command manual.
 - **`bh` owns lifecycle.** A bead must already be claimed and its managed `bh` worktree must
   already exist. `spawn` only resolves that worktree as the pane's current directory. It never
   claims a bead, creates a worktree, or creates another checkout.
+- **`launch` composes the normal lifecycle.** It performs safe preflight and then uses native
+  `bh work claim`; it does not replace claim ownership or override a foreign active lease.
 - **Herdr owns live panes and lifecycle signals.** Its states (`idle`, `working`, `blocked`,
   and so on) are operational evidence, not bead-state transitions.
 - **Names make ownership visible.** A successful spawn reserves the deterministic target
@@ -88,9 +112,9 @@ not a substitute for Herdr's own current command manual.
   `bh-bh-cp-czm.2`), and gives the pane the same visible name. `ps` derives the hive/bead view
   from those live names; manually created or unrecognized agents remain `unmanaged`.
 
-The naming rule is for recognition, not prediction. Always copy the `target=` value printed by
-`spawn` and use that exact emitted target for later commands. Do not make an agent guess a
-target from the bead ID or from sidebar order.
+The naming rule is for recognition, not prediction. Read the `target` and resolved `session`
+emitted by `launch` or `spawn`, then repeat both for later commands. Do not make an agent guess a
+target from the bead ID, sidebar order, or a session's focused pane.
 
 ## Live test / demo loop
 
@@ -113,28 +137,33 @@ bh plugin herdr integrate codex
 bh plugin herdr status
 
 # The bead is already claimed and has an existing bh-managed worktree.
-bh plugin herdr spawn --hive bh --bead <claimed-bead-id> --kind codex
+spawn_json="$(bh plugin herdr spawn --hive bh --bead <claimed-bead-id> \
+  --kind codex --session bh-supervisor --json)"
+target="$(printf '%s' "$spawn_json" | jq -r '.target')"
+session="$(printf '%s' "$spawn_json" | jq -r '.session')"
 
-# Copy the target printed by spawn, then use it exactly as emitted.
-bh plugin herdr ps
-bh plugin herdr dispatch <target> "Reply with exactly HERDR_TEST_OK."
-bh plugin herdr watch <target> --timeout 120
+# Repeat the exact emitted session and target through the lifecycle.
+bh plugin herdr ps --session "$session"
+bh plugin herdr dispatch "$target" "Reply with exactly HERDR_TEST_OK." --session "$session"
+bh plugin herdr watch "$target" --timeout 120 --session "$session"
 
 # This prints a human command; it does not attach this shell itself.
-bh plugin herdr attach <target>
+bh plugin herdr attach "$target" --session "$session"
 
 # When the live pane is no longer needed, close only that proven bh-owned pane.
-bh plugin herdr reap <target>
+bh plugin herdr reap "$target" --session "$session"
 ```
 
 Expected observations, in order:
 
 1. `status` shows a live server and the selected harness integration.
 2. `spawn` creates or reuses the isolated `bh:<hive>` workspace, splits a non-focused pane,
-   starts the deterministic `bh-<bead-id>` agent, runs a warm-up, and prints its `target`, pane
-   ID, workspace, and bead. The warm-up sends a harmless prompt and verifies its visible output;
-   it exists because first-run Claude/Codex UI can consume an otherwise successful-looking first
-   prompt. If warm-up or setup fails, the newly created pane is best-effort closed.
+   starts the deterministic `bh-<bead-id>` agent, runs a warm-up, and emits its resolved
+   `session`, `target`, pane ID, workspace, and bead. `launch --json` emits the same session and
+   target locators after performing its high-level claim path. The warm-up sends a harmless
+   prompt and verifies its visible output; it exists because first-run Claude/Codex UI can
+   consume an otherwise successful-looking first prompt. If warm-up or setup fails, the newly
+   created pane is best-effort closed.
 3. `ps` lists live agents with their visible hive, bead, and state. Its output is the safe
    dashboard for confirming the emitted target is still present.
 4. `dispatch` proves delivery, rather than trusting a settled lifecycle state: it reads visible
@@ -143,8 +172,8 @@ Expected observations, in order:
    been intercepted by onboarding or another UI; inspect/attach before trying again.
 5. `watch` waits for Herdr's `blocked` state (or reports a bounded timeout). A blocked agent is
    asking for intervention; inspect it rather than blindly sending input.
-6. `attach` only prints `herdr --session bh-supervisor agent attach <target>` for a human to
-   copy and run. `bh` never takes over the caller's TTY.
+6. `attach` only prints `herdr --session <session> agent attach <target>` for a human to copy
+   and run. `bh` never takes over the caller's TTY.
 7. `reap` closes the agent's pane, not its workspace or worktree. It acts only when live records
    uniquely prove the target is a currently live, bh-owned pane with a matching visible name.
 
@@ -152,21 +181,24 @@ Expected observations, in order:
 
 | Command | Prerequisites and inputs | Result and safety boundary |
 |---|---|---|
-| `status` | None; safe probe. | Reports server health and installed integrations. A down server does not create one. |
+| `status [--session S]` | None; safe probe. | Reports health and integrations for the selected session. A down server does not create one. |
 | `integrate KIND` | `herdr` on `PATH`; `KIND` must appear in installed `herdr agent start --help`. | Explicitly installs lifecycle hooks for one harness (such as `claude` or `codex`). Recheck `status`; unsupported kinds fail with the discovered list. |
-| `spawn --hive H --bead B --kind K` | Live server, installed harness integration, and an **already-claimed** bead with an existing managed `bh` worktree. | Creates/reuses `bh:H`, splits a non-focused pane, starts/names the target, and warms it up. Never claims or provisions a worktree. Fails clearly if the worktree is absent. |
-| `ps` | Live server. | Lists live agent names plus parsed hive/bead identity and state. Unrecognized identities are explicitly unmanaged. |
-| `dispatch TARGET PROMPT` | Live server and a live target. | Reads pane content before/after prompting and verifies a new real turn; its prompt wait is fixed at 60 seconds. A lifecycle `done` alone is not delivery proof. |
-| `watch TARGET [--timeout SECONDS]` | `herdr` on `PATH`, live server, and a target. | Delegates to Herdr waiting until `blocked`; an optional timeout is bounded and converted to Herdr's native unit. |
-| `attach TARGET` | A target string. | Prints, but never executes, the session-scoped command for a human attach. It does not inspect or alter Herdr state. |
-| `reap TARGET` | Live server and one uniquely proven live bh-owned target. | Closes exactly the matching pane without focus. It refuses ambiguous, stale, terminal, renamed, or unmanaged records and never removes a workspace/worktree. |
+| `launch BEAD [--session S]` | Safe Herdr preflight plus a claimable bead; `S` is an exact name or `current`/`active`. | Uses native `bh work claim`, then creates or reuses the selected session's warm agent. Emits the resolved session and target. |
+| `spawn --hive H --bead B --kind K [--session S]` | Installed integration and an **already-claimed** bead with an existing managed `bh` worktree. | Creates/reuses `bh:H` in exactly `S`, starts and warms the target, and emits the resolved session. Never claims or provisions a worktree. |
+| `ps [--session S]` | Live selected session. | Lists that session's live agent names plus parsed hive/bead identity and state. Unrecognized identities are explicitly unmanaged. |
+| `dispatch TARGET PROMPT --session S` | Live selected session and the emitted target. | Reads pane content before/after prompting and verifies a new real turn; its prompt wait is fixed at 60 seconds. A lifecycle `done` alone is not delivery proof. |
+| `watch TARGET [--timeout SECONDS] --session S` | `herdr` on `PATH`, selected session, and emitted target. | Delegates to Herdr waiting until `blocked`; an optional timeout is bounded and converted to Herdr's native unit. |
+| `attach TARGET --session S` | Emitted session and target. | Prints, but never executes, the exact session-scoped command for a human attach. It does not inspect or alter Herdr state. |
+| `reap TARGET --session S` | Selected session and one uniquely proven live bh-owned target. | Closes exactly the matching pane without focus. It refuses ambiguous, stale, terminal, renamed, or unmanaged records and never removes a workspace/worktree. |
 
 ## Diagnostics and safe teardown
 
-Start diagnostics with `bh plugin herdr status`, then `bh plugin herdr ps`. If the server is
-down, start/attach the named supervisor session and repeat the status probe. If integration is
-missing, install only the selected harness. If `spawn` says the worktree is absent, return to
-`bh work` and claim/resume the bead—do not create a checkout through Herdr.
+Start diagnostics with `bh plugin herdr status --session NAME`, then
+`bh plugin herdr ps --session NAME`, using the same resolved name that `launch` or `spawn`
+emitted. If the selected session is down, follow the command's exact recovery instruction; do
+not substitute a focused or similarly named session. If integration is missing, install only
+the selected harness. If `spawn` says the worktree is absent, return to `bh work` and
+claim/resume the bead—do not create a checkout through Herdr.
 
 If dispatch cannot prove a new prompt appeared, or `watch` reports `blocked`, print the attach
 command and let a human inspect the live pane. Native in-pane investigation belongs to
