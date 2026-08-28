@@ -48,12 +48,21 @@ Then run `bh plugin herdr status` again and confirm that integration is present.
 auto-install every supported harness, and do not assume an integration exists because its
 executable is installed.
 
-### Session selection and the `bh-supervisor` default
+### Session selection and the normal default
 
-Omitting `--session` keeps the backward-compatible `bh-supervisor` default. `launch` and
-`spawn` also accept either an exact `--session NAME` or `--session current` / `--session
-active`. Treat the installed `bh plugin herdr <command> --help` output as the syntax authority;
-older installed versions may not support session selection.
+Session selection follows one precedence rule for every lifecycle command: an explicit
+`--session NAME` wins over `BH_HERDR_SESSION`, which wins over Herdr's normal `default` session.
+Ordinary commands should omit `--session`; use the environment variable when one shell or agent
+should consistently target another exact session, and use the flag for a one-command override:
+
+```bash
+BH_HERDR_SESSION=team bh plugin herdr status
+bh plugin herdr status --session incident-review
+```
+
+`launch` and `spawn` accept an exact session name or the guarded `current` / `active` aliases.
+Treat the installed `bh plugin herdr <command> --help` output as the syntax authority; older
+installed versions may not support session selection or `BH_HERDR_SESSION`.
 
 `current` and `active` mean the session containing the calling Herdr pane. They resolve only
 when Herdr injected `HERDR_ENV=1` and `HERDR_PANE_ID`. A named session also supplies
@@ -64,28 +73,37 @@ without enumerating, focusing, or falling back to another session.
 Session selection is not ownership transfer. Beadhive never seizes a foreign active session,
 bead claim, or host lease. A stopped session is also not general permission to delete it:
 
-- Only a stopped tombstone named `bh-supervisor`, the reserved default, may be deleted and
-  recreated automatically. If another launcher wins that race and recreates it first, the
-  winner's running `bh-supervisor` session is safely reused.
-- Any other stopped named session is refused with an explicit
+- A stopped `default` session is operator-owned. Beadhive never deletes or recreates it; the
+  operator must follow the emitted recovery guidance before retrying.
+- Any stopped exact named session is likewise refused with an explicit
   `herdr session delete NAME` recovery command. A human must confirm that teardown before
-  retrying with the same `--session NAME`.
+  retrying with the same selection.
+- `bh-supervisor` is the sole legacy compatibility exception, and only when it is selected
+  explicitly with `--session bh-supervisor` or `BH_HERDR_SESSION=bh-supervisor`. Its stopped
+  tombstone may be deleted and recreated automatically; if another launcher wins that race, the
+  winner's running session is safely reused. It is not the normal default for new workflows.
 - Invalid or incompatible session inventory is a refusal, not permission to guess or take
   over another session.
 
-Start or attach the supervisor session interactively when a human needs to see it:
+Start or attach Herdr's normal default session interactively when a human needs to see it:
 
 ```bash
-herdr --session bh-supervisor
+herdr
 # equivalently, when it already exists:
-herdr session attach bh-supervisor
+herdr session attach default
 ```
 
 Leave the client with Herdr's normal UI exit/detach action; that detaches the human client
 while leaving the persistent server, session, and panes running. Do **not** use
-`herdr session stop bh-supervisor` merely to detach: stopping a session is a destructive
-teardown operation. Confirm the state with `herdr status` or `bh plugin herdr status` before
-returning to the automated workflow.
+`herdr session stop default` merely to detach: stopping a session is a destructive teardown
+operation. Confirm the state with `herdr status` or `bh plugin herdr status` before returning to
+the automated workflow. Use an explicitly selected `bh-supervisor` only when recovering or
+continuing a legacy workflow that depends on that name:
+
+```bash
+herdr --session bh-supervisor
+BH_HERDR_SESSION=bh-supervisor bh plugin herdr status
+```
 
 `HERDR_ENV=1` has an important but narrow meaning. Herdr's native agent skill treats it as a
 convention that an agent is running inside a Herdr-managed pane and may select that current
@@ -129,7 +147,7 @@ printed by `spawn` rather than substituting an inferred value.
 
 ```bash
 # Start or attach Herdr; leave its server and session running.
-herdr --session bh-supervisor
+herdr
 
 # In another shell, install the integration for the harness under test.
 bh plugin herdr integrate codex
@@ -138,7 +156,7 @@ bh plugin herdr status
 
 # The bead is already claimed and has an existing bh-managed worktree.
 spawn_json="$(bh plugin herdr spawn --hive bh --bead <claimed-bead-id> \
-  --kind codex --session bh-supervisor --json)"
+  --kind codex --json)"
 target="$(printf '%s' "$spawn_json" | jq -r '.target')"
 session="$(printf '%s' "$spawn_json" | jq -r '.session')"
 
