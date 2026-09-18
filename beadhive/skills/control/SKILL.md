@@ -3,7 +3,7 @@ name: control
 description: >-
   Shared role guide for the four Control-plane seats — supervisor, director, custodian, and
   controller — that govern the factory itself. Covers the shared tool palette (bh hive /
-  bh config / bh doctor / bh labels / bh hq intake) and per-seat focus areas. Load when
+  bh config / bh doctor / bh label / bh hq intake) and per-seat focus areas. Load when
   operating any Control-plane seat; the per-seat agent def names the specific function and
   decision authority. The one plane that does NOT pair with the `work` skill (except intake
   disposal verbs): Control drives `bh hive` / `bh config` / `bh sync`, never `bh work assign /
@@ -45,7 +45,7 @@ All four Control-plane seats operate through the same verbs (authority level var
 ```bash
 bh hive …         # commission, configure, retire, survey hives
 bh config …       # read/write per-hive or global config keys
-bh labels sync    # reconcile the registry against git-workspace
+bh label sync     # reconcile the registry against git-workspace
 bh doctor         # fleet health: providers, orgs, repos, repo-group auth, warnings
 bh hq intake      # fleet-wide inbox (all intake:untriaged across every hive)
 ```
@@ -60,7 +60,7 @@ Every other role skill pairs with `work` fully; the Control plane uses it narrow
 > Primary seat: **custodian** (`cust/`). The supervisor may absorb this scope in a small
 > single-hive factory; the director and controller do not commission hives.
 
-Run this loop per hive; everything is `bh hive` / `bh config` / `bh sync` / `bh labels`, never
+Run this loop per hive; everything is `bh hive` / `bh config` / `bh sync` / `bh label`, never
 `bh work`:
 
 ### 1. Discover
@@ -69,7 +69,7 @@ Survey what's out there and what's healthy:
 
 ```bash
 bh hive list --available      # discoverable-but-unregistered repos (zero API calls)
-bh labels sync                # reconcile registry against git-workspace
+bh label sync                 # reconcile registry against git-workspace
 bh doctor                     # providers, orgs, repo counts, fleet health, per-repo-group auth, warnings
 bh hive survey --available --sort difficulty   # fleet table with DIFFICULTY scores
 ```
@@ -266,7 +266,7 @@ reads.
 ## Rules that bite
 
 - **`bh work` is restricted — intake verbs only.** Control's primary verbs are `bh hive` /
-  `bh config` / `bh sync` / `bh labels` / `bh hq intake`. The **one exception**: the
+  `bh config` / `bh sync` / `bh label` / `bh hq intake`. The **one exception**: the
   intake-disposal verbs (`bh work reroute`, `bh work accept`, `bh work reject`, `bh work promote`)
   are the director's for terminal routing. If you reach for `bh work assign / claim / submit /
   merge`, you've stepped into the Integration plane — stop and hand off instead.
