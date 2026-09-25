@@ -97,7 +97,19 @@ A hive is classified at onboard time, which drives prefix derivation and whether
 | **personal** | personal account, kept long-term | `<code>-<repo>` (suggested) | on |
 | **prototype** | personal account, org undecided (default) | bare `<repo>` | on |
 | **fork** | the repo is a fork | upstream identity | off unless opted in |
+| **external** | set explicitly (`--kind external`) | upstream identity (shares the fork family) | as fork — never furnished upstream |
 
-**External hives** _(roadmap)_ add a first-class `kind=external`: our virtualized view of a repo
-outside the factory boundary, forked-and-PR'd rather than pushed directly. External hives feed the
-Contribution plane — see [beadflow-and-planes.md](beadflow-and-planes.md).
+**External hives** (`kind=external`) are our virtualized view of a repo outside the factory
+boundary, forked-and-PR'd rather than pushed directly. They feed the Contribution plane — see
+[beadflow-and-planes.md](beadflow-and-planes.md).
+
+`fork` and `external` are **not interchangeable** — pick at `bh hive init --kind` time:
+
+- **Both**: the pull-only rail — `bh` refuses any push to the `upstream` remote.
+- **`external` only**: pushes are forced to `origin` (the fork) regardless of other push config,
+  bead worktrees base off a freshly fetched `upstream/<integration_branch>` (the branch a PR will
+  target), `bh work submit` double-checks the push remote, and onboarding records the
+  `contribution: pull` marker.
+
+If you intend to contribute upstream, register the hive as `external`; re-classify an existing one
+with `bh hive init --kind external` (the registered prefix is preserved).

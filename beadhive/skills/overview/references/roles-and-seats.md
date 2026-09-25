@@ -70,7 +70,11 @@ see **one seat, `dispatcher` (`disp/`)**, with scope + mode as dispatch metadata
 
 The **`contributor`** is a dedicated, persistent, hive-scoped seat for the Contribution plane —
 built on the read-only analyst research primitive but owning a target-repo dossier and driving
-gated upstream PRs over external hives. See the Contribution plane in
+gated upstream publication over external hives. There is **no loadable `contributor` role skill
+yet**, but its commands already ship: `bh hive contrib-profile build/show` (dossier),
+`bh contrib outbound` (issue queue), and `bh contrib publish` (human-gated single-issue publish,
+which requires a `contrib/` identity). The provenance scrub and a gated code-PR path are still
+roadmap — upstream PRs are opened manually with `gh pr create` today. See the Contribution plane in
 [beadflow-and-planes.md](beadflow-and-planes.md).
 
 ## Alternate seat nicknames — optional, non-normative aliases
