@@ -25,10 +25,12 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   sequentially in one shared worktree, merged once. → [dispatch-and-scheduling.md](dispatch-and-scheduling.md)
 - **container branch** — the `wt/bead/<type>/<id>` branch of an epic (`wt/bead/epic/<id>`) that
   its children fork from and land on. → [bead-lifecycle.md](bead-lifecycle.md)
-- **contribution plane** _(roadmap)_ — the sibling-to-integration plane that fork-and-PRs work
-  upstream over external hives behind a human-only gate. → [beadflow-and-planes.md](beadflow-and-planes.md)
-- **contributor** _(roadmap)_ — the persistent, hive-scoped seat (`contrib/`) that owns a target-repo
-  dossier and drives gated upstream PRs. → [roles-and-seats.md](roles-and-seats.md)
+- **contribution plane** _(partial)_ — the sibling-to-integration plane that fork-and-PRs work
+  upstream over external hives; dossier (`bh hive contrib-profile`) and human-gated issue publish
+  (`bh contrib`) ship today, the code-PR path is roadmap. → [beadflow-and-planes.md](beadflow-and-planes.md)
+- **contributor** _(roadmap seat)_ — the persistent, hive-scoped seat (`contrib/`) that owns a
+  target-repo dossier and drives gated upstream publication; no role skill yet, but `bh contrib`
+  commands require its identity. → [roles-and-seats.md](roles-and-seats.md)
 - **control plane** — the governing plane where the four control seats (supervisor · director ·
   custodian · controller) run the factory itself. → [beadflow-and-planes.md](beadflow-and-planes.md)
 - **controller** — the control seat (`ctrl/`) that reads factory telemetry/efficiency; read-mostly,
@@ -43,8 +45,9 @@ Terms tagged _(roadmap)_ are settled design on the near-term roadmap.
   to the per-hive dispatchers. → [roles-and-seats.md](roles-and-seats.md)
 - **dispatcher** — the Integration seat (`disp/`; was `coordinator`) that delivers
   an epic; one seat parameterized by scope × mode (fanout/collapsed). → [roles-and-seats.md](roles-and-seats.md)
-- **external hive** _(roadmap)_ — a virtualized `kind=external` view of a repo outside the factory
-  boundary, contributed to by fork-and-PR. → [storage-model.md](storage-model.md)
+- **external hive** — a virtualized `kind=external` view of a repo outside the factory boundary,
+  contributed to by fork-and-PR; unlike plain `kind=fork`, it forces pushes to `origin` and bases
+  worktrees off `upstream`. → [storage-model.md](storage-model.md)
 - **Factory HQ** — the durable cross-hive beads store at `~/.beadhive/hq`, queried with `bh hq`;
   subsumes the hub. → [storage-model.md](storage-model.md)
 - **fanout** — the default dispatch mode: each ready bead gets its own developer sub-agent and

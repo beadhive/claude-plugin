@@ -30,7 +30,7 @@ that framing once and then walks the tenets and the planes.
 | **Integration** | operational | kicked-off molecule → beads landed `--no-ff` on green line | dispatcher · developer · reviewer · merger |
 | **Assurance** | proposed (cross-cutting gate layer) | change/release → security + policy verdict | warden (+ verifier as a *lens*) |
 | **Release** | roadmap | green line → cut release (version + changelog + tag) | releaser |
-| **Contribution** | roadmap | internal change → upstream PR over external hive | contributor |
+| **Contribution** | partial (dossier + issue publish shipped; PR path + seat roadmap) | internal change → upstream issue/PR over external hive | contributor |
 | **Delivery** | roadmap (named now) | release + IaC/gitops desired-state → reconciled system | operator |
 
 Each operational plane runs a distinct session with its own seats and verb surface, and hands off
@@ -101,16 +101,32 @@ A deliberate, gated act separate from integration: version determination plus a 
 release gate (the **releaser**, `release/`) turns an always-green integration line into a cut
 release. Merging is not releasing; the release plane is where releasing happens.
 
-### Contribution plane _(roadmap)_
+### Contribution plane _(partial)_
 
 A sibling to Integration that operates over **external hives** — our virtualized view of a repo
 outside the factory boundary that we do not control and generally cannot push to. It is **always
-fork-and-PR**: a dedicated **`contributor`** (`contrib/`) seat (built on the read-only analyst
-primitive) owns a repo **dossier** — the target's CONTRIBUTING rules, PR-template and DCO
-requirements, mined historical conventions, and AI-PR posture — whose conventions trump ours on any
-conflict. An automated **provenance scrub** hard-blocks factory metadata from entering a PR, and a
-human-only, non-agent-resolvable **`bh work pr`** publication gate clears an exceptionally high
-quality bar before anything is published upstream.
+fork-and-PR**: the target's conventions trump ours on any conflict.
+
+**Shipped today** (callable directly; no `contributor` seat skill wraps them yet):
+
+- **Contribution dossier** — `bh hive contrib-profile build <hive>` / `show <hive>` scans the
+  upstream for CONTRIBUTING rules, PR/issue templates, CoC, DCO sign-off, and style/CI markers,
+  detects its AI-PR posture, and records an explicit **go/no-go** plus an authorship strategy. Read
+  it before doing any work in an external hive.
+- **Pull-only push rail** — pushes never target `upstream`; they go to `origin` (our fork). See
+  [storage-model.md](storage-model.md) for how `kind=external` vs `kind=fork` differ.
+- **Outbound issue queue** — `bh contrib outbound <hive>` lists the `outbound:pending` beads plus
+  `bd find-duplicates` pairs, so related items are aggregated before anything is filed.
+- **Gated issue publish** — `bh contrib publish <hive> <bead> --as contrib/<name>` files **one**
+  curated outbound bead upstream as an issue. It refuses a non-`contrib/` seat or a dirty/multi-item
+  push, and requires a human to have resolved the bead's `bh:publish` gate (`bd gate resolve`)
+  first. Issues only — not code.
+
+**Not built yet** _(roadmap)_: the `contributor` seat skill, the automated **provenance scrub** that
+hard-blocks factory metadata from a PR, and any `bh`-native gated **code-PR** path. Until then, an
+upstream PR is a manual step: run ordinary `bh work` in the external hive, push the bead branch to
+`origin`, then `gh pr create --repo <upstream-owner>/<repo>` honoring the dossier's authorship
+strategy.
 
 ### Delivery plane _(roadmap, named now)_
 
