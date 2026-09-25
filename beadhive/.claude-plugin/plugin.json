@@ -1,7 +1,7 @@
 {
   "name": "bh",
   "description": "Agents and skills for Claude Code to perform roles in a Beadhive Factory — including planning, refactoring, modularization, setup, and the role-typed seats the bh CLI drives",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": {
     "name": "Brian Cripe",
     "email": "brian@xenophon.dev"

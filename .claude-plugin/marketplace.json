@@ -10,7 +10,7 @@
     {
       "name": "bh",
       "source": "./beadhive",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "description": "Agents and skills for Claude Code to perform roles in a Beadhive Factory — role-typed seats plus planning, refactoring, modularization, setup, and git-workspace guidance"
     }
   ]

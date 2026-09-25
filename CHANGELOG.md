@@ -1,3 +1,29 @@
+## v0.5.0 (2026-09-25)
+
+### Feat
+
+- **operator-communication**: add canonical operator contract
+- **skills**: add modularize workflow
+- **skills**: add evidence-led refactor workflow
+- **plugins**: add integration router
+- **planning**: migrate entry points to skills
+- **retro**: render wallclock families in both report outputs
+- **retro**: rank failures by cluster instead of showing the first five
+- **retro**: surface humanGate wait as its own wallclock family
+- **retro**: add wallclock.py phase — session timeline + waste families
+
+### Fix
+
+- **overview**: document shipped contribution-plane commands and gate
+- **herdr**: document normal session resolution
+- **operator-communication**: grant decision tool to operator seats
+- **skills**: teach batch submission and bounce lifecycle
+- **retro**: count merged beads as implemented
+- **backfill**: support empty bead corpora
+- **onboarding**: namespace setup skills and remove stale coordinates
+- **plugin**: move bh compatibility out of manifest
+- **retro**: keep the complete error text for a failed tool call
+
 ## v0.4.1 (2026-07-23)
 
 ### Fix
