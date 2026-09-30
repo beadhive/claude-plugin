@@ -83,6 +83,12 @@ untouched until you `finish`. Workstreams (epic-of-epics) reuse the same machine
 see **`references/workstream-tier.md`** for the tier model, dispatch-by-child-type, nesting
 bounds, and the self-land contract.
 
+Let the lifecycle provision every child: **`bh work assign`** and **`bh work claim`** refresh the
+epic container from its integration base before the child forks. Never refresh a
+`wt/bead/epic/*` container with a manual `git merge`. The canonical refresh subject, parent order,
+and second-parent provenance are lifecycle-owned invariants; hand-made refresh bubbles can look
+equivalent while violating the history contract checked at later lifecycle boundaries.
+
 ### Dispatch shape — read `work.dispatch.*` BEFORE you fan out
 
 Before you touch the per-pass loop below, consult the dispatch config to decide the *shape* of
