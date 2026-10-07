@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hitch.dev/schema/hitch.release-candidate.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "pack",
+    "authoredVersion",
+    "releaseVersion",
+    "target",
+    "sourceCommit",
+    "hitchRevision",
+    "files",
+    "payloadDigest",
+    "digest"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authoredVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "hitchRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "files": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sha256",
+          "mode"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "mode": {
+            "enum": [
+              "100644",
+              "100755"
+            ]
+          }
+        }
+      }
+    },
+    "payloadDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

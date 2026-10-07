@@ -1,0 +1,5 @@
+[project]
+name = "beadhive-claude-plugin-qa"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = ["jsonschema==4.26.0", "PyYAML==6.0.3"]
