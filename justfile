@@ -4,7 +4,7 @@ default:
 
 # fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication lint-md check-types
+check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication check-release-qa lint-md check-types
 
 # ensure onboarding docs keep local skill namespaced and external coordinates explicit
 [group('check')]
@@ -25,6 +25,17 @@ check-backfill:
 [group('check')]
 check-operator-communication:
     ./scripts/test-operator-communication.sh
+
+# Exercise pinned candidate/receipt acceptance and drift rejection with local fixtures.
+[group('check')]
+check-release-qa:
+    python3 scripts/test_release_candidate.py
+    python3 -c "import json; [json.load(open(f)) for f in ['schemas/hitch.release-candidate.v1.schema.json', 'schemas/hitch.release-receipt.v1.schema.json']]; print('release schemas: valid JSON')"
+
+# Full acceptance requires independently approved immutable candidate digest and Hitch receipt.
+[group('release')]
+accept-release:
+    ./scripts/accept-release-candidate.sh
 
 # type-check the retro skill's python scripts, failing on unused imports/vars (scoped pyrightconfig.json)
 [group('check')]

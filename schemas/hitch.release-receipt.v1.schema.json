@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hitch.dev/schema/hitch.release-receipt.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "candidateDigest",
+    "planDigest",
+    "payloadDigest",
+    "destination",
+    "destinationCommit",
+    "branch",
+    "sourceCommit",
+    "hitchRevision",
+    "authoredVersion",
+    "releaseVersion",
+    "pushed",
+    "remoteVerified",
+    "prUrl",
+    "filesVerified",
+    "digest"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "candidateDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "planDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payloadDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "expectedBase",
+        "branch",
+        "layout",
+        "path",
+        "baseBranch",
+        "remote",
+        "immutable"
+      ],
+      "properties": {
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedBase": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layout": {
+          "enum": [
+            "root",
+            "subdirectory"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "baseBranch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "immutable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "destinationCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "hitchRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "authoredVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pushed": {
+      "type": "boolean"
+    },
+    "remoteVerified": {
+      "type": "boolean"
+    },
+    "prUrl": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "filesVerified": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
