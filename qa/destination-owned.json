@@ -1,0 +1,27 @@
+{
+  "purpose": "Destination-owned Claude QA; exact files overlaid beside the canonical payload and sidecar.",
+  "files": [
+    ".github/workflows/candidate-acceptance.yml",
+    ".github/workflows/quality.yml",
+    ".gitignore",
+    ".markdownlint-cli2.jsonc",
+    "docs/RELEASE-ACCEPTANCE.md",
+    "justfile",
+    "pyproject.toml",
+    "qa/README.md",
+    "qa/destination-owned.json",
+    "qa/marketplace-baseline.json",
+    "schemas/hitch.release-candidate.v1.schema.json",
+    "schemas/hitch.release-plan.v1.schema.json",
+    "schemas/hitch.release-receipt.v1.schema.json",
+    "scripts/accept-release-candidate.sh",
+    "scripts/check-links.sh",
+    "scripts/check-onboarding.sh",
+    "scripts/check_release_candidate.py",
+    "scripts/test-backfill.sh",
+    "scripts/test-hooks.sh",
+    "scripts/test-operator-communication.sh",
+    "scripts/test_release_candidate.py",
+    "uv.lock"
+  ]
+}

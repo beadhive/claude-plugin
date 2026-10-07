@@ -1,7 +1,14 @@
 // markdownlint-cli2 config for `just lint-md` (mirrors the beadhive CLI repo's house rules).
 {
   // What to lint (so `markdownlint-cli2` with no args = our docs, not junk).
-  "globs": ["README.md", "docs/**/*.md", "beadhive/**/*.md"],
+  "globs": ["README.md", "docs/**/*.md", "qa/**/*.md", "beadhive/**/*.md"],
+  "overrides": [
+    {
+      "filter": ["beadhive/skills/**/COMPANIONS.md"],
+      "config": { "MD013": false },
+      "combine": "merge"
+    }
+  ],
   "config": {
     "default": true,
     // Prose wraps ~92-100 cols by convention; don't enforce inside code blocks or tables.

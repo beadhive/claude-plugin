@@ -4,7 +4,8 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-files=(README.md beadhive/skills/setup/SKILL.md beadhive/skills/setup-git-workspace/SKILL.md)
+files=(beadhive/skills/setup/SKILL.md beadhive/skills/setup-git-workspace/SKILL.md)
+[[ ! -f README.md ]] || files+=(README.md)
 fail=0
 if grep -nE 'briancripe/claude-plugins|git-workspace@briancripe-plugins' "${files[@]}"; then
   echo "onboarding: stale git-workspace marketplace coordinates found" >&2

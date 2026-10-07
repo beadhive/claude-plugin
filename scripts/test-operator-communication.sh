@@ -2,8 +2,18 @@
 # Guard the canonical operator contract and the two deliberately opt-in style variants.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+plugin_root=${BH_CLAUDE_ARTIFACT_ROOT:-$(pwd)}
+cd "$plugin_root"
+reference="beadhive/skills/operator-communication/references/OPERATOR-COMMUNICATION.md"
 
-contract="beadhive/OPERATOR-COMMUNICATION.md"
+if [[ -f beadhive/instructions/OPERATOR-COMMUNICATION.md ]]; then
+  contract="beadhive/instructions/OPERATOR-COMMUNICATION.md"
+  [[ -f "$reference" ]] || { echo "generated operator skill reference is missing" >&2; exit 1; }
+  cmp -s "$contract" "$reference" || { echo "operator contract differs from its skill reference" >&2; exit 1; }
+else
+  [[ ! -f release-receipt.json ]] || { echo "generated payload is missing its operator instructions" >&2; exit 1; }
+  contract="beadhive/OPERATOR-COMMUNICATION.md"
+fi
 brief="beadhive/output-styles/beadhive-operator-brief.md"
 verbose="beadhive/output-styles/beadhive-operator-brief-verbose.md"
 skill="beadhive/skills/operator-communication/SKILL.md"
@@ -47,6 +57,7 @@ for marker in shared-rules concise-motivation verbose-motivation; do
   esac
 done
 
+skill="beadhive/skills/operator-communication/SKILL.md"
 require "$skill" "## Decision ask"
 require "$skill" "## Status summary"
 require "$skill" "AskUserQuestion"

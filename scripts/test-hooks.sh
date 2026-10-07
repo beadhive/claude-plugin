@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Self-test for the plugin's PreToolUse hook scripts.
 set -u
-cd "$(dirname "$0")/.."
+plugin_root=${BH_CLAUDE_ARTIFACT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
+cd "$plugin_root"
 STEER=beadhive/scripts/bd-steer.sh
 APPROVE=beadhive/scripts/approve-readonly.sh
 PREFLIGHT=beadhive/scripts/bh-preflight.sh

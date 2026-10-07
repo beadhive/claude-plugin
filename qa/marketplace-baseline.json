@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "beadhive",
+  "description": "Self-vends the `bh` plugin — agents and skills for Claude Code to perform roles in a Beadhive Factory",
+  "owner": {
+    "name": "Brian Cripe",
+    "email": "brian@xenophon.dev"
+  },
+  "plugins": [
+    {
+      "name": "bh",
+      "source": "./beadhive",
+      "version": "0.5.0",
+      "description": "Agents and skills for Claude Code to perform roles in a Beadhive Factory — role-typed seats plus planning, refactoring, modularization, setup, and git-workspace guidance"
+    }
+  ]
+}

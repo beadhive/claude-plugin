@@ -1,0 +1,114 @@
+name: Pinned Claude candidate acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload_archive_url:
+        description: Public HTTPS URL for the canonical payload archive
+        required: true
+        type: string
+      payload_candidate_url:
+        description: Public HTTPS URL for the payload-only Hitch candidate document
+        required: true
+        type: string
+      payload_candidate_digest:
+        description: Independently approved payload candidate SHA-256
+        required: true
+        type: string
+      promotion_candidate_url:
+        description: Public HTTPS URL for the complete publisher candidate document
+        required: true
+        type: string
+      promotion_candidate_digest:
+        description: Independently approved complete publisher candidate SHA-256
+        required: true
+        type: string
+      receipt_mode:
+        description: Optional Hitch promotion receipt verification stage
+        required: true
+        type: choice
+        options: [none, local, remote]
+        default: none
+      promotion_receipt_url:
+        description: Public HTTPS URL for a Hitch promotion receipt
+        required: false
+        type: string
+      promotion_receipt_digest:
+        description: Independently approved promotion receipt SHA-256
+        required: false
+        type: string
+      promotion_plan_url:
+        description: Public HTTPS URL for the reviewed Hitch promotion plan
+        required: false
+        type: string
+      promotion_plan_digest:
+        description: Independently approved promotion plan SHA-256
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Validate public HTTPS inputs
+        env:
+          PAYLOAD_ARCHIVE_URL: ${{ inputs.payload_archive_url }}
+          PAYLOAD_CANDIDATE_URL: ${{ inputs.payload_candidate_url }}
+          PROMOTION_CANDIDATE_URL: ${{ inputs.promotion_candidate_url }}
+          RECEIPT_URL: ${{ inputs.promotion_receipt_url }}
+          PLAN_URL: ${{ inputs.promotion_plan_url }}
+          RECEIPT_MODE: ${{ inputs.receipt_mode }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          urls = [os.environ['PAYLOAD_ARCHIVE_URL'], os.environ['PAYLOAD_CANDIDATE_URL'], os.environ['PROMOTION_CANDIDATE_URL']]
+          if os.environ['RECEIPT_MODE'] != 'none':
+              urls += [os.environ['RECEIPT_URL'], os.environ['PLAN_URL']]
+          for value in urls:
+              parsed = urlsplit(value)
+              if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.query:
+                  raise SystemExit('candidate intake accepts credential-free HTTPS URLs without query strings')
+          PY
+      - name: Download immutable public candidate inputs
+        env:
+          PAYLOAD_ARCHIVE_URL: ${{ inputs.payload_archive_url }}
+          PAYLOAD_CANDIDATE_URL: ${{ inputs.payload_candidate_url }}
+          PROMOTION_CANDIDATE_URL: ${{ inputs.promotion_candidate_url }}
+          RECEIPT_URL: ${{ inputs.promotion_receipt_url }}
+          PLAN_URL: ${{ inputs.promotion_plan_url }}
+          RECEIPT_MODE: ${{ inputs.receipt_mode }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --netrc-file /dev/null "$PAYLOAD_ARCHIVE_URL" --output "$RUNNER_TEMP/payload.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --netrc-file /dev/null "$PAYLOAD_CANDIDATE_URL" --output "$RUNNER_TEMP/payload-candidate.json"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --netrc-file /dev/null "$PROMOTION_CANDIDATE_URL" --output "$RUNNER_TEMP/promotion-candidate.json"
+          if [[ "$RECEIPT_MODE" != none ]]; then
+            test -n "$RECEIPT_URL" && test -n "$PLAN_URL"
+            curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --netrc-file /dev/null "$RECEIPT_URL" --output "$RUNNER_TEMP/promotion-receipt.json"
+            curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --netrc-file /dev/null "$PLAN_URL" --output "$RUNNER_TEMP/promotion-plan.json"
+          fi
+      - name: Verify payload, publisher closure, and optional promotion receipt
+        env:
+          RECEIPT_MODE: ${{ inputs.receipt_mode }}
+          PAYLOAD_PIN: ${{ inputs.payload_candidate_digest }}
+          PROMOTION_PIN: ${{ inputs.promotion_candidate_digest }}
+          RECEIPT_PIN: ${{ inputs.promotion_receipt_digest }}
+          PLAN_PIN: ${{ inputs.promotion_plan_digest }}
+        run: |
+          set -euo pipefail
+          args=(--payload-archive "$RUNNER_TEMP/payload.tar.gz" --qa-root . \
+            --payload-candidate "$RUNNER_TEMP/payload-candidate.json" --expected-payload-candidate-digest "$PAYLOAD_PIN" \
+            --promotion-candidate "$RUNNER_TEMP/promotion-candidate.json" --expected-promotion-candidate-digest "$PROMOTION_PIN")
+          if [[ "$RECEIPT_MODE" != none ]]; then
+            test -n "$RECEIPT_PIN" && test -n "$PLAN_PIN"
+            args+=(--receipt "$RUNNER_TEMP/promotion-receipt.json" --expected-receipt-digest "$RECEIPT_PIN" \
+              --receipt-mode "$RECEIPT_MODE" --promotion-plan "$RUNNER_TEMP/promotion-plan.json" \
+              --expected-plan-digest "$PLAN_PIN" --destination-repo .)
+          fi
+          uv run --locked python scripts/check_release_candidate.py "${args[@]}"

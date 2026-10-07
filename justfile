@@ -4,7 +4,7 @@ default:
 
 # fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication check-release-qa lint-md check-types
+check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication check-release-qa check-generated-payload lint-md check-types
 
 # ensure onboarding docs keep local skill namespaced and external coordinates explicit
 [group('check')]
@@ -30,7 +30,12 @@ check-operator-communication:
 [group('check')]
 check-release-qa:
     python3 scripts/test_release_candidate.py
-    python3 -c "import json; [json.load(open(f)) for f in ['schemas/hitch.release-candidate.v1.schema.json', 'schemas/hitch.release-receipt.v1.schema.json']]; print('release schemas: valid JSON')"
+    python3 -c "import json; [json.load(open(f)) for f in ['schemas/hitch.release-candidate.v1.schema.json', 'schemas/hitch.release-plan.v1.schema.json', 'schemas/hitch.release-receipt.v1.schema.json']]; print('release schemas: valid JSON')"
+
+# When generated output is committed, bind its owned scopes back to the payload-only sidecar.
+[group('check')]
+check-generated-payload:
+    python3 scripts/check_release_candidate.py --check-committed-payload --qa-root .
 
 # Full acceptance requires independently approved immutable candidate digest and Hitch receipt.
 [group('release')]
@@ -55,7 +60,8 @@ check-links:
 # grep for retired-name / stale-path regressions (patterns fixed pre-0.1.0)
 [group('check')]
 check-residue:
-    ! grep -rnE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' beadhive README.md --include='*.md'
+    if grep -rnE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' beadhive --include='*.md'; then exit 1; fi
+    if [ -f README.md ] && grep -nE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' README.md; then exit 1; fi
     @echo "residue: clean"
 
 # lint markdown docs (config: .markdownlint-cli2.jsonc)
