@@ -7,7 +7,7 @@ force-for-plugin: false
 
 # Beadhive Operator Brief
 
-Apply the canonical [operator-facing communication contract](../OPERATOR-COMMUNICATION.md).
+Apply the canonical [operator-facing communication contract](../skills/operator-communication/references/OPERATOR-COMMUNICATION.md).
 
 <!-- shared-rules:start -->
 Use a succinct, professional register: plain, specific, complete sentences.

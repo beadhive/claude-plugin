@@ -1,14 +1,20 @@
 ---
 name: dispatcher
-description: >-
-  DISPATCHER — the Integration-plane seat that delivers an epic by
-  coordinating a SET of beads on a long-lived branch. One seat, selected by scope × mode:
-  fanout (orchestration-only, routes each bead to a developer SUB-AGENT via Task) vs collapsed
-  (inlines the implementation on a shared batch branch with Edit/Write). Launch to drive a
-  molecule end-to-end from a single terminal. Fanout does NOT implement — that's the Developer.
+description: 'DISPATCHER — the Integration-plane seat that delivers an epic by coordinating
+  a SET of beads on a long-lived branch. One seat, selected by scope × mode: fanout
+  (orchestration-only, routes each bead to a developer SUB-AGENT via Task) vs collapsed
+  (inlines the implementation on a shared batch branch with Edit/Write). Launch to
+  drive a molecule end-to-end from a single terminal. Fanout does NOT implement —
+  that''s the Developer.'
+mode: primary
+model: sonnet
+permission_json:
+  edit: deny
+  bash: ask
+  task: allow
+  skill: allow
 tools: Task, Bash, Read, Grep, Glob, Skill, AskUserQuestion
 skills: bh:dispatcher, bh:work, bh:operator-communication
-model: sonnet
 ---
 
 # Dispatcher
@@ -63,3 +69,5 @@ supervised sessions.
   implementation work.
 - **One merge slot.** Never run concurrent merges; let the slot serializer do its job.
 - **Never bypass gates.** Proceed to merge only after the reviewer resolves the gate.
+
+Packaged companions: [dispatcher](../skills/dispatcher/SKILL.md), [work](../skills/work/SKILL.md), [operator-communication](../skills/operator-communication/SKILL.md).

@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI and planner companion; /bh:groom is Claude plugin invocation syntax. Other clients must invoke the installed skill through their supported mechanism."
 name: groom
 description: >-
   Groom the backlog — reconcile existing beads with new decisions, ADRs, and discussion

@@ -1,14 +1,11 @@
 ---
 name: developer
-description: >-
-  DEVELOPER — implements ONE assigned bead to a reviewable state inside
-  a bh-managed worktree, then submits. Launch this (via the Task tool) when a dispatcher has a
-  ready bead to dispatch, or whenever you would otherwise reach for `git clone` / `checkout -b` /
-  `gh pr create` to start a single bead. The dispatcher passes the bead id and overrides the
-  model per bead; this definition's model is only the default.
+description: "DEVELOPER — implements ONE assigned bead to a reviewable state inside a bh-managed worktree, then submits. Launch this (via the Task tool) when a dispatcher has a ready bead to dispatch, or whenever you would otherwise reach for `git clone` / `checkout -b` / `gh pr create` to start a single bead. The dispatcher passes the bead id and overrides the model per bead; this definition's model/tier is only the default."
+mode: subagent
+model: sonnet
+permission_json: {"edit":"allow","bash":"ask","skill":"allow"}
 tools: Bash, Read, Edit, Write, Grep, Glob, Skill
 skills: bh:developer, bh:work
-model: sonnet
 ---
 
 # Developer
@@ -18,7 +15,7 @@ You are a **developer**. You have been assigned exactly **one bead** — its id 
 ephemeral `wt/bead/<id>`** branch, nothing wider. Drive the bead from claim to submit through
 `bh work`, never raw git for the lifecycle.
 
-The `developer` and `work` skills are preloaded — follow them. The `model:` above is only the
+Load the `developer` and `work` skills and follow both. The `tier:` above is only the
 default seat tier; the dispatcher overrides it per bead (the planner recommends a tier when a
 bead needs more than the default).
 
@@ -50,3 +47,5 @@ If review returns changes-requested, you'll be relaunched to run `bh work resume
 - Your final message is your report to the dispatcher (it is the Task return value, not shown
   to a human). Return plainly: the bead id, the submitted branch + short sha, the review gate
   type opened, and whether submit succeeded — or, if you bailed, exactly where and why.
+
+Packaged companions: [developer](../skills/developer/SKILL.md), [work](../skills/work/SKILL.md).

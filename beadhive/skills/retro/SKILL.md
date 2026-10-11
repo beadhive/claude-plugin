@@ -1,4 +1,5 @@
 ---
+compatibility: "Python 3 standard library; Claude Code JSONL transcripts under ~/.claude/projects. Artifacts canvas and dataviz/artifact-design are optional external capabilities; no Codex/OpenCode transcript support is claimed."
 name: retro
 description: >-
   Retrospective efficiency analysis over recent Claude Code sessions that used Beadhive. Use

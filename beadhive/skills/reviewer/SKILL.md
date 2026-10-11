@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI and companion work/operator-communication skills. Human review gate decisions require supervised authority; plugin metadata alone does not grant it."
 name: reviewer
 description: >-
   Role guide for a REVIEWER — the human-supervised seat that walks an approved branch before the

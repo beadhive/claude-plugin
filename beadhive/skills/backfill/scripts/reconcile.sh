@@ -48,6 +48,79 @@ selftest() {
   [ "$fail" = 0 ] && echo "deps_of selftest: OK" || return 1
 }
 
+phase_rel_path() {
+  local phase="$1"
+  local rel="${phase#"$HIVE"/}"
+  printf '%s\n' "${rel%/}"
+}
+
+collect_phase_plans() {
+  find "$1" -maxdepth 1 -name '*-PLAN.md' -print 2>/dev/null | sort
+}
+
+epic_status_from_plans() {
+  if [ "$#" -eq 0 ]; then
+    printf '%s\n' "open"
+    return
+  fi
+  local plan
+  for plan in "$@"; do
+    [ -f "${plan%-PLAN.md}-SUMMARY.md" ] || { printf '%s\n' "open"; return; }
+  done
+  printf '%s\n' "closed"
+}
+
+plan_status() {
+  local plan="$1"
+  if [ -f "${plan%-PLAN.md}-SUMMARY.md" ]; then
+    printf '%s\n' "closed"
+  else
+    printf '%s\n' "open"
+  fi
+}
+
+plan_rel_path() {
+  local plan="$1"
+  printf '%s\n' "${plan#"$HIVE"/}"
+}
+
+emit_epic_row() {
+  local rel="$1" name="$2" status="$3" existing="$4"
+  if [ -n "$existing" ]; then
+    if [ "$MODE" != verify ]; then
+      printf 'PRESENT-in-sync	epic	%s	%s\n' "$rel" "$existing"
+    fi
+    return 0
+  fi
+  if [ "$MODE" != verify ]; then
+    printf 'NEW-epic	epic	%s	phase:%s	status:%s\n' "$rel" "$name" "$status"
+  fi
+  return 1
+}
+
+emit_plan_row() {
+  local rel="$1" parent="$2" status="$3" deps="$4" existing="$5"
+  local normalized_deps="${deps:-[]}"  # empty means [] for readability
+  if [ -n "$existing" ]; then
+    if [ "$MODE" != verify ]; then
+      printf 'PRESENT-in-sync	issue	%s	%s\n' "$rel" "$existing"
+    fi
+    return 0
+  fi
+  if [ "$MODE" != verify ]; then
+    printf 'NEW-issue	issue	%s	parent:%s	status:%s	deps:%s\n' "$rel" "$parent" "$status" "$normalized_deps"
+  fi
+  return 1
+}
+
+emit_plan_candidates() {
+  local doc="$1"
+  printf 'UNMATCHED	%s	-	(agent: pick a CANDIDATE below or file NEW)\n' "$doc"
+  shortlist_for "$doc" | while IFS=$'\t' read -r score cand ctitle; do
+    printf 'CANDIDATE	%s	%s	%s (overlap %s)\n' "$doc" "$cand" "$ctitle" "$score"
+  done
+}
+
 HIVE=""; MODE="propose"; PREFIX=""; SOURCE="docs"; REFRESH=0; DOCSDIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,28 +136,28 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$HIVE" ] && [ -d "$HIVE/.git" ] || { echo "usage: reconcile.sh <hive-path> [--planning] [--prefix <p>] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
+[ -n "$HIVE" ] && [ -d "$HIVE/.git" ] || { echo "usage: reconcile.sh <hive-path> [--planning] [--docs <dir>] [--apply|--verify] [--refresh-jsonl]" >&2; exit 2; }
 CANON="$HIVE/.beads/issues.jsonl"
+
 
 # bd writes to its embedded DB and does NOT auto-export, so the tracked issues.jsonl goes stale
 # after any write — a read-after-write against it sees the pre-write state. So we read from a fresh
 # `bd export` SNAPSHOT (temp, auto-deleted), never the tracked file: propose/verify stay strictly
 # read-only on any hive regardless of auto-export config. Refreshing the TRACKED file is a mutation
 # and is therefore opt-in (--refresh-jsonl) — the guide gates that on a human confirm when it finds
-# the hive stale (auto-export off). A missing tracked JSONL and an empty export are both valid empty
-# corpora: every source remains unmatched/NEW. See internal-task for making export automatic at
-# hive-init.
+# the hive stale (auto-export off). See internal-task for making export automatic at hive-init.
 JSONL="$CANON"
 SNAP=""
 cleanup() { [ -z "$SNAP" ] || rm -f "$SNAP"; }
 trap cleanup EXIT
 if command -v bd >/dev/null 2>&1; then
   SNAP="$(mktemp)"
-  if ( cd "$HIVE" && bd export ) > "$SNAP" 2>/dev/null; then
+  if ( cd "$HIVE" && bd export ) > "$SNAP" 2>/dev/null ; then
     JSONL="$SNAP"                                  # authoritative read source
     [ "$REFRESH" = 1 ] && cp "$SNAP" "$CANON"      # opt-in: de-stale the tracked file for br
   fi
 fi
+
 if [ ! -f "$JSONL" ]; then
   [ -n "$SNAP" ] || SNAP="$(mktemp)"
   : > "$SNAP"
@@ -96,8 +169,9 @@ if [ -z "$PREFIX" ]; then
   PREFIX=$(jq -r '.id' "$JSONL" | sed -E 's/^([a-z][a-z0-9]*(-[a-z0-9]+)*)-[a-z0-9]+(\.[0-9]+)*$/\1/' \
            | sort | uniq -c | sort -rn | head -1 | awk '{print $2}')
 fi
-ID_RE=""
-[ -z "$PREFIX" ] || ID_RE="${PREFIX}-[a-z0-9]+(\.[0-9]+)*"
+ID_RE="${PREFIX}-[a-z0-9]+(\.[0-9]+)*"
+# An empty corpus has no trustworthy id prefix; classify source documents as unmatched.
+[ -n "$PREFIX" ] || ID_RE="a^"
 
 # doc → existing external_ref (empty if unset), keyed by bead id, from the canonical jsonl.
 ref_of() { jq -r --arg id "$1" 'select(.id==$id) | .external_ref // ""' "$JSONL" | head -1; }
@@ -124,53 +198,55 @@ shortlist_for() {
 planning_propose() {
   local pdir="$HIVE/.planning/phases" new=0
   [ -d "$pdir" ] || { echo "no .planning/phases in $HIVE" >&2; exit 0; }
-  for phase in "$pdir"/*/; do
-    [ -d "$phase" ] || continue
-    local rel name plans epic_status existing
-    rel="${phase#"$HIVE"/}"; rel="${rel%/}"; name=$(basename "$phase")
-    plans=$(ls "$phase"*-PLAN.md 2>/dev/null || true)
-    # phase epic is closed only if every plan has a sibling SUMMARY (history says done).
-    epic_status="closed"; [ -z "$plans" ] && epic_status="open"
-    for pl in $plans; do [ -f "${pl%-PLAN.md}-SUMMARY.md" ] || epic_status="open"; done
-    existing=$(bead_with_ref "$rel")
-    if [ -n "$existing" ]; then
-      [ "$MODE" != verify ] && printf 'PRESENT-in-sync\tepic\t%s\t%s\n' "$rel" "$existing"
+  while IFS= read -r phase; do
+    local rel name existing epic_status plans
+    rel="$(phase_rel_path "$phase")"
+    name=$(basename "$phase")
+    plans=$(collect_phase_plans "$phase")
+    if [ -n "$plans" ]; then
+      epic_status="$(epic_status_from_plans $plans)"
     else
-      new=$((new+1)); [ "$MODE" != verify ] && printf 'NEW-epic\t%s\tphase:%s\tstatus:%s\n' "$rel" "$name" "$epic_status"
+      epic_status="$(epic_status_from_plans)"
     fi
-    for pl in $plans; do
-      local prel st deps ex
-      prel="${pl#"$HIVE"/}"
-      [ -f "${pl%-PLAN.md}-SUMMARY.md" ] && st="closed" || st="open"
-      deps=$(deps_of "$pl"); ex=$(bead_with_ref "$prel")
-      if [ -n "$ex" ]; then
-        [ "$MODE" != verify ] && printf 'PRESENT-in-sync\tissue\t%s\t%s\n' "$prel" "$ex"
-      else
-        new=$((new+1)); [ "$MODE" != verify ] && printf 'NEW-issue\t%s\tparent:%s\tstatus:%s\tdeps:%s\n' "$prel" "$name" "$st" "${deps:-[]}"
+    existing=$(bead_with_ref "$rel")
+    if ! emit_epic_row "$rel" "$name" "$epic_status" "$existing"; then
+      new=$((new+1))
+    fi
+    local plan
+    for plan in $plans; do
+      local prel status deps ex
+      prel="$(plan_rel_path "$plan")"
+      status="$(plan_status "$plan")"
+      deps="$(deps_of "$plan")"
+      ex=$(bead_with_ref "$prel")
+      if ! emit_plan_row "$prel" "$name" "$status" "$deps" "$ex"; then
+        new=$((new+1))
       fi
     done
-  done
+  done < <(find "$pdir" -mindepth 1 -maxdepth 1 -type d | sort)
   if [ "$MODE" = verify ]; then
-    [ "$new" -gt 0 ] && { echo "not idempotent: $new planning bead(s) not yet created" >&2; exit 1; }
-    echo "idempotent: every planning phase/plan is filed"; exit 0
+    if [ "$new" -gt 0 ]; then
+      echo "not idempotent: $new planning bead(s) not yet created" >&2
+      exit 1
+    fi
+    echo "idempotent: every planning phase/plan is filed"
   fi
   exit 0
 }
 [ "$SOURCE" = planning ] && planning_propose
 
+
+
 # Bridge recovery for one doc: echo "<bead-id>\t<bridge>" or nothing.
 bridge_for() {
   local doc="$1" id bridge
-  # An empty corpus cannot supply an inferred prefix or an existing bead to bridge to. Leave the
-  # doc unmatched for the NEW-classification pass unless the caller supplied --prefix explicitly.
-  [ -n "$ID_RE" ] || return 0
   # 1. frontmatter back-ref: a line like "- Beads: obs-1rb (epic), obs-1rb.5"
   id=$(grep -iE '^[[:space:]]*-?[[:space:]]*beads?:' "$HIVE/$doc" 2>/dev/null | head -1 \
-       | grep -oE -e "$ID_RE" | tail -1 || true)
+       | grep -oE -- "$ID_RE" | tail -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tfrontmatter"; return; fi
   # 2. bead id in the subject of the commit that ADDED the doc
   id=$(git -C "$HIVE" log --follow --diff-filter=A --format='%s' -- "$doc" 2>/dev/null | head -1 \
-       | grep -oE -e "$ID_RE" | head -1 || true)
+       | grep -oE -- "$ID_RE" | head -1 || true)
   if [ -n "$id" ]; then echo -e "$id\tadd-trailer"; return; fi
   # unmatched — leave for the agent's fuzzy/judgment pass
 }
@@ -199,10 +275,7 @@ for doc in $DOCS; do
   read -r id bridge < <(bridge_for "$doc"; echo) || true
   if [ -z "${id:-}" ]; then
     if [ "$MODE" = "propose" ]; then
-      printf 'UNMATCHED\t%s\t-\t(agent: pick a CANDIDATE below or file NEW)\n' "$doc"
-      shortlist_for "$doc" | while IFS=$'\t' read -r score cand ctitle; do
-        printf 'CANDIDATE\t%s\t%s\t%s (overlap %s)\n' "$doc" "$cand" "$ctitle" "$score"
-      done
+      emit_plan_candidates "$doc"
     fi
     continue
   fi

@@ -1,16 +1,6 @@
 ---
 name: setup-git-workspace
-description: >-
-  First-timer git-workspace walkthrough — explains GIT_WORKSPACE, repo groups and the
-  <group>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN /
-  GITLAB_TOKEN), then routes to the right git-workspace:* skill based on the user's starting point.
-  Invoked from the `setup` skill (Phase 5). Covers three starting situations: workspace already
-  configured (verify + move on), repos exist on disk but not managed (safe import with backups
-  before any git workspace update), and greenfield (install + configure repo groups from scratch).
-  Triggers on "set up git-workspace", "first time git-workspace", "what is GIT_WORKSPACE",
-  "workspace.toml explained", "how do I use git-workspace", "I have repos I want to manage",
-  "import my existing repos into git-workspace", "git-workspace for beginners",
-  "git-workspace walkthrough", "configure git-workspace for bh".
+description: "First-timer git-workspace walkthrough — explains GIT_WORKSPACE, repo groups and the <group>/<account>/<repo> layout, workspace.toml, and provider tokens (GITHUB_TOKEN / GITLAB_TOKEN), then routes to the right git-workspace:* skill based on the user's starting point. Invoked from the `setup` skill (Phase 5). Covers three starting situations: workspace already configured (verify + move on), repos exist on disk but not managed (safe import with backups before any git workspace update), and greenfield (install + configure repo groups from scratch). Triggers on \"set up git-workspace\", \"first time git-workspace\", \"what is GIT_WORKSPACE\", \"workspace.toml explained\", \"how do I use git-workspace\", \"I have repos I want to manage\", \"import my existing repos into git-workspace\", \"git-workspace for beginners\", \"git-workspace walkthrough\", \"configure git-workspace for bh\"."
 ---
 
 # setup-git-workspace — first-timer walkthrough
@@ -232,8 +222,9 @@ or ask the user to load it:
 > Load the `git-workspace:import` skill to continue.
 
 **Important:** if git-workspace itself is not installed yet (Probe 1 said "missing"), run
-`brew install git-workspace` first (or load `git-workspace:install` for the full install
-guide including tokens), then return here.
+`brew install git-workspace` first (macOS, or Linux via Linuxbrew — see the Linux note in
+Step C1 below for the no-Homebrew fallback), or load `git-workspace:install` for the full
+install guide including tokens, then return here.
 
 After the import skill completes and `verify-safe.sh` is green, you are ready for
 `git workspace update`. Return to the `setup` skill for hive onboarding.
@@ -257,8 +248,12 @@ or ask the user to load it:
 
 > Load the `git-workspace:install` skill to continue.
 
-That skill installs the binary (Homebrew is the preferred method on macOS), sets
-`GIT_WORKSPACE`, and walks through `GITHUB_TOKEN` / `GITLAB_TOKEN` creation and safe storage.
+That skill installs the binary (Homebrew is the preferred method on macOS; on Linux, install
+Homebrew first via `/bin/bash -c "$(curl -fsSL
+https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` and then `brew install
+git-workspace` the same way, or fall back to `cargo install git-workspace` if you'd rather not
+install Homebrew — see the "Don't" note below), sets `GIT_WORKSPACE`, and walks through
+`GITHUB_TOKEN` / `GITLAB_TOKEN` creation and safe storage.
 
 Come back here after `git-workspace --version` prints cleanly and your token is exported.
 

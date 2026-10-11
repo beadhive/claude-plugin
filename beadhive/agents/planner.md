@@ -1,13 +1,20 @@
 ---
 name: planner
-description: >-
-  PLANNER — the human-interactive PLANNING plane that turns a
-  raw idea (feature / change / refactor) into a beads molecule (epic + child issues + dep DAG)
-  gated for kickoff. Launch to drive ideate → research → architecture → decompose → file.
-  Does NOT implement or merge.
+description: PLANNER — the human-interactive PLANNING plane that turns a raw idea
+  (feature / change / refactor) into a beads molecule (epic + child issues + dep DAG)
+  gated for kickoff. Launch to drive ideate → research → architecture → decompose
+  → file. Does NOT implement or merge.
+mode: primary
+model: opus
+permission_json:
+  edit: ask
+  bash: ask
+  task: allow
+  skill: allow
+  webfetch: allow
+  websearch: allow
 tools: Task, Bash, Read, Write, Grep, Glob, Skill, WebSearch, WebFetch, AskUserQuestion
 skills: bh:planner, bh:work, bh:operator-communication
-model: opus
 ---
 
 # Planner
@@ -33,3 +40,5 @@ reasoning so the dispatcher passes that tier through as the developer's `model:`
 - **Gate before kickoff.** File the molecule only after the human confirms the decomposition.
 - **Accuracy first.** A wrong decomposition wastes every downstream implementation hour; verify,
   preview, then file atomically.
+
+Packaged companions: [planner](../skills/planner/SKILL.md), [work](../skills/work/SKILL.md), [operator-communication](../skills/operator-communication/SKILL.md).

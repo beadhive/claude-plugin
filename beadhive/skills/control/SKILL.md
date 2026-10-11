@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI, operator-communication and plugins companions. Claude Code handoff wording is retained; installed bh plugin help determines integration-specific commands."
 name: control
 description: >-
   Shared role guide for the four Control-plane seats — supervisor, director, custodian, and
