@@ -120,7 +120,7 @@ Native Observaloop owns deeper collector and visualizer checks. In the Observalo
 use its profile status, stack status, collector status, and visualizer status tools; probe the
 installed native help before selecting an operation. Container/process failures, unavailable
 ports, and visualizer reachability belong there. The [controller's telemetry guidance](../../control/SKILL.md#factory-telemetry--observe-and-report)
-covers Beadhive-side reporting; the [Observaloop project](https://github.com/briancripe/observaloop)
+covers Beadhive-side reporting; the [Observaloop project](https://github.com/observaloop/observaloop)
 covers its collector, dashboard, and query workflows without duplicating them here.
 
 ## Safe teardown and the asymmetric lifecycle
