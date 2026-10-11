@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh-managed implementation or planner companion; repository tools/language checks and optional Repowise integration are external capabilities. agents/openai.yaml is OpenAI UI metadata."
 name: refactor
 description: >-
   Plan or execute evidence-led, behavior-preserving refactoring. Use when asked to refactor,

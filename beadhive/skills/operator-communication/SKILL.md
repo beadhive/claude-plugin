@@ -8,7 +8,7 @@ description: >-
 
 # Operator-facing decisions and status
 
-Follow the canonical [operator-facing communication contract](../../OPERATOR-COMMUNICATION.md).
+Follow the canonical [operator-facing communication contract](references/OPERATOR-COMMUNICATION.md).
 This skill is the detailed home for the two structures below. It applies to any seat that speaks to
 the operator, including subagents; an output style does not reach those subagents.
 

@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bv for robot modes; absence routes to documented bd ready or bh work schedule fallback. These executables are external runtime dependencies."
 name: triage
 description: >-
   bv (Beads Viewer) robot-mode command reference for bead triage, grooming, planning, and

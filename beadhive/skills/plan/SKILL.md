@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI and planner companion; /bh:plan is Claude plugin invocation syntax. Human-interactive planning remains in the main session."
 name: plan
 description: >-
   Enter the planning seat — drive an idea through the staged planner flow into a gated beads

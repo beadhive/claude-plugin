@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires installed bh CLI; integration binaries, accounts and configuration are external. This skill routes read-only probes and does not install plugins by itself."
 name: plugins
 description: >-
   Progressive-disclosure router for the `bh plugin` CLI namespace and its Herdr, Orca,

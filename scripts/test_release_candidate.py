@@ -209,6 +209,59 @@ def main() -> None:
         missing_deletion_plan = seal({**{key: value for key, value in plan.items() if key not in {"digest", "deletions"}}, "deletions": []})
         rejected("stale owned deletion omitted from plan", lambda: check.validate_promotion(resealed_receipt(destination, missing_deletion_plan), promotion, missing_deletion_plan, destination))
 
+        agf_repo = root / "agf-main"
+        agf_repo.mkdir()
+        git(agf_repo, "init", "-q", "-b", "main")
+        git(agf_repo, "config", "user.name", "QA fixture")
+        git(agf_repo, "config", "user.email", "qa@example.invalid")
+        write(agf_repo / "outside.txt", b"preserved unowned\n")
+        write(agf_repo / "beadhive/stale.md", b"stale\n")
+        git(agf_repo, "add", "-A"); git(agf_repo, "commit", "-qm", "base")
+        agf_base = git(agf_repo, "rev-parse", "HEAD")
+        git(agf_repo, "checkout", "-qb", "worker")
+        (agf_repo / "beadhive/stale.md").unlink()
+        write(agf_repo / "beadhive/file.md", b"generated\n")
+        write(agf_repo / "qa/destination-owned.json", b'{"purpose":"AGF fixture QA","files":["qa/destination-owned.json"]}\n')
+        agf_payload = candidate({"beadhive/file.md": entry(agf_repo / "beadhive/file.md")})
+        write(agf_repo / "release-receipt.json", check.canonical(agf_payload) + b"\n")
+        agf_transport = candidate({name: entry(agf_repo / name) for name in
+                                   ("beadhive/file.md", "qa/destination-owned.json", "release-receipt.json")})
+        git(agf_repo, "add", "-A"); git(agf_repo, "commit", "-qm", "delivery")
+        staged = git(agf_repo, "rev-parse", "HEAD")
+        git(agf_repo, "checkout", "-q", "main"); git(agf_repo, "merge", "--no-ff", "-qm", "AGF bubble", "worker")
+        agf_main = git(agf_repo, "rev-parse", "HEAD")
+        agf_plan = seal({"schemaVersion": 1, "kind": "agf-main-delivery-plan",
+                        "candidateDigest": agf_transport["digest"], "payloadDigest": agf_transport["payloadDigest"],
+                        "destination": {"identity": "https://github.com/beadhive/claude-plugin.git", "expectedBase": agf_base,
+                                        "ref": "refs/heads/main", "hive": "bh-cp", "molecule": "bh-cp-0mm", "bead": "bh-cp-as6"},
+                        "ownedPaths": ["beadhive/", "qa/destination-owned.json", "release-receipt.json"],
+                        "copies": sorted(agf_transport["files"]), "deletions": ["beadhive/stale.md"]})
+        agf_record = {"target": "claude-code", "transportCandidateDigest": agf_transport["digest"],
+                      "payloadCandidateDigest": agf_payload["digest"], "planDigest": agf_plan["digest"],
+                      "sourceCommit": agf_payload["sourceCommit"], "hitchRevision": agf_payload["hitchRevision"],
+                      "packVersion": agf_payload["authoredVersion"], "releaseVersion": agf_payload["releaseVersion"],
+                      "expectedBase": agf_base, "qaCommit": staged,
+                      "qaFilesDigest": check.digest({"qa/destination-owned.json": agf_transport["files"]["qa/destination-owned.json"]}),
+                      "stagedCommit": staged, "destinationCommit": agf_main,
+                      "agf": {"hive": "bh-cp", "molecule": "bh-cp-0mm", "bead": "bh-cp-as6", "reviewGate": "actual-gate",
+                              "reviewer": "reviewer", "merger": "merger", "reviewResult": "approved", "moleculeResult": "closed"},
+                      "publicMain": {"identity": "https://github.com/beadhive/claude-plugin.git", "ref": "refs/heads/main", "commit": agf_main}}
+        def verify_agf(record=agf_record, selected_plan=agf_plan, pin=None):
+            check.validate_agf_delivery(record, pin or check.digest(record), agf_payload, agf_transport,
+                                        selected_plan, selected_plan["digest"], agf_repo, agf_repo)
+        verify_agf()
+        rejected("AGF independent evidence pin mismatch", lambda: verify_agf(pin="f" * 64))
+        rejected("AGF QA inventory mismatch", lambda: verify_agf({**agf_record, "qaFilesDigest": "f" * 64}))
+        rejected("AGF incomplete review", lambda: verify_agf({**agf_record, "agf": {**agf_record["agf"], "reviewResult": "pending"}}))
+        rejected("AGF substituted payload candidate", lambda: verify_agf({**agf_record, "payloadCandidateDigest": "f" * 64}))
+        rejected("legacy plan cannot masquerade as AGF", lambda: verify_agf(selected_plan=plan))
+        write(agf_repo / "outside.txt", b"unowned drift\n")
+        git(agf_repo, "add", "-A"); git(agf_repo, "commit", "-qm", "unowned drift")
+        changed_main = git(agf_repo, "rev-parse", "HEAD")
+        changed_record = {**agf_record, "destinationCommit": changed_main,
+                          "publicMain": {**agf_record["publicMain"], "commit": changed_main}}
+        rejected("AGF unowned drift", lambda: verify_agf(changed_record))
+
         committed = root / "committed-payload"
         write(committed / ".claude-plugin/marketplace.json", b"{}\n")
         write(committed / "beadhive/README.md", b"generated\n")

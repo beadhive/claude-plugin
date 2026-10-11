@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "bh": {
-      "command": "bh-mcp",
-      "args": []
+      "command": "bh-mcp"
     }
   }
 }

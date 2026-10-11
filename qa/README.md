@@ -18,3 +18,10 @@ legacy public source checkout or the assembled candidate; existing hooks, onboar
 operator, link, lint, and type checks are reused where their public inputs exist.
 The Markdown linter disables only MD013 line-length findings in generated `COMPANIONS.md` files;
 all other Markdown rules and relative-link checks still apply to them.
+
+AGF delivery uses independently reviewed `agf-main-delivery-plan` and delivery evidence,
+not a Hitch publisher receipt or a PR. Local pre-main checks remain transport-only. The
+optional AGF evidence checker verifies captured local Git trees and ancestry; the canonical
+paired helper verifies remote main, and public native acceptance follows the main push.
+Destination QA changes alter only the reviewed transport inventory; generated 0.6.0 bytes,
+original payload sidecar and source/compiler anchors remain unchanged.

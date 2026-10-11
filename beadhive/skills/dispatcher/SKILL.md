@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh work lifecycle and companion work/developer/operator-communication/plugins skills. Task/Agent launch examples and sandbox wording target Claude Code; Herdr requires separate explicit operator authorization and installed integration."
 name: dispatcher
 description: >-
   Role guide for the DISPATCHER — the Integration-plane seat that delivers an epic by

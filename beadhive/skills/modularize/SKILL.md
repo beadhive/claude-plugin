@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires refactor companion and bh-managed implementation or planning context; agents/openai.yaml is OpenAI UI metadata, not portable execution authority."
 name: modularize
 description: >-
   Turn an orthogonal area of an existing codebase into an explicit, independently testable

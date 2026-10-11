@@ -1,4 +1,5 @@
 ---
+compatibility: "Concept guide for Beadhive; installed bh CLI/version determines available lifecycle operations. Roadmap planes remain explicitly marked in references."
 name: overview
 description: >-
   Getting-Started concept guide for Beadhive — the software factory that runs Beadflow (the
