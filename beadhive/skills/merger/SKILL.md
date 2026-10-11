@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI, approved review gates and companion work skill; merge-owner seat authority is external runtime configuration."
 name: merger
 description: >-
   Role guide for a MERGER — the merge owner that

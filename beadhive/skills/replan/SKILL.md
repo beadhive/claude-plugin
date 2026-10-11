@@ -1,4 +1,5 @@
 ---
+compatibility: "Requires bh CLI and planner companion; /bh:replan is Claude plugin invocation syntax. Human-interactive planning remains in the main session."
 name: replan
 description: >-
   Re-enter the planning seat for ONE molecule — carry a spike verdict or a mid-execution

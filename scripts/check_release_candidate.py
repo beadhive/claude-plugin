@@ -484,6 +484,83 @@ def validate_promotion(receipt: dict[str, Any], promotion: dict[str, Any], plan:
         require(name in entries and entries[name][0] == item["mode"] and entries[name][1] == "blob", f"destination file/mode mismatch: {name}")
 
 
+def git_entries(repo: Path, revision: str) -> dict[str, tuple[str, str, str]]:
+    rows = git(repo, "ls-tree", "-rz", "--full-tree", "-r", revision).split("\0")
+    result = {}
+    for row in rows:
+        if row:
+            metadata, name = row.split("\t", 1)
+            result[name] = tuple(metadata.split())
+    return result
+
+
+def validate_agf_delivery(record: dict[str, Any], pin: str, payload: dict[str, Any],
+                          promotion: dict[str, Any], plan: dict[str, Any], plan_pin: str,
+                          repo: Path, qa_root: Path) -> None:
+    """Validate pinned local AGF facts and trees; remote/hive verification stays external."""
+    require(re.fullmatch(r"[0-9a-f]{64}", pin) is not None and digest(record) == pin,
+            "AGF delivery differs from independent pin")
+    require(plan.get("kind") == "agf-main-delivery-plan" and plan.get("schemaVersion") == 1,
+            "AGF delivery requires an AGF main plan, not a Hitch publisher plan")
+    require(plan.get("digest") == plan_pin and digest({k: v for k, v in plan.items() if k != "digest"}) == plan_pin,
+            "AGF plan differs from independent pin")
+    require(plan.get("candidateDigest") == promotion["digest"] and plan.get("payloadDigest") == promotion["payloadDigest"],
+            "AGF plan candidate linkage mismatch")
+    destination = plan["destination"]
+    require(destination["identity"] in {"https://github.com/beadhive/claude-plugin", "https://github.com/beadhive/claude-plugin.git"}
+            and destination.get("ref") == "refs/heads/main", "AGF public main coordinate mismatch")
+    qa_paths = read_owned_paths(qa_root)
+    qa_files = {name: promotion["files"][name] for name in qa_paths}
+    expected_scopes = ["beadhive/"] + sorted(name for name in promotion["files"] if not name.startswith("beadhive/"))
+    require(plan.get("ownedPaths") == expected_scopes and plan.get("copies") == sorted(promotion["files"]),
+            "AGF owned scopes/copies differ from exact transport")
+    bindings = {"target": "claude-code", "transportCandidateDigest": promotion["digest"],
+                "payloadCandidateDigest": payload["digest"], "planDigest": plan_pin,
+                "sourceCommit": payload["sourceCommit"], "hitchRevision": payload["hitchRevision"],
+                "packVersion": payload["authoredVersion"], "releaseVersion": payload["releaseVersion"],
+                "expectedBase": destination["expectedBase"], "qaFilesDigest": digest(qa_files)}
+    require(all(record.get(k) == v for k, v in bindings.items()), "AGF delivery identity mismatch")
+    agf = record.get("agf", {})
+    require(all(agf.get(k) == destination[k] for k in ("hive", "molecule", "bead")) and
+            agf.get("reviewResult") == "approved" and agf.get("moleculeResult") == "closed" and
+            all(isinstance(agf.get(k), str) and agf[k] for k in ("reviewGate", "reviewer", "merger")),
+            "approved completed AGF evidence required")
+    for field in ("expectedBase", "stagedCommit", "destinationCommit", "qaCommit"):
+        require(isinstance(record.get(field), str) and re.fullmatch(r"[0-9a-f]{40}", record[field]) is not None,
+                f"AGF {field} requires a full Git SHA")
+    base, staged, main = (record[k] for k in ("expectedBase", "stagedCommit", "destinationCommit"))
+    require(record.get("publicMain") == {"identity": destination["identity"], "ref": "refs/heads/main", "commit": main},
+            "AGF public main evidence mismatch")
+    require(Path(git(repo, "rev-parse", "--show-toplevel").strip()).resolve() == repo.resolve(),
+            "AGF destination must be repository root")
+    require(git(repo, "rev-parse", "HEAD").strip() == main and not git(repo, "status", "--porcelain=v1", "--untracked-files=all").strip(),
+            "AGF destination must be a clean checkout of captured main")
+    before = git_entries(repo, base)
+    def owned(name: str) -> bool:
+        return any(name.startswith(scope) if scope.endswith("/") else name == scope for scope in expected_scopes)
+    require(set(plan.get("deletions", [])) == {name for name in before if owned(name)} - set(promotion["files"]),
+            "AGF stale owned deletions differ from reviewed plan")
+    git(repo, "merge-base", "--is-ancestor", staged, main)
+    for revision in (staged, main):
+        git(repo, "merge-base", "--is-ancestor", base, revision)
+        entries = git_entries(repo, revision)
+        actual = {}
+        for name, (mode, kind, oid) in entries.items():
+            if owned(name):
+                require(kind == "blob" and mode in {"100644", "100755"}, "AGF owned tree has nonregular entries")
+                blob = subprocess.run(["git", "-C", str(repo), "cat-file", "blob", oid], capture_output=True, check=True).stdout
+                actual[name] = {"mode": mode, "sha256": hashlib.sha256(blob).hexdigest()}
+        require(actual == promotion["files"], "AGF owned tree differs from reviewed transport")
+        require({n: e for n, e in before.items() if not owned(n)} == {n: e for n, e in entries.items() if not owned(n)},
+                "AGF delivery changed unowned files")
+    qa_entries = git_entries(repo, record["qaCommit"])
+    for name, expected in qa_files.items():
+        mode, kind, oid = qa_entries[name]
+        blob = subprocess.run(["git", "-C", str(repo), "cat-file", "blob", oid], capture_output=True, check=True).stdout
+        require(kind == "blob" and {"mode": mode, "sha256": hashlib.sha256(blob).hexdigest()} == expected,
+                "AGF QA commit differs from approved exact QA inventory")
+
+
 def extract_payload_archive(archive: Path, dest: Path) -> None:
     total = 0
     seen: set[str] = set()
@@ -543,6 +620,10 @@ def main() -> int:
     parser.add_argument("--promotion-plan", type=Path)
     parser.add_argument("--expected-plan-digest")
     parser.add_argument("--destination-repo", type=Path)
+    parser.add_argument("--agf-delivery", type=Path, help="optional independently reviewed AGF main delivery evidence")
+    parser.add_argument("--expected-agf-delivery-digest")
+    parser.add_argument("--agf-plan", type=Path)
+    parser.add_argument("--expected-agf-plan-digest")
     args = parser.parse_args()
     try:
         qa_root = args.qa_root.absolute()
@@ -582,8 +663,19 @@ def main() -> int:
                 result.update(status=f"{args.receipt_mode}-promotion-verified", receiptDigest=receipt["digest"], destinationCommit=receipt["destinationCommit"])
             elif args.receipt_mode is not None:
                 raise Invalid("receipt mode supplied without an allocated Hitch promotion receipt")
+            if any((args.agf_delivery, args.expected_agf_delivery_digest, args.agf_plan, args.expected_agf_plan_digest)):
+                require(not args.producer_stage and args.receipt is None and args.receipt_mode is None,
+                        "AGF evidence and legacy Hitch receipt stages are separate")
+                require(all((args.agf_delivery, args.expected_agf_delivery_digest, args.agf_plan, args.expected_agf_plan_digest, args.destination_repo)),
+                        "AGF evidence requires independently pinned record/plan and destination checkout")
+                record, agf_plan = read_json(args.agf_delivery), read_json(args.agf_plan)
+                validate_agf_delivery(record, args.expected_agf_delivery_digest, payload, promotion, agf_plan,
+                                      args.expected_agf_plan_digest, args.destination_repo.absolute(), qa_root)
+                result.update(status="agf-main-local-tree-verified", deliveryDigest=args.expected_agf_delivery_digest,
+                              destinationCommit=record["destinationCommit"], remoteVerified=False,
+                              authorityScope="independently-reviewed-facts; local-Git-trees")
             print(json.dumps(result, sort_keys=True))
-    except (Invalid, OSError, tarfile.TarError, yaml.YAMLError) as exc:
+    except (Invalid, OSError, KeyError, TypeError, subprocess.CalledProcessError, tarfile.TarError, yaml.YAMLError) as exc:
         print(f"Claude release QA failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     return 0

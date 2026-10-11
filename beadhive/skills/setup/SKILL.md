@@ -1,18 +1,11 @@
 ---
 name: setup
-description: >-
-  Phase 0-4 onboarding driver: walks a fresh Mac + Claude Code user from zero to a configured
-  Beadhive workspace. Owns the PRE-bh bootstrap (Homebrew, uv, then the bh binary), wires the MCP
-  server at user scope, runs 'bh setup check' to gate post-bh deps, and hands off to
-  'bh config init' and the setup-git-workspace sub-skill. Every step probes before acting —
-  safe to re-run. Use when setting up a Beadhive workspace on a new machine or resuming a
-  partial setup. This is machine setup, not hive onboarding (that's `bh hive onboard`,
-  covered by the control skill).
+description: "Phase 0-4 onboarding driver: walks a macOS or Linux user from zero to a configured Beadhive workspace. Owns the PRE-bh bootstrap (Homebrew on macOS, uv, then the bh binary), wires the MCP server at user scope, runs 'bh setup check' to gate post-bh deps, and hands off to 'bh config init' and the setup-git-workspace sub-skill. Every step probes before acting — safe to re-run. Use when setting up a Beadhive workspace on a new machine or resuming a partial setup. This is machine setup, not hive onboarding (that's `bh hive onboard`, covered by the control skill)."
 ---
 
-# setup — fresh Mac → Beadhive workspace
+# setup — macOS or Linux → Beadhive workspace
 
-You are guiding a user from a freshly imaged Mac (with Claude Code already running) to a fully
+You are guiding a macOS or Linux user (with Claude Code already running) to a fully
 configured Beadhive workspace. Drive each phase interactively, pausing at each skip-point so the
 user can confirm their starting situation. Re-runs are safe — probe before you act.
 
@@ -45,13 +38,17 @@ claude plugin marketplace add beadhive/claude-plugin
 claude plugin install bh@beadhive
 ```
 
-Restart Claude Code, then invoke `/bh:setup` or load the `bh:setup` skill.
+Restart Claude Code, then invoke `/bh:setup` or load the `setup` skill.
 
 ---
 
 ## Phase 1a — install Homebrew (pre-bh)
 
-**Probe first:**
+This phase is macOS-specific. **On Linux, skip straight to Phase 1b** — `uv` installs without
+Homebrew, and Phase 2's `uv tool install` doesn't need it either. Homebrew is optional on
+Linux (Linuxbrew) but not required by anything downstream in this skill.
+
+**Probe first (macOS):**
 
 ```sh
 command -v brew
@@ -59,7 +56,7 @@ command -v brew
 
 If `brew` is found, skip to Phase 1b.
 
-If missing, install Homebrew (macOS only — this skill targets macOS):
+If missing, install Homebrew (macOS):
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -102,8 +99,7 @@ uv --version
 
 ## Phase 2 — install bh (pre-bh)
 
-This plugin requires the [supported `bh` CLI range](../../scripts/bh-compatibility.sh); install or
-upgrade to a version in that range before wiring MCP.
+This plugin requires `bh >=0.3.0`; install or upgrade to a version in that range before wiring MCP.
 
 **Probe first:**
 
@@ -151,8 +147,10 @@ If the `bh` entry is found (exit 0), skip to Phase 3.
 If missing, register it:
 
 ```sh
-claude mcp add bh --scope user -- bh mcp serve
+claude mcp add bh --scope user -- bh-mcp
 ```
+
+The executable is `bh-mcp`, matching the generated MCP configuration.
 
 Verify the entry appears:
 
@@ -269,7 +267,7 @@ Invoke the sub-skill by name:
 
 or ask the user to load it:
 
-> Load the `bh:setup-git-workspace` skill to continue.
+> Load the `setup-git-workspace` skill to continue.
 
 ---
 

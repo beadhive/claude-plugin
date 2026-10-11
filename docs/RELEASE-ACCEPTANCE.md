@@ -12,8 +12,10 @@ Canonical content changes must be made and reviewed in the canonical skills sour
 into a new candidate with fresh source/Hitch provenance and independent payload/publisher digests.
 Do not hand-edit generated `beadhive/` or `.claude-plugin/` files in this destination. Until the
 paired ownership switch is explicitly approved, route requested content changes through the
-paired-release operator; this repository remains `bh@beadhive` at 0.5.0. Re-run candidate transport
-QA, obtain the pinned promotion plan/receipt, then complete the separate native installation gate.
+paired-release operator; the public coordinate remains `bh@beadhive`. The reviewed generated package
+is 0.6.0.
+Complete best-effort local transport QA, deliver through AGF, push main, then run the
+separate public installation gate. Ownership migration follows paired acceptance.
 
 `just check` runs the existing public quality suite, operator contract checks, candidate checker
 drift tests, and—when root `release-receipt.json` exists—compares committed generated scopes
@@ -42,7 +44,8 @@ rejects URL credentials/query strings, uses no private-source credentials, and p
 publication action. Its workflow must first land on the default branch before GitHub can dispatch
 it; no remote run is claimed here.
 
-A complete promotion metadata check additionally requires `RELEASE_RECEIPT`,
+The optional legacy Hitch single-parent promotion metadata check additionally requires
+`RELEASE_RECEIPT`,
 `RELEASE_PLAN`, `RELEASE_DESTINATION_REPO`, `APPROVED_RECEIPT_DIGEST`,
 `APPROVED_PLAN_DIGEST`, and `RELEASE_RECEIPT_MODE=local|remote`. A local Hitch receipt must say
 `pushed=false` and `remoteVerified=false`; a remotely verified receipt must say both true. The
@@ -53,11 +56,40 @@ Receipt metadata verifies promotion content and provenance only; it does not est
 installation or loading. Current QA path ownership is declared in `qa/destination-owned.json`.
 The paired release caller must bind the committed mode and SHA-256 of every path in that list.
 
-The current producer candidate is a useful compatibility test, but it is not a public promotion
-receipt or installation result. Preserve public `bh@beadhive` ownership/version `0.5.0` until the
-paired release gate approves a change. The candidate reports 0.6.0 and source commit
+The current producer candidate is a useful compatibility test, but it is not a public installation
+result. AGF delivery publishes 0.6.0 at the existing `bh@beadhive` coordinate before public
+acceptance; source ownership switches only after paired acceptance. The candidate reports 0.6.0 and
+source commit
 `0f921d4b12da6fdd1106a1b2ba667cff145cfd7c`, with Hitch revision
 `144c953e96dbfad411f562cbe432aaaec65a70a9`; the prior compiler revision is not a substitute.
+
+## AGF main delivery evidence
+
+Every hive uses AGF. Pre-main `just check` and candidate transport verification require no
+public commit, PR, or delivery record. The owning worker submits the delivery batch, the
+reviewer approves its actual gate, and the merger lands the molecule through `bh work`.
+The authorized origin-main push precedes public GitHub-source installation acceptance.
+Neither installation acceptance nor ownership migration blocks this delivery molecule.
+
+After main lands, the additive local tree verifier accepts `RELEASE_AGF_DELIVERY`,
+`APPROVED_AGF_DELIVERY_DIGEST`, `RELEASE_AGF_PLAN`, `APPROVED_AGF_PLAN_DIGEST`, and
+`RELEASE_DESTINATION_REPO` alongside the transport inputs above. All digests are independent
+review inputs. The record digest covers its entire canonical JSON; it is not a Hitch receipt.
+The sealed plan has `kind: agf-main-delivery-plan` and binds the exact QA-inclusive candidate,
+base, copies, stale deletions, ownership scopes, and owning hive/molecule/bead identities.
+The evidence binds original source/compiler/version and candidate/plan digests, exact QA
+inventory digest and commit, staged commit, captured main commit, actual approved review gate,
+reviewer, merger and closed molecule, plus the public `refs/heads/main` coordinate.
+
+The checker requires a clean checkout of captured main and verifies base/staged/main ancestry,
+exact staged and main owned bytes/modes, stale deletions, unchanged unowned Git objects, and
+QA blobs from the independently reviewed QA commit. It accepts AGF merge bubbles with multiple
+parents. It reports `agf-main-local-tree-verified` and `remoteVerified: false`: reviewed facts
+and local Git trees cannot independently prove remote publication or hive authority.
+The canonical paired helper verifies the actual remote main using `git ls-remote` and owning
+hive records are reviewed separately. Public CLI acceptance checks the cached resolved install
+SHA against that remote main. Do not forge a Hitch `pushed=true` receipt or substitute a PR URL.
+Legacy Hitch receipt and AGF evidence modes are separate and cannot be combined.
 
 ## Public installation and handoff
 
