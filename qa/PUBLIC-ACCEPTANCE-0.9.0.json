@@ -1,0 +1,83 @@
+{
+  "bead": "bh-cp-mry",
+  "kind": "public-installation-acceptance",
+  "date": "2026-11-12",
+  "platform": "linux (Debian, x86_64)",
+  "claudeCodeVersion": "2.1.322 (Claude Code)",
+  "isolation": "CLAUDE_CONFIG_DIR and HOME pointed at fresh temporary directories; the host Claude config and ~/.claude/plugins were never read or written",
+  "modelTurns": 0,
+  "coordinates": {
+    "marketplaceSource": "github beadhive/claude-plugin (claude fetched it as git@github.com:beadhive/claude-plugin.git)",
+    "plugin": "bh@beadhive",
+    "publicMain": "cbcb5e40a2e21986a0fd0903c42035155e2c2df2",
+    "resolvedMarketplaceHead": "cbcb5e40a2e21986a0fd0903c42035155e2c2df2",
+    "installedPluginGitCommitSha": "cbcb5e40a2e21986a0fd0903c42035155e2c2df2",
+    "publicMainEqualsResolvedHead": true,
+    "pluginVersion": "0.9.0",
+    "marketplaceVersion": "0.9.0",
+    "installedPluginsListVersion": "0.9.0"
+  },
+  "receipt": {
+    "path": "release-receipt.json (isolated marketplace clone)",
+    "fileSha256": "1648ee635c359ae6ba2717b140c7925d2c250f872b51006ede42343e9711dd42",
+    "candidateDigest": "73f6dcf0813f6602efca5f5c23caa56b51b3e812e5733621b0c0f5515d27583f",
+    "payloadDigest": "2ad605f50d1b142b43fe69630ce70507f1da3fb2c23ef0db0713f9341aa11c2d",
+    "sourceCommit": "a5b694916a949965a76a40f2dfde1fc285035426",
+    "hitchRevision": "144c953e96dbfad411f562cbe432aaaec65a70a9",
+    "target": "claude-code",
+    "releaseVersion": "0.9.0",
+    "matchesBeadPins": true,
+    "fileHashesChecked": {"receiptEntries": 163, "marketplaceCloneMismatches": 0, "installedCachePayloadEntries": 161, "installedCacheMismatches": 0},
+    "bundleDigestNote": "da052ae8b729f99b721554284b050c0259a9b35d0d77fb9c6fc98ee0c4e7aa16 is the publisher-candidate bundle digest; it is not recorded in the payload receipt, so it is not verifiable from the installed artifact and stays deferred to the publisher-side check."
+  },
+  "inventory": {
+    "source": "claude plugin details bh@beadhive plus the installed cache listing",
+    "skills": 27,
+    "agents": 14,
+    "outputStyles": 3,
+    "outputStyleFiles": ["beadhive-operator-brief-verbose", "beadhive-operator-brief", "planning-seat"],
+    "hooks": {"count": 2, "events": ["SessionStart", "PreToolUse"]},
+    "mcpServers": 1,
+    "lspServers": 0,
+    "projectedAlwaysOnTokens": 5173
+  },
+  "mcp": {
+    "registration": "claude mcp list: plugin:bh:bh: bh-mcp - Connected; claude mcp get plugin:bh:bh: Status Connected, stdio",
+    "declaredCommand": "bh-mcp (.mcp.json)",
+    "hostBinary": "bh-mcp from installed bh 0.36.0",
+    "startup": "tools/list over stdio JSON-RPC returned server bh 3.4.11, protocol 2025-06-18",
+    "toolCount": 10,
+    "tools": ["bd_create", "config_set", "hive_add", "hive_list", "hive_onboard", "hive_status", "plan_check", "plan_file", "toolchain_exec", "work_refine"]
+  },
+  "commands": [
+    "claude --version",
+    "claude plugin marketplace add beadhive/claude-plugin",
+    "claude plugin install bh@beadhive",
+    "claude plugin list",
+    "claude plugin details bh@beadhive",
+    "claude mcp list",
+    "claude mcp get bh  (not found; the server is namespaced)",
+    "claude mcp get plugin:bh:bh",
+    "git ls-remote https://github.com/beadhive/claude-plugin refs/heads/main",
+    "git -C <isolated marketplace clone> rev-parse HEAD",
+    "sha256 comparison of every release-receipt.json entry against the clone and installed cache",
+    "bh-mcp stdio initialize + tools/list probe"
+  ],
+  "executedChecks": [
+    "isolated public install of bh@beadhive",
+    "resolved HEAD equals public main",
+    "plugin and marketplace versions are 0.9.0",
+    "receipt pins and per-file digests",
+    "component inventory counts",
+    "MCP health connect and bh-mcp tool listing"
+  ],
+  "nativeDiscovery": ["claude plugin details component inventory", "claude mcp list health check"],
+  "modelDrivenExecution": "none",
+  "deferred": [
+    "Darwin native acceptance",
+    "SessionStart and PreToolUse hook execution inside a live session (needs a model turn)",
+    "agent and output-style selection in a live session (needs a model turn)",
+    "supported Claude Code version matrix and rollback evidence",
+    "publisher-candidate bundle digest verification"
+  ]
+}

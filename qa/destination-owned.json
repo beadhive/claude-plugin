@@ -8,6 +8,7 @@
     "docs/RELEASE-ACCEPTANCE.md",
     "justfile",
     "pyproject.toml",
+    "qa/PUBLIC-ACCEPTANCE-0.9.0.json",
     "qa/README.md",
     "qa/destination-owned.json",
     "qa/marketplace-baseline.json",
