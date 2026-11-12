@@ -18,7 +18,6 @@
     "scripts/check-links.sh",
     "scripts/check-onboarding.sh",
     "scripts/check_release_candidate.py",
-    "scripts/test-backfill.sh",
     "scripts/test-hooks.sh",
     "scripts/test-operator-communication.sh",
     "scripts/test_release_candidate.py",

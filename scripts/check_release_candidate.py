@@ -27,8 +27,8 @@ SCHEMA_HASHES = {
     "receipt": "3a6d81aa3bd124b30abb6a570f9df4b418aa641a9f5dafd6fbd84f873ee1442c",
 }
 SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
-EXPECTED_SKILLS = {"backfill", "control", "developer", "dispatcher", "groom", "merger", "modularize", "operator-communication", "overview", "plan", "planner", "plugins", "refactor", "replan", "retro", "reviewer", "setup", "setup-git-workspace", "triage", "work"}
-EXPECTED_AGENTS = {"analyst", "controller", "custodian", "developer", "director", "dispatcher", "merger", "planner", "reviewer", "supervisor", "warden"}
+EXPECTED_SKILLS = {"backfill", "batch-run", "brainstorm", "control", "developer", "dispatcher", "groom", "intake-triage", "merger", "modularize", "operator-communication", "overview", "plan", "planner", "plugins", "propose", "refactor", "replan", "reproduce", "retro", "reviewer", "setup", "setup-git-workspace", "spike-report", "triage", "vision-scan", "work"}
+EXPECTED_AGENTS = {"analyst", "controller", "custodian", "developer", "director", "dispatcher", "ideator", "merger", "planner", "reviewer", "spike-runner", "supervisor", "triager", "warden"}
 QA_ROOTS = {".github", "docs", "qa", "schemas", "scripts", "tests"}
 QA_FILES = {".gitignore", ".markdownlint-cli2.jsonc", "justfile", "pyproject.toml", "uv.lock"}
 

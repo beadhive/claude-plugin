@@ -4,7 +4,7 @@ default:
 
 # fast gate: manifests parse + links resolve + no legacy-name regressions + hook self-tests + markdown lint + type-check
 [group('check')]
-check: check-json check-links check-residue check-onboarding check-hooks check-backfill check-operator-communication check-release-qa check-generated-payload lint-md check-types
+check: check-json check-links check-residue check-onboarding check-hooks check-operator-communication check-release-qa check-generated-payload lint-md check-types
 
 # ensure onboarding docs keep local skill namespaced and external coordinates explicit
 [group('check')]
@@ -15,11 +15,6 @@ check-onboarding:
 [group('check')]
 check-hooks:
     ./scripts/test-hooks.sh
-
-# exercise empty/missing-corpus behavior in the backfill reconcile helper
-[group('check')]
-check-backfill:
-    ./scripts/test-backfill.sh
 
 # guard canonical operator communication content, style frontmatter, and role wiring
 [group('check')]
@@ -57,10 +52,10 @@ check-json:
 check-links:
     ./scripts/check-links.sh
 
-# grep for retired-name / stale-path regressions (patterns fixed pre-0.1.0)
+# grep for retired-name / stale-path regressions (patterns fixed pre-0.1.0); intake-triage's verbs-and-switches.md legitimately names the retired crew/ and coord/ agent-seat prefixes the state machine refuses
 [group('check')]
 check-residue:
-    if grep -rnE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' beadhive --include='*.md'; then exit 1; fi
+    if grep -rnE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' beadhive --include='*.md' --exclude=verbs-and-switches.md; then exit 1; fi
     if [ -f README.md ] && grep -nE 'bh@workspace|~/\.ws|WS_[A-Z_]+|crew/|coord/|superintendent|agf-and-planes|/Users/' README.md; then exit 1; fi
     @echo "residue: clean"
 

@@ -13,7 +13,7 @@ into a new candidate with fresh source/Hitch provenance and independent payload/
 Do not hand-edit generated `beadhive/` or `.claude-plugin/` files in this destination. Until the
 paired ownership switch is explicitly approved, route requested content changes through the
 paired-release operator; the public coordinate remains `bh@beadhive`. The reviewed generated package
-is 0.6.0.
+is 0.9.0.
 Complete best-effort local transport QA, deliver through AGF, push main, then run the
 separate public installation gate. Ownership migration follows paired acceptance.
 
@@ -57,10 +57,10 @@ installation or loading. Current QA path ownership is declared in `qa/destinatio
 The paired release caller must bind the committed mode and SHA-256 of every path in that list.
 
 The current producer candidate is a useful compatibility test, but it is not a public installation
-result. AGF delivery publishes 0.6.0 at the existing `bh@beadhive` coordinate before public
-acceptance; source ownership switches only after paired acceptance. The candidate reports 0.6.0 and
+result. AGF delivery publishes 0.9.0 at the existing `bh@beadhive` coordinate before public
+acceptance; source ownership switches only after paired acceptance. The candidate reports 0.9.0 and
 source commit
-`0f921d4b12da6fdd1106a1b2ba667cff145cfd7c`, with Hitch revision
+`a5b694916a949965a76a40f2dfde1fc285035426`, with Hitch revision
 `144c953e96dbfad411f562cbe432aaaec65a70a9`; the prior compiler revision is not a substitute.
 
 ## AGF main delivery evidence
