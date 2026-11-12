@@ -7,12 +7,16 @@ guide:
     Reconstruct a hive's history as beads from its own local sources — reconcile-first, so an
     existing bead corpus is de-duplicated rather than clobbered. Recover each source doc's bead
     via deterministic bridges (frontmatter back-ref, then the id in the commit that added the
-    doc); leave the residual to agent judgment; emit a diff; apply only on human confirm.
+    doc), run by `bh backfill history` (bh 0.36.0 or later); leave the residual to agent
+    judgment; emit a diff; apply only on human confirm.
   goal_state: |
     Every source doc that maps to work is linked to exactly one bead: pre-existing beads gain an
     external_ref pointing at their source; genuinely missing history is filed as new (closed if
     history says done); nothing is duplicated. A re-run of the reconcile proposes zero changes.
   prerequisites:
+    - id: bh-version
+      performer: agent
+      description: The installed `bh` is 0.36.0 or later (`bh backfill history --help` works).
     - id: bead-hive
       performer: agent
       description: Target is a bd-tracked hive — `.beads/` is initialized; the JSONL corpus may be absent or empty.
@@ -23,8 +27,6 @@ guide:
       performer: human
       description: A human is present to review the proposal and authorize (or decline) the write.
   external_resources:
-    - title: Reconcile tool
-      path: scripts/reconcile.sh
     - title: Bridge roadmap
       path: references/bridges.md
   rollback_strategy: none
@@ -43,7 +45,7 @@ guide:
   requires:
     tools:
       - "git@>=2"
-      - "jq@>=1.6"
+      - "bh@>=0.36.0"
       - "bd"
 ---
 
@@ -60,8 +62,8 @@ exists precisely to avoid duplicating it.
   *is* import: the same steps run, the matching just finds nothing, so every artifact classifies
   NEW. No steps are skipped and no separate guide is needed — empty is the degenerate case.
   Idempotency is unchanged (`external_ref` / bridge 0), so a re-run is still a no-op. The only
-  difference is the apply mechanism (see step `apply`): stamping existing beads vs. bulk-creating
-  new ones.
+  difference is the apply mechanism (see step `apply`): stamping existing beads vs. creating new
+  ones, which needs create mode (`backfill.collate.create = propose`, opt-in).
 
 # When NOT to use this Guide
 
@@ -71,9 +73,9 @@ exists precisely to avoid duplicating it.
 
 # Decision criteria during execution
 
-- **Deterministic before fuzzy.** `scripts/reconcile.sh` recovers links it is *certain* of
-  (frontmatter back-ref, then git add-trailer) and refuses to guess. Whatever it marks
-  `UNMATCHED` is the agent's judgment residual — match by title/content only if confident, else
+- **Deterministic before fuzzy.** `bh backfill history` recovers links it is *certain* of
+  (existing `external_ref`, frontmatter back-ref, then git add-trailer) and refuses to guess.
+  Whatever it leaves a residual is the agent's judgment residual — match by title/content only if confident, else
   treat as NEW.
 - **NEW vs noise.** A commit or doc becomes a bead only if it represents work worth tracking. If
   a version/phase epic already covers the range at a coarser grain, link to the epic — do not
@@ -86,5 +88,6 @@ exists precisely to avoid duplicating it.
 # What you need at hand
 
 - The path to the target hive's working tree.
+- `bh` 0.36.0 or later on `PATH`.
 - Ten minutes to eyeball the proposal — the match table is short; the judgment residual is where
   your attention goes.

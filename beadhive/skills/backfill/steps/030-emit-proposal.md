@@ -32,13 +32,18 @@ step:
 
 # What this step does
 
-Renders the classified set into one reviewable diff — the SUGGEST half of the loop. Three
-sections:
+Runs `bh backfill history --until plan` (the default stop; nothing is written to the hive) and
+renders the classified set into one reviewable diff — the SUGGEST half of the loop. The sealed
+plan is `<run-dir>/plan.bdlg`; read it with `bh backfill inspect <run-dir>/plan.bdlg` (classes,
+how many entries need review, verdicts) and `bh backfill view verdicts <run-dir>`, and preview
+the loader's losses with `bh backfill apply <run-dir>/plan.bdlg --dry-run`. Three sections:
 
 - **Stamps (PRESENT):** `bead → external_ref = <doc path>`, one row each. Deterministic + fuzzy
   matches combined, bridge noted.
 - **New beads (NEW):** proposed `title`, `type`, `status`, `--external-ref`, and the
-  `origin:backfill` + `source:<kind>` labels.
+  `origin:backfill` + `source:<kind>` labels. Only present when create mode is on
+  (`backfill.collate.create = propose`, opt-in); otherwise the plan reports how many events it
+  did not propose, and you list those units as flags.
 - **Flags (DRIFT / reverse-drift / doc-gap):** noted for the human, no action taken.
 
 Then it **stops** on a human confirm.

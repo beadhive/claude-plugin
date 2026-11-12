@@ -22,7 +22,7 @@ No separately installed skill provider is declared for this skill.
 
 ## Runtime and invocation scope
 
-- bash, git, jq; bd/bh for live corpus/application work; helper selftest is local.
+- bh 0.36.0 or later (bh backfill history, view, verdicts, judge setup), git and bd for the hive; no bundled helper script.
 
 Neutral directory names; bh: and /bh: invocation prose and Task/Skill/AskUserQuestion examples are Claude-specific, not an Agent Plugins invocation/enforcement guarantee.
 

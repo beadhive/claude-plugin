@@ -1,0 +1,318 @@
+<!--
+  bh:spike-report base template.
+
+  This is a STARTING SKELETON, not a finished page — the spike-report skill reads this
+  file, fills in the {{PLACEHOLDER}} regions and HTML-comment-marked repeat
+  blocks below with real content for the concluded wave, then writes the result
+  out as a fresh, self-contained HTML file and publishes it via the platform's
+  Artifact tool. Never edit this file per-run; it's the reusable design system
+  + layout, extracted from the first hand-built spike report (observaloop,
+  2026-07-24).
+
+  Design system: light+dark via CSS custom properties (:root[data-theme] wins
+  over prefers-color-scheme in both directions, per the platform's artifact
+  rules), Avenir Next body + ui-monospace accents, a teal "go" accent / amber
+  "caution" accent / muted-red "flag" accent for blocked-or-escalated state.
+  Do not invent a new palette per repo — retheme the token VALUES only if a
+  repo's own brand truly calls for it; otherwise reuse as-is.
+-->
+<title>{{REPO_NAME}} — Spike Wave Report</title>
+<style>
+:root{
+  --bg:#FAFBF9; --panel:#F1F4F1; --ink:#242A31; --muted:#5E6A73; --faint:#8A949C;
+  --line:#DDE3E0; --accent:#217E76; --accent-soft:#E3F0EE; --amber:#A66F1E; --amber-soft:#F6ECDA;
+  --chip-bg:#E9EDEA; --p2:#217E76; --p3:#7C8894; --flag:#A8474A; --flag-soft:#F5E5E1;
+}
+:root[data-theme="dark"]{
+  --bg:#161B22; --panel:#1D242D; --ink:#E8ECEF; --muted:#9AA7B1; --faint:#6E7B86;
+  --line:#2C353F; --accent:#4DBFB4; --accent-soft:#1E3330; --amber:#D9A44A; --amber-soft:#332A18;
+  --chip-bg:#242D37; --p2:#4DBFB4; --p3:#8896A2; --flag:#D9807F; --flag-soft:#332221;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161B22; --panel:#1D242D; --ink:#E8ECEF; --muted:#9AA7B1; --faint:#6E7B86;
+    --line:#2C353F; --accent:#4DBFB4; --accent-soft:#1E3330; --amber:#D9A44A; --amber-soft:#332A18;
+    --chip-bg:#242D37; --p2:#4DBFB4; --p3:#8896A2; --flag:#D9807F; --flag-soft:#332221;
+  }
+  :root[data-theme="light"]{
+    --bg:#FAFBF9; --panel:#F1F4F1; --ink:#242A31; --muted:#5E6A73; --faint:#8A949C;
+    --line:#DDE3E0; --accent:#217E76; --accent-soft:#E3F0EE; --amber:#A66F1E; --amber-soft:#F6ECDA;
+    --chip-bg:#E9EDEA; --p2:#217E76; --p3:#7C8894; --flag:#A8474A; --flag-soft:#F5E5E1;
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.6;
+}
+.wrap{max-width:52rem; margin:0 auto; padding:3rem 1.5rem 5rem}
+.wrap.wide{max-width:68rem}
+header{border-bottom:2px solid var(--ink); padding-bottom:1.25rem; margin-bottom:2rem}
+.meta{display:flex; flex-wrap:wrap; gap:.4rem 1.5rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:.9rem}
+h1{font-size:1.9rem; font-weight:700; letter-spacing:-.02em; line-height:1.2; margin:.2rem 0 .6rem; text-wrap:balance}
+.stamp{display:inline-block; font-family:ui-monospace,Menlo,monospace; font-size:.7rem; letter-spacing:.14em;
+  color:var(--amber); border:1.5px solid var(--amber); background:var(--amber-soft);
+  padding:.28rem .6rem; border-radius:3px; transform:rotate(-1deg)}
+h2{font-size:1.05rem; font-weight:700; letter-spacing:.02em; margin:2.6rem 0 .9rem;
+  display:flex; align-items:baseline; gap:.6rem; max-width:68rem}
+h2 .rule{flex:1; border-top:1px solid var(--line)}
+h3{font-size:.78rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin:1.8rem 0 .6rem}
+p{max-width:68ch}
+.lede{font-size:1.05rem; color:var(--muted); max-width:64ch}
+.tldr{background:var(--panel); border-left:3px solid var(--accent); padding:1rem 1.25rem; border-radius:0 6px 6px 0; margin:1.5rem 0}
+.tldr p{margin:.35rem 0}
+.epic{display:grid; grid-template-columns:6.2rem 1fr; gap:.25rem 1rem; padding:.85rem 0; border-bottom:1px solid var(--line)}
+.epic:last-child{border-bottom:none}
+.bid{font-family:ui-monospace,Menlo,monospace; font-size:.8rem; color:var(--accent); background:var(--accent-soft);
+  border-radius:4px; padding:.1rem .45rem; align-self:start; justify-self:start; margin-top:.15rem; white-space:nowrap}
+.etitle{font-weight:600}
+.pri{font-family:ui-monospace,Menlo,monospace; font-size:.68rem; padding:0 .35rem; border-radius:3px; margin-left:.45rem; vertical-align:.08em}
+.pri.p2{color:var(--p2); border:1px solid var(--p2)}
+.pri.p3{color:var(--p3); border:1px solid var(--p3)}
+.edesc{grid-column:2; color:var(--muted); font-size:.92rem; max-width:62ch; margin:0}
+.edeps{grid-column:2; font-family:ui-monospace,Menlo,monospace; font-size:.72rem; color:var(--faint)}
+.edeps b{color:var(--muted); font-weight:600}
+table{border-collapse:collapse; width:100%; font-size:.88rem}
+.tablewrap{overflow-x:auto}
+th{text-align:left; font-family:ui-monospace,Menlo,monospace; font-size:.68rem; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--faint); font-weight:600; padding:.4rem .75rem .4rem 0; border-bottom:1.5px solid var(--line)}
+td{padding:.55rem .75rem .55rem 0; border-bottom:1px solid var(--line); vertical-align:top}
+td.mono{font-family:ui-monospace,Menlo,monospace; font-size:.78rem; white-space:nowrap; color:var(--accent)}
+ol{padding-left:1.3rem; max-width:66ch}
+ol li{margin:.45rem 0}
+code{font-family:ui-monospace,Menlo,monospace; font-size:.85em; background:var(--chip-bg); padding:.08em .35em; border-radius:3px}
+.note{font-size:.85rem; color:var(--faint); border-top:1px solid var(--line); margin-top:3rem; padding-top:1rem; max-width:68ch}
+
+/* --- spike tab system --- */
+.spikewrap{margin:1.25rem 0 0; max-width:68rem}
+.spikeintro{max-width:68ch}
+.tabsystem{display:grid; grid-template-columns:15.5rem 1fr; gap:1.25rem; align-items:start; margin-top:1.4rem}
+@media (max-width:820px){ .tabsystem{grid-template-columns:1fr} }
+.tablist{display:flex; flex-direction:column; gap:.45rem; position:sticky; top:1rem}
+@media (max-width:820px){
+  .tablist{flex-direction:row; overflow-x:auto; position:static; padding-bottom:.5rem; gap:.6rem}
+  .tabbtn{min-width:11rem; flex:0 0 auto}
+}
+.tabbtn{all:unset; cursor:pointer; display:flex; flex-direction:column; gap:.3rem; padding:.6rem .75rem;
+  border:1px solid var(--line); border-radius:8px; background:var(--panel)}
+.tabbtn:hover{border-color:var(--accent)}
+.tabbtn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.tabbtn[aria-selected="true"]{border-color:var(--accent); background:var(--accent-soft)}
+.tabbtn .tid{font-family:ui-monospace,Menlo,monospace; font-size:.66rem; color:var(--faint)}
+.tabbtn .tname{font-weight:600; font-size:.85rem; line-height:1.25; color:var(--ink)}
+.tabbtn .tcat{font-family:ui-monospace,Menlo,monospace; font-size:.65rem; color:var(--muted); letter-spacing:.02em}
+.tabbtn .tchips{display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.1rem}
+.chip{display:inline-block; font-family:ui-monospace,Menlo,monospace; font-size:.6rem; letter-spacing:.02em;
+  padding:.12rem .4rem; border-radius:3px; border:1px solid transparent; white-space:nowrap}
+.chip.go{color:var(--accent); background:var(--accent-soft); border-color:var(--accent)}
+.chip.caution{color:var(--amber); background:var(--amber-soft); border-color:var(--amber)}
+.chip.blocked{color:var(--flag); background:var(--flag-soft); border-color:var(--flag)}
+.chip.gate{color:var(--muted); background:var(--chip-bg); border-color:var(--line)}
+.tabpanels{min-width:0}
+.tabpanel{display:none; border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:1.5rem 1.6rem}
+.tabpanel.active{display:block}
+.panelhead{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-bottom:.25rem}
+.panelhead h3{margin:0; font-size:1.05rem; text-transform:none; letter-spacing:0; color:var(--ink)}
+.panelhead .pid{font-family:ui-monospace,Menlo,monospace; color:var(--accent); font-size:.82rem}
+.panelsub{color:var(--muted); font-size:.83rem; margin:.1rem 0 1.3rem; max-width:68ch}
+.pblock{margin:1.35rem 0}
+.pblock:first-of-type{margin-top:0}
+.pblock h4{font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--accent);
+  margin:0 0 .6rem; display:flex; align-items:center; gap:.45rem}
+.pblock h4 .num{display:inline-flex; align-items:center; justify-content:center; width:1.1rem; height:1.1rem;
+  border-radius:50%; background:var(--accent-soft); color:var(--accent); font-size:.6rem; flex:none}
+.pblock p{font-size:.87rem; color:var(--ink); max-width:66ch; margin:.4rem 0}
+.pblock ul{margin:.3rem 0; padding-left:1.1rem; max-width:66ch}
+.pblock li{font-size:.87rem; margin:.35rem 0}
+.flow{display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; margin:.7rem 0 1rem; padding:.8rem .9rem;
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; font-family:ui-monospace,Menlo,monospace;
+  font-size:.7rem; overflow-x:auto}
+.flow .fbox{padding:.35rem .55rem; border:1px solid var(--line); border-radius:6px; background:var(--panel); white-space:nowrap}
+.flow .fbox.new{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.flow .fbox.gap{border-style:dashed; border-color:var(--amber); color:var(--amber); background:var(--amber-soft)}
+.flow .farrow{color:var(--faint)}
+.filestrip{display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0 .9rem}
+.filepill{font-family:ui-monospace,Menlo,monospace; font-size:.66rem; padding:.16rem .5rem; border-radius:4px;
+  background:var(--chip-bg); color:var(--muted); border:1px solid var(--line)}
+.filepill.added{color:var(--accent); background:var(--accent-soft); border-color:var(--accent)}
+.committable{width:100%; font-size:.82rem; border-collapse:collapse; margin-top:.3rem}
+.committable td{padding:.4rem .6rem .4rem 0; border-bottom:1px solid var(--line); vertical-align:top}
+.committable td.csha{font-family:ui-monospace,Menlo,monospace; color:var(--accent); white-space:nowrap}
+
+/* --- next-action banner (per tab panel; new vs. the original observaloop build) --- */
+.nextaction{display:flex; align-items:center; gap:.6rem; margin:1.4rem 0 0; padding:.7rem .9rem;
+  border-radius:8px; border:1px solid var(--line); background:var(--bg); font-size:.85rem}
+.nextaction .naicon{font-family:ui-monospace,Menlo,monospace; font-size:.68rem; letter-spacing:.04em;
+  padding:.15rem .5rem; border-radius:3px; flex:none}
+.nextaction.go .naicon{color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent)}
+.nextaction.nogo .naicon{color:var(--flag); background:var(--flag-soft); border:1px solid var(--flag)}
+.nextaction.repair .naicon{color:var(--amber); background:var(--amber-soft); border:1px solid var(--amber)}
+</style>
+
+<div class="wrap wide">
+<header>
+  <!--
+    SPIKE:REPORT:HEADER
+    meta line = repo/hive name, wave date, a one-line count summary
+    (e.g. "N spikes concluded · M at review gates · K notes-only").
+  -->
+  <div class="meta">
+    <span>{{REPO_NAME}} · {{HIVE_OR_SCOPE}}</span><span>{{WAVE_DATE}} · {{SESSION_LABEL}}</span><span>{{COUNT_SUMMARY}}</span>
+  </div>
+  <h1>{{REPORT_TITLE}}</h1>
+  <p class="lede">{{ONE_TO_TWO_SENTENCE_LEDE — what was scanned/proposed, and what this wave answered}}</p>
+  <div style="margin-top:1rem"><span class="stamp">{{STATUS_STAMP — e.g. ALL ITEMS PENDING HUMAN REVIEW}}</span></div>
+</header>
+
+<div class="tldr">
+  <!-- SPIKE:REPORT:TLDR — 1-3 short paragraphs: what's new, the centerpiece finding if there is one, and the standing safety note ("nothing was merged"). -->
+  <p><strong>TL;DR</strong> — {{TLDR_SUMMARY}}</p>
+</div>
+
+<!--
+  SPIKE:REPORT:EPIC-GROUPS (optional — include only if this wave's spikes/epics
+  cluster into a handful of vision-doc themes worth naming as sections; a
+  single small wave can skip straight to the tab system below).
+  Repeat this <h2> + one-or-more .epic block per theme, mirroring the source
+  epic's description/acceptance_criteria (the vision-doc lineage), not just
+  its title.
+-->
+<h2>{{THEME_NAME}} <span class="rule"></span></h2>
+<div class="epic">
+  <span class="bid">{{EPIC_ID}}</span>
+  <div><span class="etitle">{{EPIC_TITLE}}</span><span class="pri p2">{{PRIORITY}}</span></div>
+  <p class="edesc">{{EPIC_DESCRIPTION_OR_ACCEPTANCE_CRITERIA}}</p>
+  <span class="edeps"><b>{{RELATION}}</b> {{RELATED_IDS}}</span>
+</div>
+<!-- /repeat -->
+
+<h2>Spike wave results <span class="rule"></span></h2>
+<div class="spikewrap">
+  <p class="spikeintro">{{WAVE_METHOD_SUMMARY — how the spikes ran (worktree/timebox convention), how many are at review gates vs. notes-only/escalated, and the standing invariant that nothing was merged.}}</p>
+
+  <div class="tabsystem" id="spiketabs">
+    <div class="tablist" role="tablist" aria-label="Spike results">
+
+      <!--
+        SPIKE:REPORT:TAB-BUTTON — repeat once per spike, in the SAME order as
+        the matching SPIKE:REPORT:TAB-PANEL blocks below. {{SLUG}} must be
+        identical between a button and its panel (id="tab-{{SLUG}}" /
+        id="panel-{{SLUG}}"). Only the FIRST button gets aria-selected="true";
+        all others get "false". Display name and category must be SUCCINCT
+        (a few words) — full detail belongs in the panel, not the tab list.
+        Verdict chip class: go (accent) / caution (amber) / blocked (flag) —
+        pick by technical verdict. Lifecycle chip class: gate (neutral, cite
+        the gate bead id) / blocked (flag, cite "refused"/"escalated"/override).
+      -->
+      <button class="tabbtn" role="tab" id="tab-{{SLUG}}" data-tab="{{SLUG}}" aria-selected="true" aria-controls="panel-{{SLUG}}" tabindex="0">
+        <span class="tid">{{SPIKE_BEAD_ID}}</span>
+        <span class="tname">{{SUCCINCT_DISPLAY_NAME}}</span>
+        <span class="tcat">{{SUCCINCT_CATEGORY — theme it belongs to}}</span>
+        <span class="tchips">
+          <span class="chip go|caution|blocked">{{VERDICT_CHIP_TEXT}}</span>
+          <span class="chip gate|blocked">{{LIFECYCLE_CHIP_TEXT}}</span>
+        </span>
+      </button>
+      <!-- /repeat -->
+
+    </div>
+
+    <div class="tabpanels">
+
+      <!--
+        SPIKE:REPORT:TAB-PANEL — repeat once per spike, matching its button's
+        {{SLUG}}. Only the FIRST panel gets class="tabpanel active"; all
+        others get class="tabpanel" (no active). The four .pblock sections
+        are NOT optional and must stay in this order — this is the report's
+        entire reason for existing: a low-context reviewer reads exactly
+        these four things per spike and nothing else.
+      -->
+      <div class="tabpanel active" role="tabpanel" id="panel-{{SLUG}}" aria-labelledby="tab-{{SLUG}}">
+        <div class="panelhead"><span class="pid">{{SPIKE_BEAD_ID}}</span><h3>{{FULL_SPIKE_TITLE}}</h3></div>
+        <p class="panelsub">Child of <strong>{{PARENT_EPIC_ID}}</strong> — {{PARENT_EPIC_TITLE}}</p>
+
+        <div class="pblock">
+          <h4><span class="num">1</span>Origin &amp; validation criteria</h4>
+          <p>{{Why the parent epic exists — its vision-doc lineage/citation, what capability or blocker it addresses, and why that matters. Pull from the epic's description/acceptance_criteria, not just its title.}}</p>
+          <p>{{The spike's specific task, and its explicit go/no-go bar — what result would count as GO vs NO-GO. Pull from the spike bead's own description.}}</p>
+        </div>
+
+        <div class="pblock">
+          <h4><span class="num">2</span>Go/no-go result &amp; worktree metadata</h4>
+          <ul>
+            <li><strong>Verdict: {{VERDICT_HEADLINE}}</strong> — {{one-sentence summary of the finding}}.</li>
+            <li>{{Key supporting details / caveats the verdict depends on.}}</li>
+            <li><strong>Lifecycle:</strong> {{worktree branch name, gate bead id + reason, OR "claim refused" / "escalated to X" / disclosed override used}}.</li>
+            <li>Bead: {{priority, status, labels}}.</li>
+          </ul>
+        </div>
+
+        <div class="pblock">
+          <h4><span class="num">3</span>Solution approach &amp; components</h4>
+          <div class="flow">
+            <!-- 3-6 .fbox spans connected by .farrow spans; .fbox.new = added/proposed, .fbox.gap = not yet built (dashed) -->
+            <span class="fbox">{{existing component}}</span><span class="farrow">→</span>
+            <span class="fbox new">{{new/changed component}}</span><span class="farrow">→</span>
+            <span class="fbox gap">{{deferred/unbuilt follow-on, if any}}</span>
+          </div>
+          <div class="filestrip">
+            <!-- one .filepill per file touched; class="filepill added" for new files, plain "filepill" for "no file"/"uncommitted" notes -->
+            <span class="filepill added">{{path/to/file.md (+NN)}}</span>
+          </div>
+          <p>{{Prose explanation of the approach — what exists today, what's recommended/changed, and why.}}</p>
+        </div>
+
+        <div class="pblock">
+          <h4><span class="num">4</span>Commit history &amp; validation</h4>
+          <table class="committable"><tr><td class="csha">{{sha}}</td><td>{{commit subject}}</td></tr></table>
+          <!-- or, if no commits exist: <p>No commits, no branch — {{reason}}.</p> -->
+          <p>{{The concrete evidence behind the verdict — measured numbers, test output, citations. Not "trust me," the actual data.}}</p>
+        </div>
+
+        <!--
+          SPIKE:REPORT:NEXT-ACTION — non-optional, one per panel. This is
+          what makes the report actionable rather than just descriptive.
+          class="nextaction go|nogo|repair" matching the verdict:
+            go     → recommend `/bh:replan {{PARENT_EPIC_ID}}`
+            nogo   → recommend writing an ADR under docs/decisions/ and closing the epic
+            repair → recommend `bh plan repair {{PARENT_EPIC_ID}}` (claim refused / escalated / convention failure)
+        -->
+        <div class="nextaction go">
+          <span class="naicon">NEXT</span>
+          <span>{{Concrete recommended next step and the command/verb to run it.}}</span>
+        </div>
+      </div>
+      <!-- /repeat -->
+
+    </div>
+  </div>
+</div>
+
+<!-- SPIKE:REPORT:ACTION-ITEMS (optional) — operator-facing follow-ups: gates to review, molecule-convention repairs needed, any environment/stack issues spikes worked around. -->
+<h2>Action items <span class="rule"></span></h2>
+<ol>
+  <li><strong>{{item}}</strong> — {{detail}}</li>
+</ol>
+
+<p class="note">{{Filed-from / sourced-from footnote: session date, vision docs used, where full verdict docs live (worktree branches / bead notes / repo path).}}</p>
+</div>
+
+<script>
+(function(){
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.tabbtn'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.tabpanel'));
+  function activate(id){
+    btns.forEach(function(b){ b.setAttribute('aria-selected', b.getAttribute('data-tab')===id ? 'true' : 'false'); });
+    panels.forEach(function(p){ p.classList.toggle('active', p.id === 'panel-' + id); });
+  }
+  btns.forEach(function(b, i){
+    b.addEventListener('click', function(){ activate(b.getAttribute('data-tab')); });
+    b.addEventListener('keydown', function(e){
+      if(e.key === 'ArrowRight' || e.key === 'ArrowDown'){ e.preventDefault(); (btns[i+1] || btns[0]).focus(); }
+      if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){ e.preventDefault(); (btns[i-1] || btns[btns.length-1]).focus(); }
+    });
+  });
+})();
+</script>
