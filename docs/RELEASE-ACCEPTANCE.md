@@ -102,3 +102,16 @@ is not native acceptance. Linux native loading was previously observed; Darwin r
 SessionStart execution, a real MCP probe, and the supported-version matrix remain pending against
 the allocated candidate and agreed client policy. No destination apply, public merge, push, tag,
 release, ownership notice, or source-ownership change follows from these QA checks.
+
+## Public installation result for 0.9.0 (bh-cp-mry)
+
+`qa/PUBLIC-ACCEPTANCE-0.9.0.json` records an isolated public install of `bh@beadhive` on Linux
+with Claude Code 2.1.322, run under a temporary `CLAUDE_CONFIG_DIR` and `HOME` with zero model
+turns. The resolved marketplace and plugin commit equals public `refs/heads/main`
+(`cbcb5e40a2e21986a0fd0903c42035155e2c2df2`), plugin and marketplace versions are 0.9.0, and the
+installed `release-receipt.json` matches the pinned candidate, payload, source and Hitch
+identities, with every receipt file digest verified against the clone and the installed cache.
+`claude plugin details` shows 27 skills, 14 agents, 2 hooks and 1 MCP server (3 output styles in
+the cache); `bh-mcp` connects and lists 10 tools. Hook execution, live agent and style selection,
+Darwin, the client version matrix and rollback remain deferred, as does the publisher bundle
+digest, which the payload receipt does not carry.
