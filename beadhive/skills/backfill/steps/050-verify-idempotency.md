@@ -2,18 +2,13 @@
 # yaml-language-server: $schema=https://agentguides.io/schemas/0.1/step.schema.json
 step:
   id: verify-idempotency
-  title: Re-run the reconcile and confirm zero proposed changes
+  title: Re-run the pipeline and confirm zero proposed changes
   requires: [apply]
   performer: agent
   action:
-    type: script
-    script: scripts/reconcile.sh
-    timeout_seconds: 120
+    type: manual
   verify:
-    type: script
-    script: scripts/reconcile.sh
-    args: ["--verify"]
-    success_exit: 0
+    type: agent_judgment
   on_failure:
     strategy: ask
   effect: read-only
@@ -23,9 +18,10 @@ step:
 
 # What this step does
 
-Runs the reconcile a second time. Now that every doc-backed bead carries its `external_ref`, the
-deterministic bridges and the stored refs match exactly: every doc classifies `PRESENT-in-sync`
-and the tool proposes nothing. `--verify` asserts no stamp is pending and exits 0.
+Runs `bh backfill history --until plan --refresh` a second time (`--refresh` re-reads the sources
+so the new stamps and commits are seen) and inspects the plan with `bh backfill inspect
+<run-dir>/plan.bdlg`. Now that every doc-backed bead carries its `external_ref`, the bridges and
+the stored refs match exactly: every unit is PRESENT and the plan proposes nothing.
 
 # Why it matters
 
@@ -36,9 +32,8 @@ it safe to re-run after every future doc is added.
 
 # Success criteria → terminal
 
-- `scripts/reconcile.sh <hive-path> --verify` exits 0.
-- No `UNMATCHED` doc remains that the classify step judged NEW/PRESENT (those are now filed or
-  stamped).
+- The second plan has no events to apply.
+- No residual remains that the classify step judged NEW/PRESENT (those are now filed or stamped).
 
 On success the walk terminates at **`reconciled`** — or **`nothing-to-do`** if the very first
 run already proposed nothing.

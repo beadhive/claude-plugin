@@ -5,13 +5,9 @@ step:
   title: Collect sources and recover deterministic doc↔bead bridges
   performer: agent
   action:
-    type: script
-    script: scripts/reconcile.sh
-    timeout_seconds: 120
+    type: manual
   verify:
-    type: script
-    script: scripts/reconcile.sh
-    success_exit: 0
+    type: agent_judgment
   on_failure:
     strategy: abort
   effect: read-only
@@ -21,37 +17,37 @@ step:
 
 # What this step does
 
-Runs `scripts/reconcile.sh <hive-path>` (read-only). Pick the source by the hive's shape — you can
-run both if the hive has both:
+Runs `bh backfill history --until collate` from the hive (or with `--hive <path>`). It reads the
+hive's own sources, collates them into work units and identifies each unit against the beads that
+already exist. Nothing is written to the hive: the output is `collation.json` (and
+`evidence.jsonl`) in the **run directory**.
 
-**Default — `docs/decisions/` + `docs/design/`** (match docs to EXISTING beads). Recovers each
-doc's owning bead via two deterministic bridges, in order:
+Check `bh --version` first: `bh backfill history` needs bh 0.36.0 or later.
 
-1. **Frontmatter back-ref** — a `Beads: <epic>, <id>` line in the doc itself. Exact.
-2. **Git add-trailer** — the bead id in the subject of the commit that first added the doc
-   (`git log --follow --diff-filter=A`). Exact.
+**Sources.** `--sources` picks the readers (default `backfill.history.sources`:
+`git,docs,planning`):
 
-Emits a TSV `status`, `doc`, `bead`, `bridge`. Statuses: `PRESENT-in-sync`,
-`PRESENT-needs-stamp`, `DRIFTED-ref`, `DANGLING`, `UNMATCHED`.
+- `docs` — `docs/decisions/` and `docs/design/` (and the other layout presets) are matched to
+  EXISTING beads. Each doc's owning bead is recovered by deterministic bridges, in order:
+  1. **Existing `external_ref`** — a bead already carrying the doc path. Exact.
+  2. **Frontmatter back-ref** — a `Beads: <epic>, <id>` line in the doc. Exact.
+  3. **Git add-trailer** — the bead id in the subject of the commit that first added the doc.
+     Exact.
 
-**`--planning` — `.planning/phases/`** (extract a NEW structure from GSD frontmatter). For hives
-that tracked work in a GSD `.planning/` tree rather than beads:
+  HTML docs are read only when `html` is in `backfill.sources.docs.formats` (opt-in).
+- `planning` — a GSD `.planning/phases/` tree: each phase is a proposed epic, each plan an issue
+  (closed when its summary exists), `depends_on:` edges become dependencies.
+- `git` — commits and merges, clustered into work units (a PR, then a merge, then a `feat`
+  commit). Only the conventional-commit types in `backfill.collate.include_types` (default
+  `feat`) make units.
+- `github` — a snapshot read; needs `backfill.sources.github.enabled` and the `tracker-github`
+  plugin.
 
-- **Structured frontmatter** (bridge 3) — each `phases/NN-<name>/` → a proposed **epic**; each
-   `NN-MM-PLAN.md` → a proposed **issue** under it, `closed` if a sibling `NN-MM-SUMMARY.md`
-   exists; `depends_on:` → proposed **dep** edges (wired at apply).
+Each unit gets a decision: NEW, PRESENT, NOISE, or a residual left for a human.
 
-Emits rows `NEW-epic` / `NEW-issue` (and `PRESENT-in-sync` on re-run, once a bead carries the
-doc path as its `external_ref`). This source proposes new beads rather than matching existing
-ones, so its whole output flows to the classify step as NEW candidates.
-
-**`--docs <dir>` — an arbitrary markdown tree** (e.g. a prose `.planning/` that is *not* GSD
-`phases/`: `decisions/`, `milestones/`, `plans/`, `research/`). Runs the exact same bridges
-(0/1/2 + fuzzy shortlist) over every `*.md` under `<dir>` instead of `docs/`. Use it when a hive
-kept its history as free-form prose with no frontmatter or add-trailer link — the tool will find
-few deterministic matches and hand most docs to the classify step as fuzzy/NEW judgment. The
-emitted beads carry `external_ref = <doc path>`, so bridge 0 makes a post-import re-run
-`PRESENT-in-sync` (idempotent).
+**The run directory** is persistent: `--run-dir`, else `backfill.history.run_dir`, else
+`<bh home>/state/backfill-history/<hive>`. A re-run resumes from it (evidence is reused while the
+sources, their options, `HEAD` and the working tree are unchanged; `--refresh` reads again).
 
 # Why this is first
 
@@ -61,26 +57,20 @@ hands the agent only the genuine residual.
 
 # Success criteria
 
-- The script exits 0 and prints a match table.
-- Every row is one of the known statuses; `UNMATCHED` rows are expected and are the next step's input.
+- The command exits 0 and `collation.json` exists in the run directory.
+- `bh backfill view unit <run-dir>` lists the units with their decisions; residual units are the
+  next step's input.
 
 # What can go wrong
 
 | Failure | Likely cause | Action |
 |---|---|---|
-| `bd update` fails during apply | target is not a bd-tracked hive | Abort; wrong target |
-| Empty table | no `docs/decisions` or `docs/design` | Abort; nothing to reconcile from docs (consider `.planning`/commit-only path) |
-| Wrong prefix in ids | multi-prefix corpus | Re-run with `--prefix <p>` |
-
-# Stale JSONL (auto-export off)
-
-The tool reads a fresh `bd export` snapshot, so its output is always correct even when the hive's
-tracked `.beads/issues.jsonl` lags the live DB (the case when bd auto-export is not enabled). This
-step never mutates that tracked file. If you *want* to bring it current in the same pass — to
-de-stale the hive for file-only consumers (`br`) — that is a write, so gate it: confirm with the
-human, then re-run with `--refresh-jsonl`. Permanent fix is hive-init auto-export (planned).
+| `No such command 'history'` | bh older than 0.36.0 | Upgrade bh; do not fall back to a script |
+| No units | no `docs/decisions` / `docs/design` and no `feat` commits | Nothing to reconcile from docs; consider `planning` or widen `backfill.collate.include_types` |
+| Bead ids not recognised | ids from a ledger the run does not know | Restrict or extend `backfill.history.ledgers` |
+| HTML docs ignored | `html` not enabled | Add `html` to `backfill.sources.docs.formats` (opt-in) |
 
 # Notes
 
-Read-only by default. No bead is created or modified; the tracked JSONL is touched only with the
-explicit `--refresh-jsonl` opt-in.
+Read-only for the hive. The only files written are in the run directory. `backfill.*` is
+host-owned config: ask the operator before changing it.

@@ -4,6 +4,14 @@
   "globs": ["README.md", "docs/**/*.md", "qa/**/*.md", "beadhive/**/*.md"],
   "overrides": [
     {
+      // Generated canonical payload bytes cannot be edited here; 0.9.0 added agents and skills with
+      // long lines, inline HTML placeholders and a headingless first line. Lint those rules on
+      // destination-owned docs only.
+      "filter": ["beadhive/**/*.md"],
+      "config": { "MD013": false, "MD033": false, "MD038": false, "MD040": false, "MD041": false },
+      "combine": "merge"
+    },
+    {
       "filter": ["beadhive/skills/**/COMPANIONS.md"],
       "config": { "MD013": false },
       "combine": "merge"

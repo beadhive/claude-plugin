@@ -12,9 +12,9 @@ that guesses, because a wrong auto-match silently creates a duplicate or buries 
 | 1 | Frontmatter back-ref | any doc | a `Beads: <epic>, <id>` line in the doc → exact id |
 | 2 | Git add-trailer | any doc | bead id in the subject of the commit that first added the doc (`git log --follow --diff-filter=A`) → exact id |
 | 3 | GSD `.planning/` | GSD phase tree | `phases/NN-<name>/` → epic; `NN-MM-PLAN.md` → issue (closed if a sibling `*-SUMMARY.md` exists); `depends_on:` → dep edges |
-| 11 | Fuzzy shortlist | any prose | title-token overlap → a ranked candidate list the agent chooses from; **never auto-links** |
+| 11 | Fuzzy shortlist | any prose | title-token overlap → a ranked candidate list the agent chooses from; **never auto-links** (an opt-in judge, `bh backfill judge setup`, may answer it, with recorded verdicts a human reviews) |
 
-Bridges 1–3 are exact and run in the tool. Bridge 11 narrows the residual but leaves the decision
+Bridges 1–3 are exact and run in `bh backfill history` (bh 0.36.0 or later; the parsing lives in the bh library, not in this skill). Bridge 11 narrows the residual but leaves the decision
 to the agent — it is the safety valve for docs no structured bridge can resolve, not a matcher.
 
 ## Candidate bridges — build on demand, not now

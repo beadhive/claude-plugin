@@ -14,7 +14,7 @@ receipt is expected before promotion and never counts as promotion acceptance.
 
 The manually dispatched public workflow accepts only credential-free HTTPS inputs and grants
 `contents: read`. It does not publish. The main `just check` remains runnable from either the
-legacy public source checkout or the assembled candidate; existing hooks, onboarding, backfill,
+legacy public source checkout or the assembled candidate; existing hooks, onboarding,
 operator, link, lint, and type checks are reused where their public inputs exist.
 The Markdown linter disables only MD013 line-length findings in generated `COMPANIONS.md` files;
 all other Markdown rules and relative-link checks still apply to them.
@@ -23,5 +23,5 @@ AGF delivery uses independently reviewed `agf-main-delivery-plan` and delivery e
 not a Hitch publisher receipt or a PR. Local pre-main checks remain transport-only. The
 optional AGF evidence checker verifies captured local Git trees and ancestry; the canonical
 paired helper verifies remote main, and public native acceptance follows the main push.
-Destination QA changes alter only the reviewed transport inventory; generated 0.6.0 bytes,
+Destination QA changes alter only the reviewed transport inventory; generated 0.9.0 bytes,
 original payload sidecar and source/compiler anchors remain unchanged.
